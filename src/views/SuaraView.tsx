@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect, useRef } from 'react';
 import { Send, Bot, Loader2, Sparkles, MapPin, ThumbsUp, ThumbsDown, Mic, MicOff, Languages, ChevronDown, Check, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';

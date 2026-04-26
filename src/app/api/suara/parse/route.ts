@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import { checkSuaraLimit } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
         const prompt = `
 You are an NLP model for NADI Civic OS trained to understand local Malaysian dialects (e.g., Kelantanese/Kecek Kelate) and parse civic complaints.
@@ -54,28 +54,21 @@ Respond strictly with a JSON object in this format:
 }
 `;
         let data;
-        const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
-        for (const model of models) {
-            try {
-                const response = await ai.models.generateContent({
-                    model,
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    config: { responseMimeType: 'application/json' },
-                });
-                data = JSON.parse(response.text || '{}');
-                break; // success, stop trying
-            } catch (modelError: any) {
-                if (modelError?.status === 429 && model !== models[models.length - 1]) {
-                    continue; // try next model
-                }
-                if (modelError?.status === 429) {
-                    return NextResponse.json(
-                        { success: false, error: 'Gemini API quota exceeded. Please wait a moment and try again.' },
-                        { status: 429 }
-                    );
-                }
-                throw modelError;
+        try {
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: 'llama-3.3-70b-versatile',
+                response_format: { type: 'json_object' }
+            });
+            data = JSON.parse(chatCompletion.choices[0]?.message?.content || '{}');
+        } catch (error: any) {
+            if (error?.status === 429) {
+                return NextResponse.json(
+                    { success: false, error: 'Groq API rate limit exceeded. Please wait a moment and try again.' },
+                    { status: 429 }
+                );
             }
+            throw error;
         }
 
         return NextResponse.json({

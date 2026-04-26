@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect, useRef } from 'react';
 import { Activity, Car, Check, Radar, AlertCircle, Camera, Cloud, Droplets, X, Loader2, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,10 +44,10 @@ export default function InfraView() {
     const [isDriving, setIsDriving] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [weather, setWeather] = useState<WeatherData | null>(null);
-    const [anomalies, setAnomalies] = useState<Anomaly[]>([
-        { id: '1', lat: '3.1390', lng: '101.6869', zDropped: -4.2, verifications: 15, status: 'verified', time: '10 mins ago' },
-        { id: '2', lat: '3.1402', lng: '101.6881', zDropped: -3.8, verifications: 3, status: 'pending', time: '1 hr ago' },
-    ]);
+    const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+    const [userLat, setUserLat] = useState('3.139');
+    const [userLng, setUserLng] = useState('101.6869');
+    const [motionError, setMotionError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
 
@@ -54,34 +55,98 @@ export default function InfraView() {
     const totalDetected = anomalies.length;
     const totalVerified = anomalies.filter(a => a.status === 'verified').length;
 
-    // Fetch weather on mount
+    // Get user's real GPS and fetch real weather
     useEffect(() => {
-        fetch('/api/infra/weather?lat=3.139&lng=101.6869')
-            .then(r => r.json())
-            .then(d => { if (d.success) setWeather(d.weather); })
-            .catch(() => {});
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude.toFixed(4);
+                    const lng = pos.coords.longitude.toFixed(4);
+                    setUserLat(lat);
+                    setUserLng(lng);
+                    fetch(`/api/infra/weather?lat=${lat}&lng=${lng}`)
+                        .then(r => r.json())
+                        .then(d => { if (d.success) setWeather(d.weather); })
+                        .catch(() => {});
+                },
+                () => {
+                    // Fallback to default coords if user denies location
+                    fetch(`/api/infra/weather?lat=${userLat}&lng=${userLng}`)
+                        .then(r => r.json())
+                        .then(d => { if (d.success) setWeather(d.weather); })
+                        .catch(() => {});
+                },
+                { enableHighAccuracy: true }
+            );
+        } else {
+            fetch(`/api/infra/weather?lat=${userLat}&lng=${userLng}`)
+                .then(r => r.json())
+                .then(d => { if (d.success) setWeather(d.weather); })
+                .catch(() => {});
+        }
     }, []);
 
-    // Simulate passive detection while driving
+    // Real DeviceMotion detection while driving
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isDriving) {
-            interval = setInterval(() => {
-                if (Math.random() < 0.1) {
-                    const newAnomaly: Anomaly = {
-                        id: Date.now().toString(),
-                        lat: (3.13 + Math.random() * 0.02).toFixed(4),
-                        lng: (101.68 + Math.random() * 0.02).toFixed(4),
-                        zDropped: -(3 + Math.random() * 2),
-                        verifications: 1,
-                        status: 'pending',
-                        time: 'Just now'
-                    };
-                    setAnomalies(prev => [newAnomaly, ...prev]);
-                }
-            }, 3000);
+        if (!isDriving) return;
+
+        let lastGoodLat = userLat;
+        let lastGoodLng = userLng;
+
+        // Keep GPS position live while driving
+        let watchId: number | null = null;
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    lastGoodLat = pos.coords.latitude.toFixed(4);
+                    lastGoodLng = pos.coords.longitude.toFixed(4);
+                },
+                () => {}
+            );
         }
-        return () => clearInterval(interval);
+
+        const handleMotion = (event: DeviceMotionEvent) => {
+            const z = event.accelerationIncludingGravity?.z ?? null;
+            if (z === null) return;
+            // Pothole threshold: sudden Z-drop > 3g from gravity baseline
+            const zDrop = z - 9.8;
+            if (zDrop < -3.0) {
+                const newAnomaly: Anomaly = {
+                    id: Date.now().toString(),
+                    lat: lastGoodLat,
+                    lng: lastGoodLng,
+                    zDropped: parseFloat(zDrop.toFixed(2)),
+                    verifications: 1,
+                    status: 'pending',
+                    time: 'Just now'
+                };
+                setAnomalies(prev => [newAnomaly, ...prev]);
+            }
+        };
+
+        // Request iOS 13+ motion permission if needed
+        const startListening = () => {
+            window.addEventListener('devicemotion', handleMotion);
+            setMotionError(null);
+        };
+
+        if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+            (DeviceMotionEvent as any).requestPermission()
+                .then((state: string) => {
+                    if (state === 'granted') startListening();
+                    else setMotionError('Motion permission denied. Grant access in iOS Settings.');
+                })
+                .catch(() => setMotionError('Motion permission request failed.'));
+        } else if (window.DeviceMotionEvent) {
+            startListening();
+        } else {
+            setMotionError('DeviceMotion not supported on this device/browser.');
+        }
+
+        return () => {
+            window.removeEventListener('devicemotion', handleMotion);
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        };
     }, [isDriving]);
 
     const analyzeAnomaly = async (id: string) => {
@@ -164,6 +229,9 @@ export default function InfraView() {
                         AI TELEMETRY [Z-AXIS + VISION]
                         {isDriving && <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
                     </p>
+                    {isDriving && (
+                        <p className="text-[9px] font-mono text-zinc-600 mt-1">{userLat}°N {userLng}°E</p>
+                    )}
                 </div>
                 <button
                     onClick={() => setIsDriving(!isDriving)}
@@ -173,6 +241,11 @@ export default function InfraView() {
                     {isDriving ? 'ACTIVE' : 'START DRIVE'}
                 </button>
             </motion.div>
+            {motionError && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl px-4 py-3 mb-4 text-[10px] text-orange-400 font-bold uppercase tracking-widest">
+                    ⚠ {motionError}
+                </div>
+            )}
 
             {/* Weather + Flood Risk Banner */}
             {weather && (

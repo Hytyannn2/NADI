@@ -7,27 +7,26 @@ export async function GET(request: Request) {
     const lat = searchParams.get('lat') || '3.139';
     const lng = searchParams.get('lng') || '101.6869';
 
-    if (!OWM_KEY || OWM_KEY === 'apitest123') {
-        // Return mock data if no real key is configured
-        return NextResponse.json({
-            success: true,
-            weather: {
-                condition: 'Rain',
-                description: 'moderate rain',
-                temp: 28,
-                humidity: 88,
-                windSpeed: 12,
-                rainMm: 4.2,
-                icon: '10d',
-                floodRisk: 'Moderate',
-            },
-        });
+    if (!OWM_KEY) {
+        return NextResponse.json(
+            { success: false, error: 'OpenWeatherMap API key not configured.' },
+            { status: 503 }
+        );
     }
 
     try {
         const res = await fetch(
             `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OWM_KEY}&units=metric`
         );
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return NextResponse.json(
+                { success: false, error: err.message || 'Weather API error.' },
+                { status: res.status }
+            );
+        }
+
         const data = await res.json();
 
         const rainMm = data.rain?.['1h'] || data.rain?.['3h'] || 0;

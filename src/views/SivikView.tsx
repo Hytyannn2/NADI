@@ -1,14 +1,111 @@
-import { ArrowUpRight, Gift, Coins, QrCode, Ticket, ShieldAlert, TrainFront, Activity, Sparkles, Leaf, Share2, CheckCircle2, X, Camera } from 'lucide-react';
-import { useState } from 'react';
+'use client';
+import { ArrowUpRight, Gift, Coins, QrCode, Ticket, ShieldAlert, TrainFront, Activity, Sparkles, Leaf, Share2, CheckCircle2, X, Camera, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+
+interface WalletData {
+    balance: number;
+    trustScore: number;
+    co2Saved: number;
+    rideStreak: number;
+    streakDay: number;
+    transactions: Array<{
+        id: number;
+        title: string;
+        type: 'earn' | 'spend';
+        amount: number;
+        category: string;
+        time: string;
+        notes: string;
+    }>;
+}
+
+const TX_ICON_MAP: Record<string, any> = {
+    Civic: Gift,
+    Transit: Ticket,
+    Recycle: QrCode,
+    General: Sparkles,
+};
+
+function getTrustLabel(score: number) {
+    if (score >= 90) return 'Excellent';
+    if (score >= 75) return 'Good';
+    if (score >= 50) return 'Average';
+    return 'At Risk';
+}
+
+function getEcoRank(co2: number) {
+    if (co2 >= 100) return 'Green Harimau';
+    if (co2 >= 50) return 'Green Kijang';
+    if (co2 >= 20) return 'Green Padi';
+    return 'Sapling';
+}
 
 export default function SivikView() {
     const [isScanning, setIsScanning] = useState(false);
-    const transactions = [
-        { id: 1, title: 'Beach Gotong-Royong', type: 'earn', amount: 50, icon: Gift, time: '2 hours ago', notes: 'Macro-Bounty: Verified by Warden' },
-        { id: 2, title: 'Smart Bus Ticket', type: 'spend', amount: -2, icon: Ticket, time: 'Yesterday', notes: 'Transport Sink' },
-        { id: 3, title: 'RVM Plastic Recycle (x5)', type: 'earn', amount: 1, icon: QrCode, time: '2 days ago', notes: 'Micro-Bounty' },
-    ];
+    const [wallet, setWallet] = useState<WalletData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchWallet = async () => {
+        try {
+            const res = await fetch('/api/sivik/wallet');
+            const data = await res.json();
+            if (data.success) setWallet(data);
+        } catch {
+            // silently fail
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchWallet();
+    }, []);
+
+    const handleRide = async () => {
+        setIsScanning(false);
+        try {
+            const res = await fetch('/api/sivik/wallet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'spend',
+                    title: 'Smart Bus Ticket',
+                    amount: 2,
+                    category: 'Transit',
+                    notes: 'Transport Sink',
+                }),
+            });
+            const data = await res.json();
+            if (data.success) await fetchWallet();
+        } catch {
+            // silently fail
+        }
+    };
+
+    const handleParkingPay = async () => {
+        try {
+            const res = await fetch('/api/sivik/wallet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'spend',
+                    title: 'Parking Payment',
+                    amount: 3,
+                    category: 'General',
+                    notes: 'Smart Parking',
+                }),
+            });
+            const data = await res.json();
+            if (data.success) await fetchWallet();
+        } catch {
+            // silently fail
+        }
+    };
+
+    const trustLabel = wallet ? getTrustLabel(wallet.trustScore) : '—';
+    const ecoRank = wallet ? getEcoRank(wallet.co2Saved) : '—';
+    const streakDays = wallet?.rideStreak ?? 0;
 
     return (
         <div className="p-6 h-full flex flex-col relative z-0">
@@ -32,10 +129,18 @@ export default function SivikView() {
                             <Camera className="w-12 h-12 text-zinc-800" />
                         </div>
 
-                        <div className="text-center space-y-4">
+                        <div className="text-center space-y-4 mb-8">
                             <h3 className="text-xl font-serif text-white tracking-tight">Scanning Code...</h3>
                             <p className="text-xs text-zinc-500 font-medium tracking-wide uppercase">Align QR within the frame for validation</p>
                         </div>
+
+                        {/* Simulate scan success */}
+                        <button
+                            onClick={handleRide}
+                            className="bg-gradient-to-r from-red-600 to-red-700 text-white py-3.5 px-8 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg"
+                        >
+                            Confirm Tap-In (RM 2.00)
+                        </button>
 
                         <motion.style>{`
               @keyframes scan {
@@ -57,6 +162,7 @@ export default function SivikView() {
                 </p>
             </motion.div>
 
+            {/* Wallet Card */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
                 className="bg-gradient-to-tl from-[#1A1C16] to-[#0A0A0C] border border-[#2A2D24] rounded-3xl p-8 mb-6 relative overflow-hidden shadow-2xl shadow-[#10B981]/5 text-white"
@@ -69,9 +175,15 @@ export default function SivikView() {
                         <Coins className="w-5 h-5 text-[#C5A367]" />
                         <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">E-Dinar Balance</span>
                     </div>
-                    <div className="text-6xl font-light tracking-tight text-[#FAFAFA] mb-6 flex items-baseline justify-center gap-2 drop-shadow-md">
-                        124 <span className="text-lg font-medium opacity-50 uppercase tracking-widest">pts</span>
-                    </div>
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-16 mb-6">
+                            <Loader2 className="w-8 h-8 text-zinc-700 animate-spin" />
+                        </div>
+                    ) : (
+                        <div className="text-6xl font-light tracking-tight text-[#FAFAFA] mb-6 flex items-baseline justify-center gap-2 drop-shadow-md">
+                            {wallet?.balance ?? 0} <span className="text-lg font-medium opacity-50 uppercase tracking-widest">pts</span>
+                        </div>
+                    )}
 
                     <div className="flex gap-3 w-full max-w-[240px]">
                         <button className="flex-1 bg-gradient-to-b from-[#D4AF37] to-[#B8860B] text-[#0A0A0C] py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(197,163,103,0.3)]">
@@ -84,6 +196,7 @@ export default function SivikView() {
                 </div>
             </motion.div>
 
+            {/* Trust Score — real data */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                 className="bg-[#0A0A0C] border border-zinc-800/80 rounded-2xl p-4 mb-8 flex items-center justify-between shadow-xl"
@@ -94,17 +207,19 @@ export default function SivikView() {
                     </div>
                     <div>
                         <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">Trust Score</p>
-                        <p className="text-sm font-bold text-zinc-200">Excellent <span className="text-[#10B981] opacity-80">(98/100)</span></p>
+                        <p className="text-sm font-bold text-zinc-200">
+                            {trustLabel} <span className="text-[#10B981] opacity-80">({wallet?.trustScore ?? '—'}/100)</span>
+                        </p>
                     </div>
                 </div>
                 <div className="text-right">
                     <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest max-w-[120px] leading-tight opacity-70">
-                        High trust prevents shadow-bans.
+                        Earn through civic activity.
                     </p>
                 </div>
             </motion.div>
 
-            {/* MaaS & Transit Hub containing the 4 Exclusive Benefits */}
+            {/* MaaS & Transit Hub */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                 className="bg-[#121214] p-5 rounded-3xl border border-zinc-800 shadow-xl mb-6 relative overflow-hidden group"
@@ -120,39 +235,39 @@ export default function SivikView() {
                         <p className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367]">Priority Access Pass</p>
                     </div>
 
-                    {/* A. Auto-Tariff Badge */}
+                    {/* Auto-Tariff Badge */}
                     <div className="text-right">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#10B981]/10 border border-[#10B981]/20 rounded-xl mb-1.5 shadow-sm">
                             <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]/90">LHDN Verified Student</span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]/90">NADI Verified User</span>
                         </div>
                         <p className="text-xs font-bold text-zinc-400 tracking-wide">
-                            Tariff: <span className="text-[#10B981] drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">RM 0.00</span>
+                            Tariff: <span className="text-[#10B981] drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">RM 2.00</span>
                         </p>
                     </div>
                 </div>
 
-                {/* D. MaaS Navigation & Alert */}
+                {/* Live Alert Banner */}
                 <div className="bg-[#1a0505] rounded-2xl p-4 border border-red-900/50 mb-4 shadow-inner">
                     <div className="flex justify-between items-center mb-2">
                         <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500">
-                            <Activity className="w-4 h-4" /> Next Tram: 4 Mins
+                            <Activity className="w-4 h-4" /> Real-Time Transit
                         </span>
-                        <span className="text-[8px] font-bold text-red-500/70 border border-red-500/30 px-1.5 py-0.5 rounded uppercase tracking-widest">Live Routing</span>
+                        <span className="text-[8px] font-bold text-red-500/70 border border-red-500/30 px-1.5 py-0.5 rounded uppercase tracking-widest">Live</span>
                     </div>
                     <p className="text-xs text-red-200/80 font-medium leading-relaxed mb-4">
-                        <span className="font-bold text-red-400">Flood Alert:</span> Jalan Sultan Ibrahim is jammed. System rerouted via elevated track.
+                        Tap the QR below to record your ride. Each ride earns CO₂ savings and progresses your streak.
                     </p>
                     <button
                         onClick={() => setIsScanning(true)}
                         className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-[0_5px_20px_rgba(220,38,38,0.2)] hover:from-white hover:to-zinc-200 hover:text-red-900 transition-all font-sans"
                     >
-                        <QrCode className="w-4 h-4" /> Scan to Ride (RM 0.00)
+                        <QrCode className="w-4 h-4" /> Scan to Ride (RM 2.00)
                     </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    {/* B. Gacha Rewards */}
+                    {/* Ride Streak — real data */}
                     <div className="bg-[#0A0A0C] rounded-2xl p-4 border border-zinc-800/80 shadow-md">
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-1.5">
@@ -165,15 +280,19 @@ export default function SivikView() {
                         </div>
                         <div className="flex items-center gap-1 mb-2">
                             {[1, 2, 3, 4, 5].map(day => (
-                                <div key={day} className={`h-1.5 flex-1 rounded-full ${day <= 4 ? 'bg-[#C5A367] shadow-[0_0_5px_rgba(197,163,103,0.5)]' : 'bg-zinc-800'}`}></div>
+                                <div key={day} className={`h-1.5 flex-1 rounded-full ${day <= Math.min(streakDays, 5) ? 'bg-[#C5A367] shadow-[0_0_5px_rgba(197,163,103,0.5)]' : 'bg-zinc-800'}`}></div>
                             ))}
                         </div>
                         <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 leading-relaxed mt-3">
-                            <span className="text-[#C5A367] font-black drop-shadow-[0_0_2px_#C5A367]">Day 4/5:</span> 1 more ride for Free Coffee pass.
+                            {streakDays > 0 ? (
+                                <><span className="text-[#C5A367] font-black drop-shadow-[0_0_2px_#C5A367]">Day {streakDays}:</span> {5 - (streakDays % 5)} more ride{5 - (streakDays % 5) !== 1 ? 's' : ''} for reward.</>
+                            ) : (
+                                'Take your first ride today!'
+                            )}
                         </p>
                     </div>
 
-                    {/* C. Eco-Flex */}
+                    {/* Eco Flex — real CO2 data */}
                     <div className="bg-[#0f1a14] rounded-2xl p-4 border border-[#10B981]/20 text-white relative overflow-hidden group hover:cursor-pointer shadow-md">
                         <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
                             <Leaf className="w-24 h-24 text-[#10B981]" />
@@ -185,10 +304,12 @@ export default function SivikView() {
                             </div>
                             <Share2 className="w-3.5 h-3.5 text-[#10B981]/40 hover:text-[#10B981]" />
                         </div>
-                        <div className="text-2xl font-serif text-white mb-0.5 relative z-10 drop-shadow-md">50kg <span className="text-sm font-medium opacity-50">CO₂</span></div>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]/50 mb-3 mt-0.5">Saved this month</p>
+                        <div className="text-2xl font-serif text-white mb-0.5 relative z-10 drop-shadow-md">
+                            {wallet?.co2Saved ?? 0}kg <span className="text-sm font-medium opacity-50">CO₂</span>
+                        </div>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]/50 mb-3 mt-0.5">Saved via transit rides</p>
                         <div className="inline-block px-2 py-1 bg-[#10B981]/10 border border-[#10B981]/20 rounded-lg text-[8px] font-bold uppercase tracking-widest text-[#10B981] relative z-10 backdrop-blur-md">
-                            Rank: Green Kijang
+                            Rank: {ecoRank}
                         </div>
                     </div>
                 </div>
@@ -198,12 +319,16 @@ export default function SivikView() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
                 className="flex gap-3 mb-10"
             >
-                <button className="flex-1 bg-[#121214] p-4 py-3.5 rounded-2xl border border-zinc-800 shadow-lg hover:bg-zinc-800/50 transition-all flex items-center justify-center gap-2 group">
+                <button
+                    onClick={handleParkingPay}
+                    className="flex-1 bg-[#121214] p-4 py-3.5 rounded-2xl border border-zinc-800 shadow-lg hover:bg-zinc-800/50 transition-all flex items-center justify-center gap-2 group"
+                >
                     <ArrowUpRight className="w-4 h-4 text-[#C5A367] group-hover:rotate-12 transition-transform" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">Pay Parking</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">Pay Parking (RM 3)</span>
                 </button>
             </motion.div>
 
+            {/* Proof-of-Work Ledger — real transactions */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
                 className="flex-1 pb-10"
@@ -211,28 +336,41 @@ export default function SivikView() {
                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#C5A367] mb-6 flex items-center justify-between">
                     <span>Proof-of-Work Ledger</span>
                 </h3>
-                <div className="bg-[#121214] rounded-3xl p-2 border border-zinc-800 shadow-xl">
-                    {transactions.map((tx, i) => (
-                        <div key={tx.id} className={`flex items-center justify-between p-4 ${i !== transactions.length - 1 ? 'border-b border-zinc-800/50' : ''}`}>
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${tx.type === 'earn' ? 'bg-[#10B981]/10 border-[#10B981]/20 text-[#10B981]' : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500'
-                                    }`}>
-                                    <tx.icon className="w-5 h-5" />
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 text-zinc-700 animate-spin" />
+                    </div>
+                ) : wallet?.transactions && wallet.transactions.length > 0 ? (
+                    <div className="bg-[#121214] rounded-3xl p-2 border border-zinc-800 shadow-xl">
+                        {wallet.transactions.slice(0, 10).map((tx, i) => {
+                            const Icon = TX_ICON_MAP[tx.category] || Sparkles;
+                            return (
+                                <div key={tx.id} className={`flex items-center justify-between p-4 ${i !== Math.min(wallet.transactions.length, 10) - 1 ? 'border-b border-zinc-800/50' : ''}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${tx.type === 'earn' ? 'bg-[#10B981]/10 border-[#10B981]/20 text-[#10B981]' : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500'
+                                            }`}>
+                                            <Icon className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-serif text-sm text-zinc-200 mb-0.5">{tx.title}</h4>
+                                            <p className="text-[9px] font-bold uppercase tracking-widest text-[#C5A367]/60">{tx.notes || tx.category}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className={`font-mono text-lg font-light tracking-tight ${tx.type === 'earn' ? 'text-[#10B981] drop-shadow-[0_0_5px_rgba(16,185,129,0.3)]' : 'text-zinc-500'}`}>
+                                            {tx.type === 'earn' ? '+' : ''}{tx.amount}
+                                        </div>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-600 mt-1">{tx.time}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="font-serif text-sm text-zinc-200 mb-0.5">{tx.title}</h4>
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#C5A367]/60">{tx.notes}</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <div className={`font-mono text-lg font-light tracking-tight ${tx.type === 'earn' ? 'text-[#10B981] drop-shadow-[0_0_5px_rgba(16,185,129,0.3)]' : 'text-zinc-500'}`}>
-                                    {tx.type === 'earn' ? '+' : ''}{tx.amount}
-                                </div>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-600 mt-1">{tx.time}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="text-center py-10 text-zinc-600 border border-dashed border-zinc-800 rounded-3xl text-[10px] font-bold uppercase tracking-widest">
+                        No transactions yet. Scan a QR to start!
+                    </div>
+                )}
             </motion.div>
         </div>
     );
