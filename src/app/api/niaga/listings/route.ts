@@ -3,44 +3,7 @@ import Groq from 'groq-sdk';
 
 // In-memory store for submitted listings (resets on server restart — for MVP)
 // In production, replace with a real database (Supabase, PlanetScale, etc.)
-const listingsStore: any[] = [
-    {
-        id: 'seed-001',
-        seller: "Nelayan Tumpat Koperasi",
-        badge: true,
-        item: "Fresh Siakap (50kg Bulk)",
-        price: "RM 25/kg",
-        location: "Pengkalan Kubor, Kelantan",
-        time: "20 mins ago",
-        type: "Seafood",
-        submittedAt: Date.now() - 20 * 60 * 1000,
-        verified: true,
-    },
-    {
-        id: 'seed-002',
-        seller: "Ladang Sayur Lojing",
-        badge: true,
-        item: "Organic Cabbage (100kg)",
-        price: "RM 3.50/kg",
-        location: "Lojing Highlands, Kelantan",
-        time: "1 hour ago",
-        type: "Produce",
-        submittedAt: Date.now() - 60 * 60 * 1000,
-        verified: true,
-    },
-    {
-        id: 'seed-003',
-        seller: "Pak Ali Livestock",
-        badge: false,
-        item: "Kampung Chicken (20 birds)",
-        price: "RM 18/bird",
-        location: "Pasir Mas, Kelantan",
-        time: "3 hours ago",
-        type: "Poultry",
-        submittedAt: Date.now() - 3 * 60 * 60 * 1000,
-        verified: false,
-    },
-];
+const listingsStore: any[] = [];
 
 // GET /api/niaga/listings — fetch live listings sorted newest first
 export async function GET() {

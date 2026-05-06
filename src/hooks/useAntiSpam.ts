@@ -124,3 +124,4 @@ export function useAntiSpam(options: UseAntiSpamOptions): AntiSpamState {
 
     return { canRequest, remaining, cooldownRemaining, statusMessage, tryRequest, forceBlock };
 }
+

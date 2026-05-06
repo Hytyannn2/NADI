@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Store, TrendingUp, MapPin, CheckCircle, Search, Plus, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLanguage } from '@/src/context/LanguageContext';
 
 interface Listing {
     id: string;
@@ -16,6 +17,7 @@ interface Listing {
 }
 
 export default function NiagaView() {
+    const { t } = useLanguage();
     const [products, setProducts] = useState<Listing[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -101,15 +103,15 @@ export default function NiagaView() {
                             className="bg-[#121214] border border-zinc-800 rounded-t-3xl p-6 w-full max-w-md shadow-2xl"
                         >
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-serif text-xl text-white">Post Supply</h3>
+                                <h3 className="font-serif text-xl text-white">{t('niaga.post_supply')}</h3>
                                 <button onClick={() => setShowForm(false)} className="p-2 text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                             </div>
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 {[
-                                    { key: 'seller', placeholder: 'Your name / business', label: 'Seller' },
-                                    { key: 'item', placeholder: 'e.g. Fresh Siakap 50kg', label: 'Item' },
-                                    { key: 'price', placeholder: 'e.g. RM 25/kg', label: 'Price' },
-                                    { key: 'location', placeholder: 'e.g. Kota Bharu, Kelantan', label: 'Location' },
+                                    { key: 'seller', placeholder: 'e.g. Your name / business', label: t('niaga.seller') },
+                                    { key: 'item', placeholder: 'e.g. Fresh Siakap 50kg', label: t('niaga.item') },
+                                    { key: 'price', placeholder: 'e.g. RM 25/kg', label: t('niaga.price') },
+                                    { key: 'location', placeholder: 'e.g. Kota Bharu, Kelantan', label: t('niaga.location') },
                                 ].map(f => (
                                     <div key={f.key}>
                                         <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>
@@ -124,7 +126,7 @@ export default function NiagaView() {
                                     </div>
                                 ))}
                                 <div>
-                                    <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Category</label>
+                                    <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">{t('niaga.category')}</label>
                                     <select
                                         value={form.type}
                                         onChange={e => setForm(prev => ({ ...prev, type: e.target.value }))}
@@ -140,7 +142,7 @@ export default function NiagaView() {
                                     disabled={isSubmitting}
                                     className="w-full bg-gradient-to-r from-[#C5A367] to-[#E8C34B] text-[#0A0A0C] py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
                                 >
-                                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> AI Verifying...</> : 'Post Listing'}
+                                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('niaga.ai_verifying')}</> : t('niaga.post_listing')}
                                 </button>
                             </form>
                         </motion.div>
@@ -153,16 +155,16 @@ export default function NiagaView() {
                 className="mb-6 flex items-end justify-between"
             >
                 <div>
-                    <h2 className="text-3xl font-serif text-white tracking-tight mb-1">Nadi-Niaga</h2>
+                    <h2 className="text-3xl font-serif text-white tracking-tight mb-1">{t('niaga.title')}</h2>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-[#C5A367]">
-                        Hyper-Local B2B Supply Chain
+                        {t('niaga.subtitle')}
                     </p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
                     className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-[#C5A367]/10 border border-[#C5A367]/20 text-[#C5A367] rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95"
                 >
-                    <Plus className="w-3.5 h-3.5" /> Post
+                    <Plus className="w-3.5 h-3.5" /> {t('niaga.post')}
                 </button>
             </motion.div>
 
@@ -174,10 +176,10 @@ export default function NiagaView() {
 
                 <div className="flex justify-between items-center mb-4 relative z-10">
                     <div>
-                        <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-1">Active Listings</p>
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-1">{t('niaga.active_listings')}</p>
                         <p className="text-3xl font-light text-[#FAFAFA] tracking-tight">
                             {weeklyVolume !== null ? weeklyVolume : <span className="text-zinc-600 text-xl">—</span>}
-                            <span className="text-zinc-500 text-lg font-light ml-2">listings</span>
+                            <span className="text-zinc-500 text-lg font-light ml-2">{t('niaga.listings')}</span>
                         </p>
                     </div>
                     <div className="bg-[#10B981]/20 text-[#10B981] p-3 rounded-2xl border border-[#10B981]/30 shadow-inner">
@@ -185,7 +187,7 @@ export default function NiagaView() {
                     </div>
                 </div>
                 <p className="text-[11px] text-[#10B981]/80 font-medium leading-relaxed relative z-10">
-                    <span className="font-bold text-zinc-300">NADI</span> connects local producers directly to retailers. 2% verified B2B matching fee.
+                    <span className="font-bold text-zinc-300">NADI</span> {t('niaga.connects')}
                 </p>
             </motion.div>
 
@@ -200,7 +202,7 @@ export default function NiagaView() {
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search local supply (e.g., 'Siakap', 'Beras')..."
+                    placeholder={t('niaga.search')}
                     className="w-full bg-[#121214] pl-12 pr-4 py-4 rounded-xl shadow-inner border border-zinc-800 focus:border-[#C5A367]/50 focus:ring-1 focus:ring-[#C5A367] outline-none transition-all placeholder:text-zinc-600 text-sm font-medium text-white"
                 />
             </motion.div>
@@ -210,13 +212,13 @@ export default function NiagaView() {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                     className="flex items-center justify-between mb-4 px-1"
                 >
-                    <h3 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">Live Supply Log</h3>
+                    <h3 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">{t('niaga.live_log')}</h3>
                     {newCount > 0 && (
                         <button
                             onClick={() => { fetchListings(); setNewCount(0); }}
                             className="text-[9px] font-bold text-[#10B981] bg-[#10B981]/10 border border-[#10B981]/20 px-2 py-1.5 rounded-lg shadow-sm tracking-widest"
                         >
-                            {newCount} NEW ↑
+                            {newCount} {t('niaga.new')}
                         </button>
                     )}
                 </motion.div>
@@ -229,7 +231,7 @@ export default function NiagaView() {
                     <AnimatePresence initial={false}>
                         {filtered.length === 0 ? (
                             <div className="text-center py-12 text-zinc-600 border border-dashed border-zinc-800 rounded-3xl text-[10px] font-bold uppercase tracking-widest">
-                                {searchQuery ? 'No matching supply found.' : 'No listings yet. Be the first to post!'}
+                                {searchQuery ? t('niaga.no_match') : t('niaga.no_listings')}
                             </div>
                         ) : (
                             filtered.map((product) => (
@@ -268,7 +270,7 @@ export default function NiagaView() {
                                                 {product.location}
                                             </div>
                                             <button className="bg-[#121214] hover:bg-[#1A1A1E] text-white px-5 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md shadow-black/40 active:scale-95 border border-zinc-700 hover:border-zinc-500 group-hover:text-[#10B981]">
-                                                Acquire
+                                                {t('niaga.acquire')}
                                             </button>
                                         </div>
                                     </div>

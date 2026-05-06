@@ -2,30 +2,7 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 
 // In-memory volunteer job store (replace with DB in production)
-const jobsStore: any[] = [
-    {
-        id: 'job-001',
-        name: 'Keluarga Ahmad',
-        dist: '300m',
-        req: 'Mud cleanup',
-        status: 'open',
-        bounty: 50,
-        area: 'Taman Sri Putra',
-        createdAt: Date.now() - 15 * 60 * 1000,
-        priority: 'High',
-    },
-    {
-        id: 'job-002',
-        name: 'Rumah Makcik Kiah',
-        dist: '1.2km',
-        req: 'Furniture moving',
-        status: 'accepted',
-        bounty: 30,
-        area: 'Kampung Baru',
-        createdAt: Date.now() - 45 * 60 * 1000,
-        priority: 'Medium',
-    },
-];
+const jobsStore: any[] = [];
 
 // GET /api/bencana/jobs — fetch volunteer jobs
 export async function GET() {
@@ -33,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ success: true, jobs: sorted });
 }
 
-// POST /api/bencana/jobs — submit or update a volunteer job
+// POST /api/bencana/jobs — submit, accept, or cancel a volunteer job
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -46,6 +23,14 @@ export async function POST(request: Request) {
             if (job.status === 'accepted') return NextResponse.json({ success: false, error: 'Job already accepted.' }, { status: 409 });
             job.status = 'accepted';
             return NextResponse.json({ success: true, job });
+        }
+
+        // Cancel a job — remove it entirely from the store
+        if (action === 'cancel' && jobId) {
+            const idx = jobsStore.findIndex(j => j.id === jobId);
+            if (idx === -1) return NextResponse.json({ success: false, error: 'Job not found.' }, { status: 404 });
+            const [removed] = jobsStore.splice(idx, 1);
+            return NextResponse.json({ success: true, cancelled: removed });
         }
 
         // Submit new job with AI-generated priority
@@ -74,7 +59,6 @@ Assess this request and respond with JSON:
                 const data = JSON.parse(result.choices[0]?.message?.content || '{}');
                 priority = data.priority || 'Medium';
                 bounty = data.bountyPoints || 30;
-                req === (data.category || req);
             } catch {
                 // fallback defaults
             }

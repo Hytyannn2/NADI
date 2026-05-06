@@ -45,8 +45,8 @@ export default function InfraView() {
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-    const [userLat, setUserLat] = useState('3.139');
-    const [userLng, setUserLng] = useState('101.6869');
+    const [userLat, setUserLat] = useState('0');
+    const [userLng, setUserLng] = useState('0');
     const [motionError, setMotionError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);

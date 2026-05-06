@@ -168,7 +168,7 @@ export default function SuaraView() {
                         <Sparkles className="w-4 h-4" />
                     </div>
                     <p className="text-zinc-200 font-serif text-lg italic leading-tight">
-                        "Lampu jalan depan surau kelip-kelip, jalan pun berlubang..."
+                        "Tangki rumah saya pecah..."
                     </p>
                     <p className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367]/60 mt-5">Speak in local dialect</p>
                 </motion.div>
@@ -289,8 +289,8 @@ export default function SuaraView() {
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A367]/5 rounded-full blur-3xl -z-10"></div>
                                 <div className="flex justify-between items-start mb-4">
                                     <span className={`px-4 py-1.5 text-[9px] font-bold rounded-full uppercase tracking-widest border flex items-center justify-center ${report.urgency === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                            report.urgency === 'Medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                                'bg-[#C5A367]/10 text-[#C5A367] border-[#C5A367]/20'
+                                        report.urgency === 'Medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                                            'bg-[#C5A367]/10 text-[#C5A367] border-[#C5A367]/20'
                                         }`}>
                                         {report.urgency} Priority
                                     </span>
