@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Mic, Activity, AlertTriangle, Wallet, Heart, Flame, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Palette, Target, Award, Users, Map } from 'lucide-react';
+import { Mic, Activity, AlertTriangle, Wallet, Heart, Flame, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
@@ -125,10 +125,7 @@ export default function App() {
       <LevelUpToast visible={showLevelUp} level={level} rank={rank} />
 
       {/* === Main App Shell === */}
-      <div className="flex-1 max-w-md w-full mx-auto relative flex flex-col overflow-hidden sm:shadow-2xl sm:border-x bg-[#0A0A0C] border-zinc-900">
-
-        {/* Ambient glow */}
-        <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-[#C5A367]/[0.03] to-transparent pointer-events-none" />
+      <div className="flex-1 max-w-md w-full mx-auto relative flex flex-col overflow-hidden sm:shadow-lg sm:border-x" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
 
         {/* ===== HEADER ===== */}
         <header className="px-5 pt-5 pb-4 z-10 border-b" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
@@ -145,12 +142,12 @@ export default function App() {
                   {userAvatar ? (
                     <img src={userAvatar} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center font-bold text-sm text-white" style={{ background: 'var(--accent)' }}>
+                    <div className="w-full h-full flex items-center justify-center font-bold text-sm" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
                       {userInitial}
                     </div>
                   )}
                 </button>
-                <div className="absolute -bottom-0.5 -right-0.5 rounded-full w-5 h-5 flex items-center justify-center text-white text-[8px] font-bold" style={{ background: 'var(--accent)' }}>
+                <div className="absolute -bottom-0.5 -right-0.5 rounded-full w-5 h-5 flex items-center justify-center text-[8px] font-bold" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
                   {level}
                 </div>
               </div>
@@ -158,7 +155,7 @@ export default function App() {
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{greeting}</p>
                 <h1 className="text-base font-bold tracking-tight leading-tight flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
                   {userName.length > 14 ? userName.slice(0, 14) + '…' : userName}
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: 'var(--accent)', background: 'var(--accent-light)' }}>NADI</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: 'var(--accent)', background: 'var(--accent-muted)' }}>NADI</span>
                 </h1>
               </div>
             </div>
@@ -167,10 +164,13 @@ export default function App() {
               {streak > 0 && (
                 <motion.div
                   initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${streak >= 7 ? 'bg-orange-50 border-orange-200 text-orange-600' : ''}`}
-                  style={streak < 7 ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border"
+                  style={streak >= 7
+                    ? { background: 'rgba(249, 115, 22, 0.08)', borderColor: 'rgba(249, 115, 22, 0.2)', color: '#EA580C' }
+                    : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }
+                  }
                 >
-                  <Flame className={`w-3 h-3 ${streak >= 7 ? 'text-orange-500' : ''}`} style={streak < 7 ? { color: 'var(--text-muted)' } : {}} />
+                  <Flame className="w-3 h-3" style={streak >= 7 ? { color: '#EA580C' } : { color: 'var(--text-muted)' }} />
                   {streak}d
                 </motion.div>
               )}
@@ -232,25 +232,29 @@ export default function App() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute top-[118px] right-5 z-50 w-56 rounded-2xl shadow-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+              className="absolute top-[118px] right-5 z-50 w-60 rounded-2xl overflow-hidden"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}
             >
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-default)' }}>
                 <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userName}</p>
                 <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{userEmail}</p>
               </div>
-              <div className="p-1.5">
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:opacity-70 transition-colors text-left">
+              <div className="p-2">
+                {/* Profile */}
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left hover:opacity-70" style={{ color: 'var(--text-primary)' }}>
                   <User className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{t('menu.profile')}</span>
+                  <span className="text-xs font-medium">{t('menu.profile')}</span>
                 </button>
+
+                {/* Language */}
                 <button id="lang-picker-btn" onClick={() => setShowLangPicker(!showLangPicker)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-zinc-800/60 transition-colors text-left group"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors text-left hover:opacity-70"
                 >
                   <div className="flex items-center gap-3">
-                    <Globe className="w-4 h-4 text-zinc-500 group-hover:text-[#C5A367]" />
-                    <span className="text-xs font-medium text-zinc-300">{t('menu.language')}</span>
+                    <Globe className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{t('menu.language')}</span>
                   </div>
-                  <span className="text-[10px] text-zinc-500">{LANGUAGES.find(l => l.code === lang)?.flag} {LANGUAGES.find(l => l.code === lang)?.label}</span>
+                  <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{LANGUAGES.find(l => l.code === lang)?.flag}</span>
                 </button>
 
                 {/* Language picker */}
@@ -260,11 +264,15 @@ export default function App() {
                       <div className="pl-6 py-1 space-y-0.5">
                         {LANGUAGES.map(l => (
                           <button key={l.code} onClick={() => { setLang(l.code); setShowLangPicker(false); setShowUserMenu(false); }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all text-xs ${lang === l.code ? 'bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200 border border-transparent'}`}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all text-xs"
+                            style={lang === l.code
+                              ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent-muted)' }
+                              : { color: 'var(--text-secondary)', border: '1px solid transparent' }
+                            }
                           >
                             <span className="text-sm">{l.flag}</span>
                             <span className="font-medium">{l.label}</span>
-                            {lang === l.code && <span className="ml-auto text-[8px] font-bold uppercase tracking-widest text-[#C5A367]">✓</span>}
+                            {lang === l.code && <span className="ml-auto text-[8px] font-bold" style={{ color: 'var(--accent)' }}>✓</span>}
                           </button>
                         ))}
                       </div>
@@ -272,43 +280,55 @@ export default function App() {
                   )}
                 </AnimatePresence>
 
-                {/* Theme Picker */}
-                <div className="px-3 py-2">
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-600 mb-1.5 flex items-center gap-1.5"><Palette className="w-3 h-3" /> Theme</p>
-                  <div className="grid grid-cols-4 gap-1.5">
+                {/* Theme Toggle */}
+                <div className="px-3 py-2.5">
+                  <div className="flex items-center justify-between rounded-xl p-1" style={{ background: 'var(--bg-subtle)' }}>
                     {(Object.keys(THEMES) as ThemeId[]).map(tid => (
                       <button key={tid} onClick={() => setThemeId(tid)}
-                        className={`p-1.5 rounded-lg text-[8px] font-bold uppercase tracking-widest transition-all border ${themeId === tid ? 'bg-[#C5A367]/10 border-[#C5A367]/30 text-[#C5A367]' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all"
+                        style={themeId === tid
+                          ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }
+                          : { color: 'var(--text-muted)' }
+                        }
                       >
-                        {tid === 'dark' ? '🌙' : tid === 'kerajaan' ? '🏛️' : tid === 'neon' ? '💜' : '♿'}
+                        {tid === 'light' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                        {THEMES[tid].label}
                       </button>
                     ))}
                   </div>
                 </div>
+
                 {/* Font Size */}
                 <div className="px-3 py-2">
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-600 mb-1.5">Font Size</p>
+                  <p className="text-[10px] font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Font Size</p>
                   <div className="flex gap-1.5">
                     {(['S', 'M', 'L'] as FontSize[]).map(fs => (
                       <button key={fs} onClick={() => setFontSize(fs)}
-                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-bold transition-all border ${fontSize === fs ? 'bg-[#C5A367]/10 border-[#C5A367]/30 text-[#C5A367]' : 'border-zinc-800 text-zinc-500'}`}
+                        className="flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                        style={fontSize === fs
+                          ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent-muted)' }
+                          : { color: 'var(--text-muted)', background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }
+                        }
                       >{fs}</button>
                     ))}
                   </div>
                 </div>
 
+                {/* Replay Tutorial */}
                 <button onClick={() => { setShowOnboarding(true); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-800/60 transition-colors text-left group"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left hover:opacity-70"
                 >
-                  <Award className="w-4 h-4 text-zinc-500 group-hover:text-[#C5A367]" />
-                  <span className="text-xs font-medium text-zinc-300">Replay Tutorial</span>
+                  <Award className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Replay Tutorial</span>
                 </button>
 
+                {/* Sign Out */}
                 <button id="signout-btn" onClick={() => { signOut(); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/10 transition-colors text-left group"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left group"
+                  style={{ color: 'var(--danger)' }}
                 >
-                  <LogOut className="w-4 h-4 text-zinc-500 group-hover:text-red-400" />
-                  <span className="text-xs font-medium text-zinc-300 group-hover:text-red-400">{t('menu.signout')}</span>
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-xs font-medium">{t('menu.signout')}</span>
                 </button>
               </div>
             </motion.div>
@@ -323,14 +343,15 @@ export default function App() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute top-[118px] right-5 z-50 w-64 rounded-2xl shadow-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+              className="absolute top-[118px] right-5 z-50 w-64 rounded-2xl overflow-hidden"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}
             >
               <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-default)' }}>
                 <p className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{t('header.notifications')}</p>
               </div>
               <div className="px-4 py-8 text-center">
-                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{t('header.no_notif')}</p>
-                <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{t('header.notif_hint')}</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>All caught up! 🎉</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('header.notif_hint')}</p>
               </div>
             </motion.div>
           )}
@@ -371,11 +392,11 @@ export default function App() {
         <button
           onClick={() => { setShowQuestPanel(!showQuestPanel); setShowUserMenu(false); setShowNotif(false); }}
           className="absolute top-[130px] right-5 z-30 w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-70"
-          style={{ background: 'var(--accent-light)', border: '1px solid var(--border-default)' }}
+          style={{ background: 'var(--accent-muted)', border: '1px solid var(--border-default)' }}
         >
           <Target className="w-4 h-4" style={{ color: allQuestsComplete ? 'var(--success)' : 'var(--accent)' }} />
           {completedQuests > 0 && completedQuests < quests.length && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 text-white rounded-full text-[8px] font-bold flex items-center justify-center" style={{ background: 'var(--accent)' }}>{completedQuests}</span>
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>{completedQuests}</span>
           )}
         </button>
       </div>

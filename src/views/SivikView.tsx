@@ -137,7 +137,7 @@ export default function SivikView() {
     const streakDays = wallet?.rideStreak ?? 0;
 
     return (
-        <div className="p-6 h-full flex flex-col relative z-0">
+        <div className="p-5 h-full flex flex-col relative z-0" style={{ background: 'var(--bg-base)' }}>
             {/* QR Scanner Overlay */}
             <AnimatePresence>
                 {isScanning && (
@@ -185,41 +185,39 @@ export default function SivikView() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="mb-8"
             >
-                <h2 className="text-3xl font-serif mb-1 text-white tracking-tight">Nadi-Pass</h2>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[#C5A367] mt-1">
-                    Universal Transit & Ledger
+                <h2 className="text-2xl font-bold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>Nadi-Pass</h2>
+                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                    Your transit wallet & ledger
                 </p>
             </motion.div>
 
             {/* Wallet Card */}
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-                className="bg-gradient-to-tl from-[#1A1C16] to-[#0A0A0C] border border-[#2A2D24] rounded-3xl p-8 mb-6 relative overflow-hidden shadow-2xl shadow-[#10B981]/5 text-white"
+                initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
+                className="rounded-2xl p-6 mb-5 relative overflow-hidden shadow-md" style={{ background: 'var(--accent)', color: 'white' }}
             >
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A367]/10 rounded-full blur-3xl transform translate-x-10 -translate-y-10"></div>
-                <div className="absolute inset-0 bg-[#000] opacity-20 mix-blend-overlay"></div>
 
                 <div className="relative z-10 flex flex-col items-center text-center">
                     <div className="flex items-center gap-2 mb-2">
-                        <Coins className="w-5 h-5 text-[#C5A367]" />
-                        <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">E-Dinar Balance</span>
+                        <Coins className="w-5 h-5 text-white/70" />
+                        <span className="text-xs text-white/70 font-medium">Balance</span>
                     </div>
                     {isLoading ? (
                         <div className="flex items-center justify-center h-16 mb-6">
                             <Loader2 className="w-8 h-8 text-zinc-700 animate-spin" />
                         </div>
                     ) : (
-                        <div className="text-6xl font-light tracking-tight text-[#FAFAFA] mb-6 flex items-baseline justify-center gap-2 drop-shadow-md">
-                            {wallet?.balance ?? 0} <span className="text-lg font-medium opacity-50 uppercase tracking-widest">pts</span>
+                        <div className="text-5xl font-bold tracking-tight text-white mb-5 flex items-baseline justify-center gap-2">
+                            {wallet?.balance ?? 0} <span className="text-base font-medium opacity-60">pts</span>
                         </div>
                     )}
 
                     <div className="flex gap-3 w-full max-w-[240px]">
-                        <button className="flex-1 bg-gradient-to-b from-[#D4AF37] to-[#B8860B] text-[#0A0A0C] py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(197,163,103,0.3)]">
-                            Top-Up <span className="font-medium opacity-70 border-l border-zinc-900/30 pl-1 ml-1">(FPX)</span>
+                        <button className="flex-1 bg-white text-blue-700 py-3 rounded-xl text-xs font-bold transition-all hover:bg-blue-50 active:scale-95">
+                            Top Up
                         </button>
-                        <button className="flex-1 bg-[#121214] hover:bg-[#1A1A1E] border border-zinc-800 py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors text-zinc-300">
-                            Send Money
+                        <button className="flex-1 bg-white/20 border border-white/30 text-white py-3 rounded-xl text-xs font-bold transition-colors hover:bg-white/30">
+                            Send
                         </button>
                     </div>
                 </div>
@@ -228,16 +226,16 @@ export default function SivikView() {
             {/* Trust Score — real data */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="bg-[#0A0A0C] border border-zinc-800/80 rounded-2xl p-4 mb-8 flex items-center justify-between shadow-xl"
+                className="rounded-2xl p-4 mb-6 flex items-center justify-between shadow-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
             >
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#10B981]/10 text-[#10B981] rounded-full flex items-center justify-center border border-[#10B981]/20">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>
                         <ShieldAlert className="w-5 h-5" />
                     </div>
                     <div>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">Trust Score</p>
-                        <p className="text-sm font-bold text-zinc-200">
-                            {trustLabel} <span className="text-[#10B981] opacity-80">({wallet?.trustScore ?? '—'}/100)</span>
+                        <p className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Trust Score</p>
+                        <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                            {trustLabel} <span style={{ color: 'var(--success)' }}>({wallet?.trustScore ?? '—'}/100)</span>
                         </p>
                     </div>
                 </div>
@@ -251,53 +249,52 @@ export default function SivikView() {
             {/* MaaS & Transit Hub */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                className="bg-[#121214] p-5 rounded-3xl border border-zinc-800 shadow-xl mb-6 relative overflow-hidden group"
+                className="p-5 rounded-2xl mb-5 relative overflow-hidden shadow-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
             >
-                <div className="absolute top-0 right-0 w-48 h-48 bg-[#10B981]/5 rounded-full blur-3xl -z-10 opacity-70 transition-opacity duration-500 group-hover:opacity-100"></div>
 
                 <div className="flex justify-between items-start mb-6 z-10 relative">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <TrainFront className="w-5 h-5 text-[#10B981]" />
-                            <h3 className="text-lg font-serif text-white">Transit Hub</h3>
+                            <TrainFront className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Transit Hub</h3>
                         </div>
-                        <p className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367]">Priority Access Pass</p>
+                        <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Your transit pass</p>
                     </div>
 
                     {/* Auto-Tariff Badge */}
                     <div className="text-right">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#10B981]/10 border border-[#10B981]/20 rounded-xl mb-1.5 shadow-sm">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]/90">NADI Verified User</span>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-1.5" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-bold">Verified</span>
                         </div>
-                        <p className="text-xs font-bold text-zinc-400 tracking-wide">
-                            Tariff: <span className="text-[#10B981] drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">RM 2.00</span>
+                        <p className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
+                            Fare: <span style={{ color: 'var(--success)' }}>RM 2.00</span>
                         </p>
                     </div>
                 </div>
 
                 {/* Live Alert Banner */}
-                <div className="bg-[#1a0505] rounded-2xl p-4 border border-red-900/50 mb-4 shadow-inner">
+                <div className="rounded-2xl p-4 mb-4" style={{ background: 'var(--accent-light)', border: '1px solid var(--border-default)' }}>
                     <div className="flex justify-between items-center mb-2">
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500">
-                            <Activity className="w-4 h-4" /> Real-Time Transit
+                        <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--accent)' }}>
+                            <Activity className="w-4 h-4" /> Ride Now
                         </span>
-                        <span className="text-[8px] font-bold text-red-500/70 border border-red-500/30 px-1.5 py-0.5 rounded uppercase tracking-widest">Live</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>Live</span>
                     </div>
-                    <p className="text-xs text-red-200/80 font-medium leading-relaxed mb-4">
-                        Tap the QR below to record your ride. Each ride earns CO₂ savings and progresses your streak.
+                    <p className="text-sm font-medium leading-relaxed mb-4" style={{ color: 'var(--text-secondary)' }}>
+                        Scan the QR to record your ride and earn CO₂ savings.
                     </p>
                     <button
                         onClick={() => setIsScanning(true)}
-                        className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-[0_5px_20px_rgba(220,38,38,0.2)] hover:from-white hover:to-zinc-200 hover:text-red-900 transition-all font-sans"
+                        className="w-full text-white py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95" style={{ background: 'var(--accent)' }}
                     >
-                        <QrCode className="w-4 h-4" /> Scan to Ride (RM 2.00)
+                        <QrCode className="w-4 h-4" /> Scan to Ride — RM 2.00
                     </button>
                 </div>
 
                 {/* Smart Transit — Real Nearby Stops */}
-                <div className="bg-[#0A0A0C] rounded-2xl p-4 border border-zinc-800/80 mb-4 shadow-md">
-                    <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500 mb-3 flex items-center gap-1.5">
+                <div className="rounded-2xl p-4 mb-4 shadow-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                    <p className="text-xs font-bold mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
                         <TrainFront className="w-3 h-3" /> Nearby Transit Stops
                     </p>
                     {transitLoading ? (
@@ -336,24 +333,24 @@ export default function SivikView() {
 
                 <div className="grid grid-cols-2 gap-4">
                     {/* Ride Streak — real data */}
-                    <div className="bg-[#0A0A0C] rounded-2xl p-4 border border-zinc-800/80 shadow-md">
+                    <div className="rounded-2xl p-4 shadow-md" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 rounded-md bg-[#C5A367]/10 flex items-center justify-center border border-[#C5A367]/20">
-                                    <Gift className="w-3.5 h-3.5 text-[#C5A367]" />
+                                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'var(--accent-muted)' }}>
+                                    <Gift className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
                                 </div>
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Ride Streak</span>
+                                <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Ride Streak</span>
                             </div>
-                            <Sparkles className="w-3.5 h-3.5 text-[#C5A367] opacity-60" />
+                            <Sparkles className="w-3.5 h-3.5 opacity-60" style={{ color: 'var(--accent)' }} />
                         </div>
                         <div className="flex items-center gap-1 mb-2">
                             {[1, 2, 3, 4, 5].map(day => (
-                                <div key={day} className={`h-1.5 flex-1 rounded-full ${day <= Math.min(streakDays, 5) ? 'bg-[#C5A367] shadow-[0_0_5px_rgba(197,163,103,0.5)]' : 'bg-zinc-800'}`}></div>
+                                <div key={day} className="h-1.5 flex-1 rounded-full" style={{ background: day <= Math.min(streakDays, 5) ? 'var(--accent)' : 'var(--bg-muted)' }}></div>
                             ))}
                         </div>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 leading-relaxed mt-3">
+                        <p className="text-[10px] font-medium leading-relaxed mt-3" style={{ color: 'var(--text-muted)' }}>
                             {streakDays > 0 ? (
-                                <><span className="text-[#C5A367] font-black drop-shadow-[0_0_2px_#C5A367]">Day {streakDays}:</span> {5 - (streakDays % 5)} more ride{5 - (streakDays % 5) !== 1 ? 's' : ''} for reward.</>
+                                <><span className="font-bold" style={{ color: 'var(--accent)' }}>Day {streakDays}:</span> {5 - (streakDays % 5)} more ride{5 - (streakDays % 5) !== 1 ? 's' : ''} for reward.</>
                             ) : (
                                 'Take your first ride today!'
                             )}
@@ -363,7 +360,8 @@ export default function SivikView() {
                     {/* Eco Flex — Transit Rank System */}
                     <div
                         onClick={() => setShowEcoRanks(!showEcoRanks)}
-                        className="bg-[#0f1a14] rounded-2xl p-4 border border-[#10B981]/20 text-white relative overflow-hidden group hover:cursor-pointer shadow-md"
+                        className="rounded-2xl p-4 relative overflow-hidden group hover:cursor-pointer shadow-md"
+                        style={{ background: 'var(--success-light)', border: '1px solid var(--border-default)' }}
                     >
                         <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
                             <Leaf className="w-24 h-24 text-[#10B981]" />
@@ -371,14 +369,14 @@ export default function SivikView() {
                         <div className="flex items-center justify-between mb-2 relative z-10">
                             <div className="flex items-center gap-1.5">
                                 <Leaf className="w-3.5 h-3.5 text-[#10B981]" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-[#10B981]/70">The Eco-Flex</span>
+                                <span className="text-[10px] font-semibold" style={{ color: 'var(--success)' }}>Eco-Flex</span>
                             </div>
                             <ChevronDown className={`w-3.5 h-3.5 text-[#10B981]/40 transition-transform ${showEcoRanks ? 'rotate-180' : ''}`} />
                         </div>
-                        <div className="text-2xl font-serif text-white mb-0.5 relative z-10 drop-shadow-md">
+                        <div className="text-2xl font-bold mb-0.5 relative z-10" style={{ color: 'var(--text-primary)' }}>
                             {co2}kg <span className="text-sm font-medium opacity-50">CO₂</span>
                         </div>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]/50 mb-3 mt-0.5">Saved via transit rides</p>
+                        <p className="text-[10px] font-medium mb-3 mt-0.5" style={{ color: 'var(--text-muted)' }}>Saved via transit rides</p>
                         <div className="flex items-center gap-2 relative z-10">
                             <span className="text-lg">{ecoRankData.icon}</span>
                             <div className="inline-block px-2 py-1 bg-[#10B981]/10 border border-[#10B981]/20 rounded-lg text-[8px] font-bold uppercase tracking-widest" style={{ color: ecoRankData.color }}>
@@ -463,19 +461,19 @@ export default function SivikView() {
 
             {/* CRS + Quick Actions (Features 7, 14) */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-                className="bg-[#0A0A0C] border border-zinc-800/80 rounded-2xl p-4 mb-6 shadow-xl"
+                className="rounded-2xl p-4 mb-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-md)' }}
             >
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        <Crown className="w-4 h-4 text-[#C5A367]" />
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Civic Reputation Score</span>
+                        <Crown className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>Civic Reputation</span>
                     </div>
-                    <span className="text-lg font-light text-[#C5A367]">{crs}<span className="text-xs text-zinc-600">/1000</span></span>
+                    <span className="text-lg font-light" style={{ color: 'var(--accent)' }}>{crs}<span className="text-xs" style={{ color: 'var(--text-muted)' }}>/1000</span></span>
                 </div>
-                <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden mb-2">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#C5A367] to-[#10B981] transition-all" style={{ width: `${(crs / 1000) * 100}%` }} />
+                <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'var(--bg-muted)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(crs / 1000) * 100}%`, background: 'var(--accent)' }} />
                 </div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">{crsLabel}</p>
+                <p className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{crsLabel}</p>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
@@ -520,11 +518,12 @@ export default function SivikView() {
 
             {/* Section Tabs: Ledger / Leaderboard / Rewards */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-                className="flex p-1 rounded-2xl mb-6 border bg-[#0A0A0C]/80 border-zinc-800/80"
+                className="flex p-1 rounded-2xl mb-6" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
             >
                 {(['ledger', 'leaderboard', 'rewards'] as const).map(s => (
                     <button key={s} onClick={() => setActiveSection(s)}
-                        className={`flex-1 py-2.5 text-[9px] uppercase tracking-widest font-bold rounded-xl transition-all ${activeSection === s ? 'bg-zinc-800 text-white border border-zinc-700' : 'text-zinc-600 hover:text-zinc-400'}`}
+                        className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
+                        style={activeSection === s ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' } : { color: 'var(--text-muted)' }}
                     >{s === 'ledger' ? 'Ledger' : s === 'leaderboard' ? 'Board' : 'Rewards'}</button>
                 ))}
             </motion.div>

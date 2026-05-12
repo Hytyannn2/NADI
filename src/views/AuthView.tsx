@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, Shield, Zap, Globe } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe } from 'lucide-react';
 
 type Mode = 'login' | 'register' | 'forgot';
 
@@ -75,28 +75,19 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const modeConfig = {
-    login: { title: 'Welcome back', subtitle: 'Sign in to your NADI account', cta: 'Sign In' },
-    register: { title: 'Join NADI', subtitle: 'Create your civic account today', cta: 'Create Account' },
-    forgot: { title: 'Reset Password', subtitle: 'Enter your email to reset your password', cta: 'Send Reset Link' },
+    login: { title: 'Welcome back', subtitle: 'Sign in to continue to NADI', cta: 'Sign In' },
+    register: { title: 'Join NADI', subtitle: 'Create your civic account', cta: 'Create Account' },
+    forgot: { title: 'Reset Password', subtitle: 'We\'ll send you a reset link', cta: 'Send Reset Link' },
   };
 
   const cfg = modeConfig[mode];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050505] relative overflow-hidden p-4">
-      {/* Ambient background glows */}
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4" style={{ background: 'var(--bg-base)' }}>
+      {/* Soft ambient background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-[#C5A367]/[0.04] rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-[#3B82F6]/[0.05] rounded-full blur-[120px]" />
-        <div className="absolute top-[40%] left-[40%] w-[300px] h-[300px] bg-[#8B5CF6]/[0.03] rounded-full blur-[100px]" />
-        {/* Grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `linear-gradient(rgba(197,163,103,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(197,163,103,0.5) 1px, transparent 1px)`,
-            backgroundSize: '60px 60px',
-          }}
-        />
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full blur-[120px]" style={{ background: 'var(--accent-muted)', opacity: 0.5 }} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full blur-[120px]" style={{ background: 'var(--success-muted)', opacity: 0.5 }} />
       </div>
 
       <motion.div
@@ -111,7 +102,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C5A367]/20 to-[#C5A367]/5 border border-[#C5A367]/20 mb-4 shadow-[0_0_40px_rgba(197,163,103,0.15)]"
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+            style={{ background: 'var(--accent-muted)', border: '1px solid var(--border-default)' }}
           >
             <span className="text-3xl">🇲🇾</span>
           </motion.div>
@@ -123,14 +115,14 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <h1 className="text-2xl font-serif font-semibold text-white tracking-tight">{cfg.title}</h1>
-              <p className="text-zinc-500 text-xs mt-1 font-medium">{cfg.subtitle}</p>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>{cfg.title}</h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{cfg.subtitle}</p>
             </motion.div>
           </AnimatePresence>
         </div>
 
         {/* Card */}
-        <div className="bg-[#0A0A0C]/80 border border-zinc-800/80 rounded-3xl p-6 backdrop-blur-xl shadow-[0_0_80px_rgba(0,0,0,0.5)]">
+        <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}>
 
           {/* Google OAuth Button */}
           {mode !== 'forgot' && (
@@ -139,10 +131,11 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               whileTap={{ scale: 0.97 }}
               onClick={handleGoogleAuth}
               disabled={googleLoading}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 text-zinc-900 font-semibold py-3.5 px-4 rounded-2xl transition-all duration-200 text-sm mb-4 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+              className="w-full flex items-center justify-center gap-3 font-semibold py-3.5 px-4 rounded-xl transition-all duration-200 text-sm mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
             >
               {googleLoading ? (
-                <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-default)', borderTopColor: 'var(--text-primary)' }} />
               ) : (
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -158,16 +151,16 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           {/* Divider */}
           {mode !== 'forgot' && (
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px bg-zinc-800" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">or continue with email</span>
-              <div className="flex-1 h-px bg-zinc-800" />
+              <div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>or use email</span>
+              <div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
             </div>
           )}
 
           {/* Email/Password Form */}
           <form onSubmit={handleEmailAuth} className="space-y-3">
             <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-[#C5A367] transition-colors" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors" style={{ color: 'var(--text-muted)' }} />
               <input
                 id="email-input"
                 type="email"
@@ -175,13 +168,13 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
                 required
-                className="w-full bg-zinc-900/70 border border-zinc-800 focus:border-[#C5A367]/50 focus:ring-1 focus:ring-[#C5A367]/20 rounded-xl pl-11 pr-4 py-3.5 text-sm text-zinc-200 placeholder:text-zinc-600 outline-none transition-all"
+                className="input-base pl-11"
               />
             </div>
 
             {mode !== 'forgot' && (
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-[#C5A367] transition-colors" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors" style={{ color: 'var(--text-muted)' }} />
                 <input
                   id="password-input"
                   type={showPassword ? 'text' : 'password'}
@@ -190,12 +183,13 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   placeholder={mode === 'register' ? 'Create a strong password' : 'Your password'}
                   required
                   minLength={6}
-                  className="w-full bg-zinc-900/70 border border-zinc-800 focus:border-[#C5A367]/50 focus:ring-1 focus:ring-[#C5A367]/20 rounded-xl pl-11 pr-12 py-3.5 text-sm text-zinc-200 placeholder:text-zinc-600 outline-none transition-all"
+                  className="input-base pl-11 pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -209,7 +203,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-xs text-red-400 font-medium"
+                  className="rounded-xl px-4 py-3 text-xs font-medium"
+                  style={{ background: 'var(--danger-muted)', color: 'var(--danger)', border: '1px solid var(--danger-muted)' }}
                 >
                   {error}
                 </motion.div>
@@ -219,7 +214,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3 text-xs text-green-400 font-medium"
+                  className="rounded-xl px-4 py-3 text-xs font-medium"
+                  style={{ background: 'var(--success-muted)', color: 'var(--success)', border: '1px solid var(--success-muted)' }}
                 >
                   {message}
                 </motion.div>
@@ -232,7 +228,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 <button
                   type="button"
                   onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}
-                  className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:text-[#C5A367] transition-colors"
+                  className="text-xs font-medium transition-colors hover:opacity-70"
+                  style={{ color: 'var(--text-muted)' }}
                 >
                   Forgot password?
                 </button>
@@ -245,10 +242,10 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               type="submit"
               whileTap={{ scale: 0.97 }}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A367] to-[#B8860B] hover:from-[#D4AF37] hover:to-[#C5A367] text-[#0A0A0C] font-bold py-3.5 rounded-2xl transition-all duration-200 text-sm shadow-[0_0_30px_rgba(197,163,103,0.25)] disabled:opacity-60 disabled:cursor-not-allowed mt-1"
+              className="btn-primary w-full mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <div className="w-4 h-4 border-2 border-[#0A0A0C]/30 border-t-[#0A0A0C] rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
               ) : (
                 <>
                   {cfg.cta}
@@ -261,24 +258,26 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           {/* Mode switchers */}
           <div className="mt-5 text-center space-y-2">
             {mode === 'login' && (
-              <p className="text-xs text-zinc-600">
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 No account?{' '}
                 <button
                   id="switch-to-register"
                   onClick={() => { setMode('register'); setError(''); setMessage(''); }}
-                  className="text-[#C5A367] font-semibold hover:text-[#D4AF37] transition-colors"
+                  className="font-semibold transition-colors hover:opacity-80"
+                  style={{ color: 'var(--accent)' }}
                 >
                   Create one free
                 </button>
               </p>
             )}
             {mode === 'register' && (
-              <p className="text-xs text-zinc-600">
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 Already have an account?{' '}
                 <button
                   id="switch-to-login"
                   onClick={() => { setMode('login'); setError(''); setMessage(''); }}
-                  className="text-[#C5A367] font-semibold hover:text-[#D4AF37] transition-colors"
+                  className="font-semibold transition-colors hover:opacity-80"
+                  style={{ color: 'var(--accent)' }}
                 >
                   Sign in
                 </button>
@@ -287,7 +286,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             {mode === 'forgot' && (
               <button
                 onClick={() => { setMode('login'); setError(''); setMessage(''); }}
-                className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors flex items-center gap-1 mx-auto"
+                className="text-xs transition-colors flex items-center gap-1 mx-auto hover:opacity-80"
+                style={{ color: 'var(--text-muted)' }}
               >
                 ← Back to sign in
               </button>
@@ -302,17 +302,17 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             { icon: Zap, label: 'Instant' },
             { icon: Globe, label: 'Nationwide' },
           ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-1.5 text-zinc-700">
+            <div key={label} className="flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
               <Icon className="w-3 h-3" />
-              <span className="text-[9px] font-bold uppercase tracking-widest">{label}</span>
+              <span className="text-[10px] font-semibold">{label}</span>
             </div>
           ))}
         </div>
 
-        <p className="text-center text-[9px] text-zinc-700 mt-3 font-medium">
+        <p className="text-center text-[10px] mt-3" style={{ color: 'var(--text-muted)' }}>
           By continuing, you agree to NADI's{' '}
-          <span className="text-zinc-600 underline cursor-pointer">Terms</span> and{' '}
-          <span className="text-zinc-600 underline cursor-pointer">Privacy Policy</span>
+          <span className="underline cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Terms</span> and{' '}
+          <span className="underline cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Privacy Policy</span>
         </p>
       </motion.div>
     </div>

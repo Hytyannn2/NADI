@@ -111,7 +111,7 @@ export default function NiagaView() {
                                     { key: 'seller', placeholder: 'e.g. Your name / business', label: t('niaga.seller') },
                                     { key: 'item', placeholder: 'e.g. Fresh Siakap 50kg', label: t('niaga.item') },
                                     { key: 'price', placeholder: 'e.g. RM 25/kg', label: t('niaga.price') },
-                                    { key: 'location', placeholder: 'e.g. Kota Bharu, Kelantan', label: t('niaga.location') },
+                                    { key: 'location', placeholder: 'e.g. Bangi, Selangor', label: t('niaga.location') },
                                 ].map(f => (
                                     <div key={f.key}>
                                         <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>

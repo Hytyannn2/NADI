@@ -38,10 +38,24 @@ export async function GET(request: NextRequest) {
                 model: 'llama-3.3-70b-versatile',
                 messages: [{
                     role: 'system',
-                    content: `You are a Malaysian government aid database. Return ONLY valid JSON array of real, currently active aid programs available in or near "${locationName}", Malaysia. Include national programs available everywhere plus local programs. Each item must have: id (string), name (string), provider (string - the actual government body/NGO), type ("government"|"ngo"|"zakat"|"community"), description (string - 1 sentence with amounts if applicable), eligibility (string), status ("active"|"upcoming"|"closed"), location (string), deadline (string or null). Return 6-10 programs. ONLY respond with the JSON array, no markdown, no explanation.`
+                    content: `You are a Malaysian government aid database. The current year is 2026. Return ONLY valid JSON array of CURRENTLY ACTIVE aid programs available in or near "${locationName}", Malaysia. Do NOT include any expired programs from 2024 or 2025. Include only programs with 2026 deadlines or ongoing programs. Include national programs available everywhere plus local programs. Each item must have: id (string), name (string), provider (string - the actual government body/NGO), type ("government"|"ngo"|"zakat"|"community"), description (string - 1 sentence with amounts if applicable), eligibility (string), status ("active"|"upcoming"), location (string), deadline (string with 2026 dates or "Ongoing" or null), url (string).
+
+CRITICAL - Use these EXACT URLs for known programs:
+- STR/Sumbangan Tunai Rakyat: "https://str.hasil.gov.my"
+- BKM/Bantuan Keluarga Malaysia: "https://bfrm.hasil.gov.my"  
+- eKasih: "https://ekasih.icu.gov.my"
+- Zakat Selangor: "https://www.zakatselangor.com.my/permohonan-bantuan/"
+- Zakat MAIWP/KL: "https://www.maiwp.gov.my/i/index.php/perkhidmatan-kami/agihan-zakat"
+- JKM/Jabatan Kebajikan: "https://www.jkm.gov.my/jkm/index.php"
+- PTPTN: "https://www.ptptn.gov.my"
+- MySTEP: "https://mystep.mohr.gov.my"
+- EPF i-Saraan: "https://www.kwsp.gov.my/ms/ahli/caruman/i-saraan"
+- Bantuan Sara Hidup: "https://bfrm.hasil.gov.my"
+For state-level programs, use the relevant state government or zakat website. 
+Return 6-10 programs. ONLY respond with the JSON array, no markdown, no explanation.`
                 }, {
                     role: 'user',
-                    content: `List current real Malaysian aid programs available for residents near ${locationName} (coordinates: ${lat}, ${lng}). Include STR/BSH/BKM/IPT aid, zakat distributions, flood relief, education aid, and any local programs. Use real program names and real provider names.`
+                    content: `List current 2026 Malaysian aid programs for residents near ${locationName} (${lat}, ${lng}). Include STR, BKM, zakat, education aid, and local programs. Use the SPECIFIC URLs I provided above for known programs. All dates must be 2026 or Ongoing.`
                 }],
                 temperature: 0.3,
                 max_tokens: 2000,

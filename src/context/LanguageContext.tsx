@@ -82,7 +82,7 @@ const translations: Record<LangCode, Record<string, string>> = {
     'bencana.ai_priority': 'AI Menetapkan Keutamaan...',
     'bencana.active_route': 'Laluan Aktif',
     'bencana.standby': 'Sedia',
-    'bencana.map_info': 'Peta GPS langsung aktif. Kawasan Kelantan.',
+    'bencana.map_info': 'Peta GPS langsung aktif.',
     'bencana.priority': 'Keutamaan',
   },
   en: {
@@ -150,7 +150,7 @@ const translations: Record<LangCode, Record<string, string>> = {
     'bencana.ai_priority': 'AI Assigning Priority...',
     'bencana.active_route': 'Active Route',
     'bencana.standby': 'Standby',
-    'bencana.map_info': 'Live GPS mapping active. Kelantan area.',
+    'bencana.map_info': 'Live GPS mapping active.',
     'bencana.priority': 'Priority',
   },
   zh: {
@@ -218,7 +218,7 @@ const translations: Record<LangCode, Record<string, string>> = {
     'bencana.ai_priority': 'AI分配优先级...',
     'bencana.active_route': '活跃路线',
     'bencana.standby': '待命',
-    'bencana.map_info': '实时GPS地图已激活。吉兰丹地区。',
+    'bencana.map_info': '实时GPS地图已激活。',
     'bencana.priority': '优先级',
   },
   ta: {
@@ -286,7 +286,7 @@ const translations: Record<LangCode, Record<string, string>> = {
     'bencana.ai_priority': 'AI முன்னுரிமை அமைக்கிறது...',
     'bencana.active_route': 'செயலில் வழி',
     'bencana.standby': 'தயார்நிலை',
-    'bencana.map_info': 'நேரடி GPS வரைபடம் செயலில். கிளாந்தன் பகுதி.',
+    'bencana.map_info': 'நேரடி GPS வரைபடம் செயலில்.',
     'bencana.priority': 'முன்னுரிமை',
   },
   ar: {
@@ -354,7 +354,7 @@ const translations: Record<LangCode, Record<string, string>> = {
     'bencana.ai_priority': 'AI يحدد الأولوية...',
     'bencana.active_route': 'المسار النشط',
     'bencana.standby': 'استعداد',
-    'bencana.map_info': 'خريطة GPS مباشرة نشطة. منطقة كلنتن.',
+    'bencana.map_info': 'خريطة GPS مباشرة نشطة.',
     'bencana.priority': 'الأولوية',
   },
 };

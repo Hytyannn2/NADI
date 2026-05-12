@@ -18,7 +18,7 @@ interface VolunteerJob {
 
 export default function BencanaView() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState<'map' | 'volunteer'>('map');
+    const [activeTab, setActiveTab] = useState<'map'>('map');
     const [jobs, setJobs] = useState<VolunteerJob[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showJobForm, setShowJobForm] = useState(false);
@@ -26,8 +26,9 @@ export default function BencanaView() {
     const [form, setForm] = useState({ name: '', req: '', dist: '', area: '' });
     const [chatJobName, setChatJobName] = useState<string | null>(null);
     const [showDashboard, setShowDashboard] = useState(false);
-    const [userLat, setUserLat] = useState(6.1254); // Default: Kota Bharu, Kelantan
-    const [userLng, setUserLng] = useState(102.2381);
+    const [userLat, setUserLat] = useState(2.9181); // Default: UKM Bangi
+    const [userLng, setUserLng] = useState(101.7712);
+    const [locationLabel, setLocationLabel] = useState('Bangi, Selangor');
 
     // LoRaWAN sensor status — read-only, not user-controlled
     // Will connect to real LoRaWAN gateway in future
@@ -52,10 +53,6 @@ export default function BencanaView() {
         }
     };
 
-    useEffect(() => {
-        if (activeTab === 'volunteer') fetchJobs();
-    }, [activeTab]);
-
     // Real-time geolocation tracking
     useEffect(() => {
         let watchId: number | null = null;
@@ -65,8 +62,13 @@ export default function BencanaView() {
                 (pos) => {
                     setUserLat(pos.coords.latitude);
                     setUserLng(pos.coords.longitude);
+                    // Reverse geocode to get real location name
+                    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&zoom=12`, { headers: { 'User-Agent': 'NADI/1.0' } })
+                        .then(r => r.json())
+                        .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Your area'); })
+                        .catch(() => {});
                 },
-                () => { /* keep Kota Bharu defaults */ },
+                () => { /* keep Bangi defaults */ },
                 { enableHighAccuracy: true }
             );
             // Watch for continuous updates
@@ -252,29 +254,15 @@ export default function BencanaView() {
                 {chatJobName && <VolunteerChat jobName={chatJobName} onClose={() => setChatJobName(null)} />}
             </AnimatePresence>
 
-            {/* Internal Tabs */}
+            {/* Sensor Status */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="flex p-1.5 rounded-2xl mb-8 border backdrop-blur-md bg-[#0A0A0C]/80 border-zinc-800/80 shadow-inner"
+                className="flex items-center gap-3 p-4 rounded-2xl mb-6"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-sm)' }}
             >
-                <button
-                    onClick={() => setActiveTab('map')}
-                    className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-all ${activeTab === 'map'
-                            ? 'bg-zinc-800 text-[#FAFAFA] shadow-md border border-zinc-700'
-                            : 'text-zinc-600 hover:text-zinc-400'
-                        }`}
-                >
-                    {t('bencana.evacuation')}
-                </button>
-                <button
-                    onClick={() => setActiveTab('volunteer')}
-                    className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-all ${activeTab === 'volunteer'
-                            ? 'bg-zinc-800 text-[#FAFAFA] shadow-md border border-zinc-700'
-                            : 'text-zinc-600 hover:text-zinc-400'
-                        }`}
-                >
-                    {t('bencana.volunteer')}
-                </button>
+                <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{t('bencana.evacuation')}</span>
+                <span className="ml-auto text-[10px] font-medium px-2.5 py-1 rounded-lg" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>{t('bencana.standby')}</span>
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -285,8 +273,8 @@ export default function BencanaView() {
                             initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}
                             className="space-y-6"
                         >
-                            {/* Live Map — Kelantan */}
-                            <div className="w-full h-72 rounded-3xl relative overflow-hidden border-2 shadow-2xl bg-[#121214] border-[#10B981]/20" style={{ boxShadow: '0 0 30px rgba(16,185,129,0.05)' }}>
+                            {/* Live Map — Dynamic Location */}
+                            <div className="w-full h-72 rounded-3xl relative overflow-hidden border-2 shadow-2xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', boxShadow: 'var(--shadow-lg)' }}>
                                 <iframe
                                     title="NADI Bencana Map"
                                     src={`https://www.openstreetmap.org/export/embed.html?bbox=${(userLng - 0.08).toFixed(4)}%2C${(userLat - 0.06).toFixed(4)}%2C${(userLng + 0.08).toFixed(4)}%2C${(userLat + 0.06).toFixed(4)}&layer=mapnik&marker=${userLat.toFixed(4)}%2C${userLng.toFixed(4)}`}
@@ -300,24 +288,21 @@ export default function BencanaView() {
                                         <div className="absolute inset-0 w-4 h-4 rounded-full bg-[#10B981] animate-ping opacity-40" />
                                     </div>
                                 </div>
-                                {/* Top label */}
-                                <div className="absolute top-3 left-3 right-3 z-20 flex justify-between items-center pointer-events-none">
-                                    <div className="flex items-center gap-2 bg-[#0A0A0C]/85 backdrop-blur-md px-3 py-2 rounded-xl border border-zinc-700/50">
+                                {/* Top label — positioned to NOT block OSM +/- controls */}
+                                <div className="absolute top-3 left-3 z-20 pointer-events-none">
+                                    <div className="flex items-center gap-2 backdrop-blur-md px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.85)', border: '1px solid var(--border-default)' }}>
                                         <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-                                        <span className="text-[9px] font-bold uppercase tracking-widest text-[#10B981]">LIVE GPS</span>
-                                    </div>
-                                    <div className="bg-[#0A0A0C]/85 backdrop-blur-md px-3 py-2 rounded-xl border border-[#C5A367]/20">
-                                        <span className="text-[9px] font-bold text-[#C5A367]">{t('bencana.standby')}</span>
+                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--success)' }}>Live GPS</span>
                                     </div>
                                 </div>
                                 {/* Bottom overlay */}
                                 <div className="absolute bottom-0 inset-x-0 pointer-events-none z-20">
-                                    <div className="bg-gradient-to-t from-[#0A0A0C] via-[#0A0A0C]/90 to-transparent pt-10 pb-4 px-4">
+                                    <div className="pt-10 pb-4 px-4" style={{ background: 'linear-gradient(to top, var(--bg-card) 40%, transparent)' }}>
                                         <div className="flex items-center gap-3 mb-2">
-                                            <Navigation className="w-5 h-5 text-[#C5A367] shrink-0" />
+                                            <Navigation className="w-5 h-5 shrink-0" style={{ color: 'var(--accent)' }} />
                                             <div>
-                                                <p className="text-sm font-serif font-semibold text-white leading-tight">{t('bencana.map_info')}</p>
-                                                <p className="text-[10px] font-mono text-[#10B981] mt-1">📍 {userLat.toFixed(4)}°N, {userLng.toFixed(4)}°E</p>
+                                                <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>GPS active · {locationLabel}</p>
+                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>📍 {userLat.toFixed(4)}°N, {userLng.toFixed(4)}°E</p>
                                             </div>
                                         </div>
                                     </div>

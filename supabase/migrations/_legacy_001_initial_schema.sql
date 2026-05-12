@@ -1,10 +1,4 @@
--- ============================================
--- NADI CIVIC OS — SUPABASE DATABASE SCHEMA
--- Kelantan State Civic Platform
--- ============================================
--- Run this in: Supabase Dashboard → SQL Editor
 
--- Enable UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================

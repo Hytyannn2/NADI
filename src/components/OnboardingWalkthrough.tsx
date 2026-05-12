@@ -1,18 +1,18 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Activity, AlertTriangle, Wallet, Store, ChevronRight, X, Sparkles } from 'lucide-react';
+import { Mic, Activity, AlertTriangle, Wallet, Store, ChevronRight, X, Sparkles, Heart } from 'lucide-react';
 
 const STEPS = [
     {
         title: 'Welcome to NADI 🇲🇾',
-        description: 'Your all-in-one civic operations system. Report issues, join volunteer efforts, trade local goods, and earn rewards — all from one app.',
+        description: 'Your all-in-one civic operations system. Report issues, find aid, volunteer, trade local goods, and earn rewards — all from one app.',
         icon: Sparkles,
         highlight: 'Let\'s take a quick tour!',
     },
     {
         title: 'Nadi-Pass & Sivik',
-        description: 'Your digital wallet for transit, parking, and civic rewards. Scan QR codes to ride, earn CO₂ savings, and build your trust score.',
+        description: 'Your digital wallet for transit and civic rewards. Scan QR codes to ride, track CO₂ savings, view your leaderboard rank, and build your civic reputation.',
         icon: Wallet,
         highlight: 'Tap the Nadi-Pass tab to access your wallet.',
     },
@@ -24,7 +24,7 @@ const STEPS = [
     },
     {
         title: 'Infra & Bencana',
-        description: 'Detect potholes while driving (real accelerometer data), monitor flood sensors in real-time, and coordinate with volunteers during disasters.',
+        description: 'Detect potholes while driving (real accelerometer data) and monitor flood sensors in real-time. Bencana shows a live GPS map of your area with disaster readiness status.',
         icon: Activity,
         highlight: 'Your phone becomes a civic sensor.',
     },
@@ -33,6 +33,12 @@ const STEPS = [
         description: 'Connect directly with local producers. Post and discover fresh supplies — seafood, produce, poultry — all AI-verified for trust.',
         icon: Store,
         highlight: 'Support your local economy.',
+    },
+    {
+        title: 'Bantuan — Aid & Volunteer',
+        description: 'Find active government aid programs near you with direct links to apply. Browse real volunteer opportunities across Malaysia from NGOs like Mercy Malaysia, WWF, and Red Crescent.',
+        icon: Heart,
+        highlight: 'Click any card to visit the source directly.',
     },
 ];
 

@@ -216,7 +216,7 @@ export default function InfraView() {
     };
 
     return (
-        <div className="p-6 h-full flex flex-col relative z-0">
+        <div className="p-5 h-full flex flex-col relative z-0" style={{ background: 'var(--bg-base)' }}>
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
 
             <motion.div
@@ -224,25 +224,26 @@ export default function InfraView() {
                 className="mb-6 flex justify-between items-end"
             >
                 <div>
-                    <h2 className="text-3xl font-serif text-white tracking-tight">NADI Infra</h2>
-                    <p className="text-[10px] uppercase font-bold tracking-widest text-[#C5A367] mt-1 relative inline-block">
-                        AI TELEMETRY [Z-AXIS + VISION]
+                    <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>NADI Infra</h2>
+                    <p className="text-xs font-medium mt-1 relative inline-block" style={{ color: 'var(--text-muted)' }}>
+                        Road sensor & AI detection
                         {isDriving && <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
                     </p>
                     {isDriving && (
-                        <p className="text-[9px] font-mono text-zinc-600 mt-1">{userLat}°N {userLng}°E</p>
+                        <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--text-muted)' }}>{userLat}°N {userLng}°E</p>
                     )}
                 </div>
                 <button
                     onClick={() => setIsDriving(!isDriving)}
-                    className={`shrink-0 px-4 py-3 flex items-center justify-center gap-2 rounded-xl transition-all shadow-lg text-[10px] uppercase font-bold tracking-widest border focus:outline-none active:scale-95 ${isDriving ? 'bg-[#1a0505] text-red-400 shadow-[0_0_20px_rgba(220,38,38,0.2)] border-red-900/50' : 'bg-[#121214] border-zinc-800 text-zinc-300 hover:bg-zinc-800/80'}`}
+                    className={`shrink-0 px-4 py-3 flex items-center justify-center gap-2 rounded-xl transition-all text-xs font-bold border focus:outline-none active:scale-95 ${isDriving ? 'bg-red-50 text-red-600 border-red-200' : ''}`}
+                    style={!isDriving ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
                 >
-                    <Car className={`w-4 h-4 ${isDriving ? 'animate-bounce text-red-500' : 'text-zinc-500'}`} />
-                    {isDriving ? 'ACTIVE' : 'START DRIVE'}
+                    <Car className={`w-4 h-4 ${isDriving ? 'animate-bounce text-red-500' : ''}`} style={!isDriving ? { color: 'var(--text-muted)' } : {}} />
+                    {isDriving ? 'Active' : 'Start Drive'}
                 </button>
             </motion.div>
             {motionError && (
-                <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl px-4 py-3 mb-4 text-[10px] text-orange-400 font-bold uppercase tracking-widest">
+                <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
                     ⚠ {motionError}
                 </div>
             )}
@@ -251,16 +252,16 @@ export default function InfraView() {
             {weather && (
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
-                    className="bg-[#0A0A0C] border border-zinc-800/80 rounded-2xl p-4 mb-6 shadow-lg"
+                    className="rounded-2xl p-4 mb-5 shadow-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="bg-blue-500/10 p-2 rounded-xl border border-blue-500/20">
-                                <Cloud className="w-4 h-4 text-blue-400" />
+                            <div className="p-2 rounded-xl" style={{ background: 'var(--accent-light)' }}>
+                                <Cloud className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                             </div>
                             <div>
-                                <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500">Live Weather</span>
-                                <p className="text-sm font-medium text-zinc-200">{weather.condition} · {weather.temp}°C</p>
+                                <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Live Weather</span>
+                                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{weather.condition} · {weather.temp}°C</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
