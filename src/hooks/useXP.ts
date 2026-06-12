@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { createClient } from '@/src/lib/supabase/client';
+import { useAuth } from '@/src/context/AuthContext';
 
 const XP_PER_LEVEL = 200;
 
@@ -9,47 +11,39 @@ export function useXP() {
   const [streak, setStreak] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('nadi_user');
-      if (saved) {
-        const data = JSON.parse(saved);
-        setXp(data.xp || 0);
-        setLevel(data.level || 1);
-        const lastDate = data.lastActive ? new Date(data.lastActive).toDateString() : '';
-        const today = new Date().toDateString();
-        const yesterday = new Date(Date.now() - 86400000).toDateString();
-        if (lastDate === today) {
-          setStreak(data.streak || 0);
-        } else if (lastDate === yesterday) {
-          const ns = (data.streak || 0) + 1;
-          setStreak(ns);
-          localStorage.setItem('nadi_user', JSON.stringify({ ...data, streak: ns, lastActive: new Date().toISOString() }));
-        } else {
-          setStreak(1);
-          localStorage.setItem('nadi_user', JSON.stringify({ ...data, streak: 1, lastActive: new Date().toISOString() }));
-        }
-      } else {
-        const init = { xp: 0, level: 1, streak: 1, lastActive: new Date().toISOString() };
-        localStorage.setItem('nadi_user', JSON.stringify(init));
-        setXp(0); setStreak(1);
-      }
-    } catch { /* ignore */ }
-  }, []);
+  const { user } = useAuth();
+  const supabase = createClient();
 
-  const addXp = (amount: number) => {
+  useEffect(() => {
+    if (!user) return;
+    const loadXP = async () => {
+      const { data } = await supabase.from('nadi_profiles').select('xp, streak, created_at').eq('id', user.id).single();
+      if (data) {
+        setXp(data.xp || 0);
+        setStreak(data.streak || 0);
+        // Level is purely derived from total XP in this new architecture
+        setLevel(Math.floor((data.xp || 0) / XP_PER_LEVEL) + 1);
+      }
+    };
+    loadXP();
+  }, [user]);
+
+  const addXp = async (amount: number) => {
+    if (!user) return;
     setXp(prev => {
       const next = prev + amount;
-      if (next >= XP_PER_LEVEL) {
-        const newLevel = level + 1;
-        setLevel(newLevel);
+      const currentLevel = Math.floor(prev / XP_PER_LEVEL) + 1;
+      const nextLevel = Math.floor(next / XP_PER_LEVEL) + 1;
+      
+      if (nextLevel > currentLevel) {
+        setLevel(nextLevel);
         setShowLevelUp(true);
         setTimeout(() => setShowLevelUp(false), 3000);
-        const remainder = next - XP_PER_LEVEL;
-        try { localStorage.setItem('nadi_user', JSON.stringify({ xp: remainder, level: newLevel, streak, lastActive: new Date().toISOString() })); } catch { }
-        return remainder;
       }
-      try { localStorage.setItem('nadi_user', JSON.stringify({ xp: next, level, streak, lastActive: new Date().toISOString() })); } catch { }
+      
+      // Update DB
+      supabase.from('nadi_profiles').update({ xp: next }).eq('id', user.id).then();
+      
       return next;
     });
   };

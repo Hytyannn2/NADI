@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react';
 import { Send, ThumbsUp, Plus, X, Loader2, MessageSquare, Shield, AlertTriangle, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '@/src/context/AuthContext';
+import { useGame } from '@/src/context/GameContext';
+import { useXP } from '@/src/hooks/useXP';
 
 interface Post { id: string; content: string; author: string; type: string; timestamp: number; upvotes: number; }
 
@@ -15,8 +18,14 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
     // Whistle-blower
     const [wbCategory, setWbCategory] = useState('corruption');
     const [wbDesc, setWbDesc] = useState('');
+    const [wbLocation, setWbLocation] = useState('');
+    const [wbImage, setWbImage] = useState<string | null>(null);
     const [wbSubmitting, setWbSubmitting] = useState(false);
     const [wbSuccess, setWbSuccess] = useState(false);
+
+    const { user } = useAuth();
+    const { incrementStat, completeQuest } = useGame();
+    const { addXp } = useXP();
 
     useEffect(() => {
         fetch('/api/community').then(r => r.json()).then(d => { if (d.success) setPosts(d.posts); }).catch(() => {}).finally(() => setLoading(false));
@@ -26,19 +35,63 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
         if (!content.trim() || posting) return;
         setPosting(true);
         try {
-            const res = await fetch('/api/community', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, type: 'general' }) });
+            const authorName = user?.user_metadata?.full_name || 'Anonymous Warga';
+            const res = await fetch('/api/community', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, type: 'general', author: authorName }) });
             const d = await res.json();
-            if (d.success) { setPosts(prev => [d.post, ...prev]); setContent(''); setShowCompose(false); }
+            if (d.success) { 
+                setPosts(prev => [d.post, ...prev]); 
+                setContent(''); 
+                setShowCompose(false); 
+                addXp(10);
+                incrementStat('communityPosts');
+                completeQuest('community');
+            }
         } catch {} finally { setPosting(false); }
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new window.Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1200;
+                let width = img.width;
+                let height = img.height;
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                // Export to JPEG. Canvas export completely drops EXIF metadata.
+                const scrubbedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                setWbImage(scrubbedBase64);
+            };
+            img.src = event.target?.result as string;
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleWhistle = async () => {
         if (!wbDesc.trim() || wbSubmitting) return;
         setWbSubmitting(true);
         try {
-            const res = await fetch('/api/whistleblower', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: wbCategory, description: wbDesc }) });
+            const res = await fetch('/api/whistleblower', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: wbCategory, description: wbDesc, location: wbLocation, image: wbImage }) });
             const d = await res.json();
-            if (d.success) { setWbSuccess(true); setWbDesc(''); setTimeout(() => setWbSuccess(false), 3000); }
+            if (d.success) { 
+                setWbSuccess(true); 
+                setWbDesc(''); 
+                setWbLocation('');
+                setWbImage(null);
+                setTimeout(() => setWbSuccess(false), 3000); 
+                addXp(30);
+                completeQuest('report');
+            }
         } catch {} finally { setWbSubmitting(false); }
     };
 
@@ -148,7 +201,24 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
                             <div>
                                 <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Description</label>
                                 <textarea value={wbDesc} onChange={e => setWbDesc(e.target.value)} rows={4} placeholder="Describe the incident in detail..."
-                                    className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none resize-none" />
+                                    className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none resize-none mb-4" />
+                                    
+                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">General Location (Optional)</label>
+                                <input value={wbLocation} onChange={e => setWbLocation(e.target.value)} placeholder="e.g. Behind SMK Kota Bharu"
+                                    className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none mb-4" />
+                                    
+                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Evidence Photo (Optional - EXIF Scrubbed)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload}
+                                    className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-400 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:uppercase file:tracking-widest file:bg-zinc-800 file:text-white hover:file:bg-zinc-700" />
+                                {wbImage && (
+                                    <div className="mt-3 relative rounded-xl overflow-hidden border border-zinc-800">
+                                        <img src={wbImage} alt="Scrubbed evidence" className="w-full h-auto" />
+                                        <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-[8px] text-[#10B981] font-bold uppercase tracking-widest flex items-center gap-1">
+                                            <Shield className="w-3 h-3" /> EXIF Scrubbed
+                                        </div>
+                                        <button onClick={() => setWbImage(null)} className="absolute top-2 left-2 bg-black/60 p-1.5 rounded-full text-white hover:bg-red-500/80 transition-colors"><X className="w-3 h-3" /></button>
+                                    </div>
+                                )}
                             </div>
                             <button onClick={handleWhistle} disabled={wbSubmitting || !wbDesc.trim()}
                                 className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-40 flex items-center justify-center gap-2"

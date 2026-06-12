@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, Loader2, Sparkles, MapPin, ThumbsUp, ThumbsDown, Mic, MicOff, Languages, ChevronDown, Check, ShieldAlert } from 'lucide-react';
+import { Send, Bot, Loader2, Sparkles, MapPin, ThumbsUp, ThumbsDown, Mic, MicOff, Languages, ChevronDown, Check, ShieldAlert, X, Trash2, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAntiSpam } from '../hooks/useAntiSpam';
 
@@ -11,6 +11,12 @@ export default function SuaraView() {
     const [isListening, setIsListening] = useState(false);
     const [targetLanguage, setTargetLanguage] = useState('English');
     const [showLangMenu, setShowLangMenu] = useState(false);
+
+    // Dialect correction modal state
+    const [correctionTarget, setCorrectionTarget] = useState<any>(null);
+    const [dialectInput, setDialectInput] = useState('');
+    const [meaningInput, setMeaningInput] = useState('');
+    const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
 
     // Anti-spam: 5 requests per 60 seconds, 2 minute cooldown
     const spam = useAntiSpam({
@@ -89,21 +95,40 @@ export default function SuaraView() {
         setReports(prev => prev.filter(r => r.id !== id));
     };
 
-    const getMapPos = (coords: { lat: number, lng: number }) => {
-        if (!coords) return { left: '50%', top: '50%' };
-        // Malaysia bounds roughly
-        const latMin = 1.0, latMax = 7.4;
-        const lngMin = 99.0, lngMax = 119.3;
-
-        let left = ((coords.lng - lngMin) / (lngMax - lngMin)) * 100;
-        let top = 100 - ((coords.lat - latMin) / (latMax - latMin)) * 100;
-
-        // Clamp
-        left = Math.max(10, Math.min(90, left));
-        top = Math.max(10, Math.min(90, top));
-
-        return { left: `${left}%`, top: `${top}%` };
+    const openCorrection = (report: any) => {
+        setCorrectionTarget(report);
+        setDialectInput(report.raw || '');
+        setMeaningInput('');
     };
+
+    const submitCorrection = async () => {
+        if (!dialectInput.trim() || !meaningInput.trim() || !correctionTarget) return;
+        setIsSubmittingCorrection(true);
+        try {
+            await fetch('/api/dialect/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dialectText: dialectInput.trim(),
+                    correctMeaning: meaningInput.trim(),
+                    region: correctionTarget.detectedDialect || 'unknown',
+                    rawVoice: correctionTarget.raw || '',
+                    reportId: correctionTarget.id,
+                }),
+            });
+            setReports(prev => prev.map(r =>
+                r.id === correctionTarget.id ? { ...r, rating: 'corrected' } : r
+            ));
+            setCorrectionTarget(null);
+        } catch (e) {
+            console.error('Correction failed', e);
+        } finally {
+            setIsSubmittingCorrection(false);
+        }
+    };
+
+
+
 
     const handleSubmit = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -151,8 +176,8 @@ export default function SuaraView() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="mb-10 text-center mt-4"
             >
-                <h2 className="text-3xl font-serif text-white mb-2 tracking-tight">Maklum Balas</h2>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[#C5A367]">
+                <h2 className="text-3xl font-serif mb-2 tracking-tight" style={{ color: 'var(--text-primary)' }}>Maklum Balas</h2>
+                <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color: 'var(--accent)' }}>
                     AI Dialect Parsing
                 </p>
             </motion.div>
@@ -162,20 +187,22 @@ export default function SuaraView() {
                 {/* Helper prompt graphic */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-                    className="bg-[#121214]/60 border border-zinc-800/80 shadow-[0_0_30px_rgba(197,163,103,0.05)] backdrop-blur-xl rounded-[2rem] p-6 text-center max-w-[280px] w-full mb-8 relative"
+                    className="backdrop-blur-xl rounded-[2rem] p-6 text-center max-w-[280px] w-full mb-8 relative"
+                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-md)' }}
                 >
-                    <div className="absolute -top-4 -left-4 bg-gradient-to-br from-[#D4AF37] to-[#B8860B] text-[#0A0A0C] p-2.5 rounded-full shadow-lg shadow-[#D4AF37]/20 border border-[#E8C34B]/50">
+                    <div className="absolute -top-4 -left-4 p-2.5 rounded-full" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
                         <Sparkles className="w-4 h-4" />
                     </div>
-                    <p className="text-zinc-200 font-serif text-lg italic leading-tight">
+                    <p className="font-serif text-lg italic leading-tight" style={{ color: 'var(--text-primary)' }}>
                         "Tangki rumah saya pecah..."
                     </p>
-                    <p className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367]/60 mt-5">Speak in local dialect</p>
+                    <p className="text-[9px] uppercase font-bold tracking-widest mt-5" style={{ color: 'var(--text-muted)' }}>Speak in local dialect</p>
                 </motion.div>
 
                 <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-                    className="flex items-center gap-2 mb-8 text-[10px] uppercase font-bold tracking-widest text-zinc-500 animate-pulse text-center"
+                    className="flex items-center gap-2 mb-8 text-[10px] uppercase font-bold tracking-widest animate-pulse text-center"
+                    style={{ color: 'var(--text-muted)' }}
                 >
                     <span>Tap the microphone below to report</span>
                 </motion.div>
@@ -184,7 +211,8 @@ export default function SuaraView() {
                 <div className="w-full max-w-xs mb-4 relative z-40">
                     <button
                         onClick={() => setShowLangMenu(!showLangMenu)}
-                        className="w-full bg-[#121214]/60 border border-zinc-800/80 backdrop-blur-xl px-4 py-2 rounded-xl flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-[#C5A367] transition-colors"
+                        className="w-full backdrop-blur-xl px-4 py-2 rounded-xl flex items-center justify-between text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
                     >
                         <div className="flex items-center gap-2">
                             <Languages className="w-3.5 h-3.5" />
@@ -197,7 +225,8 @@ export default function SuaraView() {
                         {showLangMenu && (
                             <motion.div
                                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                                className="absolute top-full left-0 right-0 mt-2 bg-[#121214] border border-zinc-800 rounded-xl overflow-hidden shadow-2xl"
+                                className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden"
+                                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}
                             >
                                 {languages.map((lang) => (
                                     <button
@@ -206,8 +235,8 @@ export default function SuaraView() {
                                             setTargetLanguage(lang);
                                             setShowLangMenu(false);
                                         }}
-                                        className={`w-full px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest flex items-center justify-between transition-colors ${targetLanguage === lang ? 'bg-[#C5A367]/10 text-[#C5A367]' : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
-                                            }`}
+                                        className="w-full px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest flex items-center justify-between transition-colors"
+                                        style={targetLanguage === lang ? { background: 'var(--accent-muted)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
                                     >
                                         {lang}
                                         {targetLanguage === lang && <Check className="w-3.5 h-3.5" />}
@@ -240,13 +269,14 @@ export default function SuaraView() {
                 <motion.form
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                     onSubmit={handleSubmit}
-                    className={`w-full relative rounded-2xl overflow-hidden bg-[#0A0A0C] shadow-2xl border transition-all z-20 ${spam.cooldownRemaining > 0 ? 'border-red-500/30 opacity-50 pointer-events-none' : 'border-zinc-800 focus-within:border-[#C5A367]/50 focus-within:ring-4 focus-within:ring-[#C5A367]/10'}`}
+                    className={`w-full relative rounded-2xl overflow-hidden shadow-2xl transition-all z-20 ${spam.cooldownRemaining > 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                 >
                     <button
                         type="button"
                         onClick={toggleListening}
-                        className={`absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'text-zinc-500 hover:bg-zinc-800/50'
-                            }`}
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : ''}`}
+                        style={!isListening ? { color: 'var(--text-muted)' } : {}}
                     >
                         {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                     </button>
@@ -255,16 +285,18 @@ export default function SuaraView() {
                         value={inputText}
                         onChange={e => setInputText(e.target.value)}
                         placeholder={isListening ? "Listening..." : (isProcessing ? "Analysing dialect..." : "Type or speak report...")}
-                        className={`w-full pl-14 px-6 py-5 pr-28 text-sm bg-transparent outline-none text-zinc-100 placeholder:text-zinc-600 font-medium transition-all ${isProcessing ? 'opacity-50' : 'opacity-100'}`}
+                        className={`w-full pl-14 px-6 py-5 pr-28 text-sm bg-transparent outline-none font-medium transition-all ${isProcessing ? 'opacity-50' : 'opacity-100'}`}
+                        style={{ color: 'var(--text-primary)' }}
                         disabled={isProcessing}
                     />
                     <div className="absolute right-14 top-1/2 -translate-y-1/2">
-                        {isProcessing && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><Loader2 className="w-4 h-4 animate-spin text-[#C5A367]/50" /></motion.div>}
+                        {isProcessing && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--accent)' }} /></motion.div>}
                     </div>
                     <button
                         type="submit"
                         disabled={isProcessing || !inputText.trim()}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 text-[#C5A367] hover:bg-[#C5A367]/10 rounded-xl disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl disabled:opacity-30 transition-colors"
+                        style={{ color: 'var(--accent)' }}
                     >
                         {isProcessing ? <Sparkles className="w-5 h-5 animate-pulse" /> : <Send className="w-5 h-5" />}
                     </button>
@@ -274,88 +306,117 @@ export default function SuaraView() {
             {reports.length > 0 && (
                 <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="mt-8 relative z-30 pb-10 border-t border-zinc-800/50 pt-6"
+                    className="mt-8 relative z-30 pb-10 pt-6"
+                    style={{ borderTop: '1px solid var(--border-default)' }}
                 >
-                    <h3 className="text-[10px] uppercase font-bold tracking-widest text-[#C5A367] mb-4 flex items-center gap-2">
-                        <Bot className="w-4 h-4" /> Parsed Intents
-                    </h3>
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+                            <ShieldAlert className="w-4 h-4" /> Live Community Feed
+                        </h3>
+                        <span className="text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-[#10B981]/10 text-[#10B981]">
+                            {reports.length} Updates
+                        </span>
+                    </div>
                     <div className="space-y-4">
                         {reports.map((report, i) => (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
                                 key={report.id}
-                                className="bg-[#121214] rounded-3xl p-6 border border-zinc-800/60 shadow-lg relative overflow-hidden"
+                                className="rounded-3xl p-6 shadow-lg relative overflow-hidden"
+                                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                             >
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A367]/5 rounded-full blur-3xl -z-10"></div>
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className={`px-4 py-1.5 text-[9px] font-bold rounded-full uppercase tracking-widest border flex items-center justify-center ${report.urgency === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -z-10" style={{ background: 'var(--accent-muted)' }}></div>
+                                
+                                {/* User Header */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-md" style={{ background: 'linear-gradient(135deg, var(--accent), #3B82F6)' }}>
+                                            R
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-1.5">
+                                                <h4 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Local Resident</h4>
+                                                <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center">
+                                                    <Check className="w-2 h-2 text-white" />
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                                                {report.timestamp ? new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-3 py-1 text-[9px] font-bold rounded-full uppercase tracking-widest border flex items-center justify-center ${report.urgency === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                                         report.urgency === 'Medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                                             'bg-[#C5A367]/10 text-[#C5A367] border-[#C5A367]/20'
                                         }`}>
                                         {report.urgency} Priority
                                     </span>
                                 </div>
-                                <h4 className="font-serif text-xl text-zinc-100 mb-4 leading-tight">"{report.intent}"</h4>
-                                <div className="flex text-[10px] uppercase font-bold tracking-widest text-zinc-500 border-t border-zinc-800/50 pt-4 mb-4">
-                                    <span className="flex items-center gap-1.5 text-zinc-300 bg-zinc-800/50 px-3 py-1.5 rounded-lg border border-zinc-700">
-                                        <MapPin className="w-3.5 h-3.5 text-[#C5A367]" /> {report.location}
+
+                                {/* Main Content */}
+                                <h4 className="font-serif text-lg mb-3 leading-snug" style={{ color: 'var(--text-primary)' }}>"{report.intent}"</h4>
+                                
+                                {/* Location Tag */}
+                                <div className="flex text-[10px] uppercase font-bold tracking-widest mb-4">
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-primary)', background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} /> {report.location}
                                     </span>
                                 </div>
 
-                                <div className="bg-[#0A0A0C] rounded-2xl p-4 border border-zinc-800/50 mb-4">
+                                {/* AI Translation Box */}
+                                <div className="rounded-2xl p-4 mb-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                     <div className="flex items-center gap-1.5 mb-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-[#C5A367] shadow-[0_0_5px_#C5A367]"></div>
-                                        <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">Standard Text ({targetLanguage})</span>
+                                        <Bot className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+                                        <span className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'var(--text-muted)' }}>AI Translation ({targetLanguage})</span>
                                     </div>
-                                    <p className="text-sm text-zinc-300 font-medium">{report.simplifiedTranslation}</p>
+                                    <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{report.simplifiedTranslation}</p>
                                 </div>
 
-                                {/* Map Visual Component */}
-                                <div className="relative w-full h-32 bg-[#050505] rounded-2xl border border-zinc-800 overflow-hidden mb-6 group">
-                                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-                                    {/* Grid Lines */}
-                                    <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, #222 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-
-                                    <motion.div
-                                        initial={{ scale: 0 }} animate={{ scale: 1 }}
-                                        className="absolute"
-                                        style={getMapPos(report.coordinates)}
-                                    >
-                                        <div className="relative">
-                                            <div className="absolute -inset-4 bg-[#C5A367]/20 rounded-full animate-ping"></div>
-                                            <div className="absolute -inset-2 bg-[#C5A367]/30 rounded-full animate-pulse"></div>
-                                            <MapPin className="w-6 h-6 text-[#C5A367] drop-shadow-[0_0_10px_#C5A367]" />
-                                        </div>
-                                    </motion.div>
-
-                                    <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/5 text-[8px] font-bold uppercase tracking-widest text-zinc-400">
-                                        GPS: {report.coordinates?.lat?.toFixed(4)}, {report.coordinates?.lng?.toFixed(4)}
+                                {/* GPS Chip (replaces fake map) */}
+                                {report.coordinates && (
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
+                                            <MapPin className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+                                            GPS: {report.coordinates?.lat?.toFixed(4)}, {report.coordinates?.lng?.toFixed(4)}
+                                        </span>
+                                        {report.detectedDialect && report.detectedDialect !== 'unknown' && report.detectedDialect !== 'standard' && (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                                                <BookOpen className="w-3 h-3" />
+                                                {report.detectedDialect}
+                                            </span>
+                                        )}
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Feedback Mechanism */}
-                                <div className="flex items-center justify-between border-t border-zinc-800/50 pt-4">
-                                    <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500">Rate accuracy</span>
+                                <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
+                                    <span className="text-[9px] uppercase font-bold tracking-widest" style={{ color: report.rating === 'corrected' ? 'var(--success)' : 'var(--text-muted)' }}>
+                                        {report.rating === 'corrected' ? '✓ Corrected — Terima kasih!' : report.rating === 'up' ? '✓ Accurate' : 'Rate accuracy'}
+                                    </span>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => handleRate(report.id, 'up')}
-                                            className={`p-2 rounded-lg border transition-all ${report.rating === 'up' ? 'bg-[#10B981]/20 border-[#10B981]/40 text-[#10B981]' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                                                }`}
+                                            className={`p-2 rounded-lg border transition-all ${report.rating === 'up' ? 'bg-[#10B981]/20 border-[#10B981]/40 text-[#10B981]' : ''}`}
+                                            style={report.rating !== 'up' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : {}}
+                                            title="AI got it right"
                                         >
                                             <ThumbsUp className="w-3.5 h-3.5" />
                                         </button>
                                         <button
-                                            onClick={() => handleRate(report.id, 'down')}
-                                            className={`p-2 rounded-lg border transition-all ${report.rating === 'down' ? 'bg-red-500/20 border-red-500/40 text-red-500' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                                                }`}
+                                            onClick={() => openCorrection(report)}
+                                            className={`p-2 rounded-lg border transition-all ${report.rating === 'down' || report.rating === 'corrected' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' : ''}`}
+                                            style={report.rating !== 'down' && report.rating !== 'corrected' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : {}}
+                                            title="AI got it wrong — teach it"
                                         >
                                             <ThumbsDown className="w-3.5 h-3.5" />
                                         </button>
                                         <button
                                             onClick={() => handleRemoveReport(report.id)}
-                                            className="p-2 rounded-lg border border-zinc-800 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all ml-2"
+                                            className="p-2 rounded-lg border transition-all hover:text-red-400 hover:bg-red-500/10 ml-1"
+                                            style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
+                                            title="Delete this report"
                                         >
-                                            <Bot className="w-3.5 h-3.5" />
+                                            <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
@@ -364,6 +425,79 @@ export default function SuaraView() {
                     </div>
                 </motion.div>
             )}
+
+            {/* ===== Dialect Correction Modal ===== */}
+            <AnimatePresence>
+                {correctionTarget && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm"
+                        onClick={() => setCorrectionTarget(null)}
+                    >
+                        <motion.div
+                            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            className="w-full max-w-md rounded-t-3xl p-6 pb-10"
+                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-5">
+                                <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Teach NADI</h3>
+                                <button onClick={() => setCorrectionTarget(null)} className="p-2 rounded-xl" style={{ color: 'var(--text-muted)' }}>
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                                Help us understand your dialect better! Write what you said and what it means.
+                            </p>
+
+                            {/* What AI heard */}
+                            <div className="rounded-xl p-3 mb-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                <p className="text-[9px] uppercase font-bold tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>AI heard</p>
+                                <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>"{correctionTarget.raw}"</p>
+                            </div>
+
+                            {/* Dialect input */}
+                            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                                What you said (dialect spelling)
+                            </label>
+                            <input
+                                type="text"
+                                value={dialectInput}
+                                onChange={e => setDialectInput(e.target.value)}
+                                placeholder="e.g. ambo nok make ghaso"
+                                className="input-base mb-3"
+                            />
+
+                            {/* Meaning input */}
+                            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                                Correct meaning (Malay / English)
+                            </label>
+                            <input
+                                type="text"
+                                value={meaningInput}
+                                onChange={e => setMeaningInput(e.target.value)}
+                                placeholder="e.g. saya hendak makan rasa"
+                                className="input-base mb-5"
+                            />
+
+                            <button
+                                onClick={submitCorrection}
+                                disabled={!dialectInput.trim() || !meaningInput.trim() || isSubmittingCorrection}
+                                className="btn-primary w-full"
+                            >
+                                {isSubmittingCorrection ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+                                ) : (
+                                    <><BookOpen className="w-4 h-4" /> Submit Correction</>
+                                )}
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
+

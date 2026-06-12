@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Mic, Activity, AlertTriangle, Wallet, Heart, Flame, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map } from 'lucide-react';
+import { Mic, Activity, AlertTriangle, Wallet, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { useTheme, THEMES, type ThemeId, type FontSize } from '@/src/context/ThemeContext';
 import { useGame } from '@/src/context/GameContext';
-import { useFamily } from '@/src/context/FamilyContext';
+
 import { useXP } from '@/src/hooks/useXP';
 import { useGreeting } from '@/src/hooks/useGreeting';
 import { RANK_DATA } from '@/src/constants/ranks';
@@ -23,14 +23,15 @@ import BantuanView from '../views/BantuanView';
 // === Components ===
 import AIChatbot from '../components/AIChatbot';
 import OnboardingWalkthrough from '../components/OnboardingWalkthrough';
-import MyKadScanner from '../components/MyKadScanner';
 import CommunityFeed from '../components/CommunityFeed';
-import CivicHeatMap from '../components/CivicHeatMap';
-import LoadingScreen from '../components/LoadingScreen';
-import LevelUpToast from '../components/LevelUpToast';
-import RankPanel from '../components/RankPanel';
-import QuestPanel from '../components/QuestPanel';
+import CivicHeatMap from '@/src/components/CivicHeatMap';
+import LevelUpToast from '@/src/components/LevelUpToast';
+import QuestPanel from '@/src/components/QuestPanel';
+import MyKadScanner from '@/src/components/MyKadScanner';
+import SideNav from '@/src/components/SideNav';
 import BottomNav from '../components/BottomNav';
+import RankPanel from '../components/RankPanel';
+import LoadingScreen from '../components/LoadingScreen';
 
 // ===== TAB TYPE =====
 type TabId = 'suara' | 'infra' | 'bencana' | 'sivik' | 'bantuan';
@@ -41,11 +42,11 @@ export default function App() {
   const { t, lang, setLang } = useLanguage();
   const { themeId, setThemeId, fontSize, setFontSize } = useTheme();
   const { quests, allQuestsComplete, badges } = useGame();
-  const { members, activeMember, switchMember } = useFamily();
+
 
   // === Hooks ===
   const greeting = useGreeting();
-  const { xp, level, streak, showLevelUp, xpToNext } = useXP();
+  const { xp, level, showLevelUp, xpToNext } = useXP();
 
   // === UI State ===
   const [activeTab, setActiveTab] = useState<TabId>('sivik');
@@ -56,9 +57,10 @@ export default function App() {
   const [showQuestPanel, setShowQuestPanel] = useState(false);
   const [showMyKad, setShowMyKad] = useState(false);
   const [showCommunity, setShowCommunity] = useState(false);
-  const [showFamilyPicker, setShowFamilyPicker] = useState(false);
+
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [showRankPanel, setShowRankPanel] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   // === Derived State ===
   const currentRankIndex = RANK_DATA.reduce((acc, r, i) => level >= r.level ? i : acc, 0);
@@ -125,13 +127,19 @@ export default function App() {
       <LevelUpToast visible={showLevelUp} level={level} rank={rank} />
 
       {/* === Main App Shell === */}
-      <div className="flex-1 max-w-md w-full mx-auto relative flex flex-col overflow-hidden sm:shadow-lg sm:border-x" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+      <div className="flex-1 w-full h-full relative flex flex-row overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        
+        {/* ===== SIDE NAVIGATION (DESKTOP) ===== */}
+        <SideNav tabs={tabs} activeTab={activeTab} onTabSwitch={handleTabSwitch} />
 
-        {/* ===== HEADER ===== */}
-        <header className="px-5 pt-5 pb-4 z-10 border-b" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        {/* ===== RIGHT CONTENT AREA ===== */}
+        <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden md:pl-64">
 
-          {/* Top row */}
-          <div className="flex items-center justify-between mb-4">
+          {/* ===== HEADER ===== */}
+          <header className="px-5 pt-5 pb-4 z-10 border-b shrink-0 flex justify-center" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+            <div className="w-full max-w-[1600px]">
+              {/* Top row */}
+              <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <button
@@ -161,19 +169,6 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2">
-              {streak > 0 && (
-                <motion.div
-                  initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border"
-                  style={streak >= 7
-                    ? { background: 'rgba(249, 115, 22, 0.08)', borderColor: 'rgba(249, 115, 22, 0.2)', color: '#EA580C' }
-                    : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }
-                  }
-                >
-                  <Flame className="w-3 h-3" style={streak >= 7 ? { color: '#EA580C' } : { color: 'var(--text-muted)' }} />
-                  {streak}d
-                </motion.div>
-              )}
               <button onClick={() => setShowHeatMap(true)} className="relative p-2.5 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}>
                 <Map className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
@@ -218,8 +213,9 @@ export default function App() {
             >
               <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
             </button>
-          </div>
-        </header>
+            </div>
+            </div>
+          </header>
 
         {/* === Rank Panel === */}
         <RankPanel visible={showRankPanel} level={level} currentRankIndex={currentRankIndex} />
@@ -241,7 +237,7 @@ export default function App() {
               </div>
               <div className="p-2">
                 {/* Profile */}
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left hover:opacity-70" style={{ color: 'var(--text-primary)' }}>
+                <button onClick={() => { setShowProfile(true); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left hover:opacity-70" style={{ color: 'var(--text-primary)' }}>
                   <User className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                   <span className="text-xs font-medium">{t('menu.profile')}</span>
                 </button>
@@ -362,31 +358,194 @@ export default function App() {
           <div className="absolute inset-0 z-40" onClick={closeAllMenus} />
         )}
 
+        {/* === Profile Panel === */}
+        <AnimatePresence>
+          {showProfile && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowProfile(false)}
+            >
+              <motion.div
+                initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="absolute top-0 right-0 bottom-0 w-[85%] max-w-sm overflow-y-auto"
+                style={{ background: 'var(--bg-card)', borderLeft: '1px solid var(--border-default)' }}
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Profile Header */}
+                <div className="p-5 pb-6" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Profile</h2>
+                    <button onClick={() => setShowProfile(false)} className="p-2 rounded-xl" style={{ color: 'var(--text-muted)' }}>
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 flex items-center justify-center" style={{ borderColor: 'var(--accent)' }}>
+                      {userAvatar ? (
+                        <img src={userAvatar} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xl font-bold" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
+                          {userInitial}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{userName}</h3>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{userEmail}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                          Level {level} • {rank}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Your Stats</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Zap className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>XP</span>
+                      </div>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{xp}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{xpToNext}</span></p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Trophy className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>CRS</span>
+                      </div>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{quests.filter(q => q.completed).length * 50}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/1000</span></p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Target className="w-3.5 h-3.5" style={{ color: 'var(--success, #10B981)' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Quests</span>
+                      </div>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{completedQuests}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{quests.length}</span></p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Award className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Badges</span>
+                      </div>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{badges.filter(b => b.unlocked).length}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{badges.length}</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* XP Progress */}
+                <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Level Progress</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold" style={{ color: RANK_DATA[currentRankIndex].color }}>{rank}</span>
+                    <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>Level {level}</span>
+                  </div>
+                  <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
+                    <motion.div
+                      initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }}
+                      transition={{ duration: 1 }}
+                      className="h-full rounded-full" style={{ background: 'var(--accent)' }}
+                    />
+                  </div>
+                  <p className="text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>{xp} / {xpToNext} XP to next level</p>
+                </div>
+
+                {/* Badges */}
+                <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Badges Earned</p>
+                  <div className="space-y-2">
+                    {badges.map(b => (
+                      <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: b.unlocked ? 'var(--success-muted, rgba(16,185,129,0.08))' : 'var(--bg-subtle)', border: '1px solid var(--border-default)', opacity: b.unlocked ? 1 : 0.5 }}>
+                        <span className={`text-xl ${b.unlocked ? '' : 'grayscale opacity-40'}`}>{b.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold" style={{ color: b.unlocked ? 'var(--text-primary)' : 'var(--text-muted)' }}>{b.name}</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.description}</p>
+                        </div>
+                        {b.unlocked && (
+                          <span className="text-[8px] font-bold px-2 py-0.5 rounded" style={{ background: 'var(--success-muted, rgba(16,185,129,0.1))', color: 'var(--success, #10B981)' }}>✓</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Account Info */}
+                <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Account</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-4 h-4" style={{ color: 'var(--success, #10B981)' }} />
+                      <div>
+                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Auth Provider</p>
+                        <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{user?.app_metadata?.provider === 'google' ? 'Google' : 'Email'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                      <div>
+                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Joined</p>
+                        <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString('en-MY', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="p-5">
+                  <button onClick={() => { setShowOnboarding(true); setShowProfile(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors"
+                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                  >
+                    <Award className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-xs font-semibold">Replay Tutorial</span>
+                  </button>
+                  <button onClick={() => { signOut(); setShowProfile(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
+                    style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', color: '#EF4444' }}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-xs font-semibold">Sign Out</span>
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* === Quest Panel === */}
         <QuestPanel visible={showQuestPanel} />
 
         {/* === Main Content === */}
         <main className="flex-1 overflow-y-auto relative scroll-smooth pb-24 no-scrollbar">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="h-full"
-            >
+            <div className="w-full max-w-[1600px] mx-auto h-full">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="h-full"
+              >
               {activeTab === 'suara' && <SuaraView />}
               {activeTab === 'infra' && <InfraView />}
               {activeTab === 'bencana' && <BencanaView />}
               {activeTab === 'sivik' && <SivikView />}
               {activeTab === 'bantuan' && <BantuanView />}
-            </motion.div>
+              </motion.div>
+            </div>
           </AnimatePresence>
         </main>
 
-        {/* === Bottom Nav === */}
-        <BottomNav tabs={tabs} activeTab={activeTab} onTabSwitch={handleTabSwitch} />
+        {/* === Bottom Nav (Mobile Only) === */}
+        <div className="md:hidden shrink-0">
+          <BottomNav tabs={tabs} activeTab={activeTab} onTabSwitch={handleTabSwitch} />
+        </div>
 
         {/* Quest FAB */}
         <button
@@ -399,6 +558,7 @@ export default function App() {
             <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>{completedQuests}</span>
           )}
         </button>
+        </div>
       </div>
     </div>
   );

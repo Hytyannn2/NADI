@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dialect engine runtime files
+dialect-engine/learned_mappings.json
+dialect-engine/clusters.json
+dialect-engine/feedback_log.jsonl
+dialect-engine/__pycache__/

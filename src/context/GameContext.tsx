@@ -1,10 +1,12 @@
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createClient } from '@/src/lib/supabase/client';
+import { useAuth } from '@/src/context/AuthContext';
 
 // ===== DAILY QUESTS (Feature 4) =====
 export interface Quest {
   id: string; title: string; description: string; xpReward: number;
-  type: 'report' | 'flood' | 'listing' | 'volunteer' | 'transit';
+  type: 'report' | 'flood' | 'listing' | 'volunteer' | 'community';
   completed: boolean;
 }
 
@@ -16,9 +18,8 @@ export interface Badge {
 
 const DEFAULT_BADGES: Badge[] = [
   { id: 'civic_hero', name: 'Civic Hero', description: 'Submit 10 civic reports', icon: '🏛️', condition: '10 reports', unlocked: false },
-  { id: 'green_warrior', name: 'Green Warrior', description: 'Save 50kg CO₂ via transit', icon: '🌿', condition: '50kg CO₂', unlocked: false },
+  { id: 'green_warrior', name: 'Warga Aktif', description: 'Complete 20 civic actions', icon: '🌿', condition: '20 actions', unlocked: false },
   { id: 'first_responder', name: 'First Responder', description: 'Accept 5 volunteer jobs', icon: '🚨', condition: '5 volunteer jobs', unlocked: false },
-  { id: 'market_maker', name: 'Market Maker', description: 'Post 10 Niaga listings', icon: '📦', condition: '10 listings', unlocked: false },
   { id: 'verified_rakyat', name: 'Verified Rakyat', description: 'Complete MyKad verification', icon: '✅', condition: 'MyKad scan', unlocked: false },
   { id: 'streak_master', name: 'Streak Master', description: '7-day login streak', icon: '🔥', condition: '7-day streak', unlocked: false },
   { id: 'quest_champion', name: 'Quest Champion', description: 'Complete all daily quests 3 times', icon: '⭐', condition: '3 full quest days', unlocked: false },
@@ -31,7 +32,7 @@ function generateDailyQuests(): Quest[] {
     { id: 'q2', title: 'Check Flood Status', description: 'Open the Bencana tab and review sensor data', xpReward: 15, type: 'flood', completed: false },
     { id: 'q3', title: 'Check Aid Programs', description: 'Browse available aid in the Bantuan tab', xpReward: 20, type: 'listing', completed: false },
     { id: 'q4', title: 'Accept a Volunteer Job', description: 'Help your community by accepting a volunteer request', xpReward: 30, type: 'volunteer', completed: false },
-    { id: 'q5', title: 'Take a Transit Ride', description: 'Scan QR to ride public transit', xpReward: 20, type: 'transit', completed: false },
+    { id: 'q5', title: 'Help a Neighbour', description: 'Post in community feed or help someone in your kampung', xpReward: 20, type: 'community', completed: false },
   ];
   // Pick 3 random quests for today
   const shuffled = pool.sort(() => 0.5 - Math.random());
@@ -62,7 +63,7 @@ interface GameContextType {
   // Leaderboard (Feature 5)
   leaderboard: { name: string; xp: number; mukim: string; rank: number }[];
   // Stats for badge tracking
-  stats: { reports: number; volunteersAccepted: number; listingsPosted: number; communityPosts: number; questDaysComplete: number };
+  stats: { reports: number; volunteersAccepted: number; communityPosts: number; questDaysComplete: number };
   incrementStat: (stat: keyof GameContextType['stats']) => void;
 }
 
@@ -71,7 +72,7 @@ const GameContext = createContext<GameContextType>({
   badges: DEFAULT_BADGES, unlockBadge: () => {},
   crs: 0, crsLabel: 'New Member', updateCRS: () => {},
   leaderboard: [],
-  stats: { reports: 0, volunteersAccepted: 0, listingsPosted: 0, communityPosts: 0, questDaysComplete: 0 },
+  stats: { reports: 0, volunteersAccepted: 0, communityPosts: 0, questDaysComplete: 0 },
   incrementStat: () => {},
 });
 
@@ -87,75 +88,108 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [bonusCollected, setBonusCollected] = useState(false);
   const [badges, setBadges] = useState<Badge[]>(DEFAULT_BADGES);
   const [crs, setCrs] = useState(0);
-  const [stats, setStats] = useState({ reports: 0, volunteersAccepted: 0, listingsPosted: 0, communityPosts: 0, questDaysComplete: 0 });
+  const [stats, setStats] = useState({ reports: 0, volunteersAccepted: 0, communityPosts: 0, questDaysComplete: 0 });
+
+  const { user } = useAuth();
+  const supabase = createClient();
 
   useEffect(() => {
-    try {
-      const today = new Date().toDateString();
-      const saved = localStorage.getItem('nadi_quests');
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.date === today) {
-          setQuests(data.quests);
-          setBonusCollected(data.bonusCollected || false);
-        } else {
-          const newQ = generateDailyQuests();
-          setQuests(newQ);
-          localStorage.setItem('nadi_quests', JSON.stringify({ date: today, quests: newQ, bonusCollected: false }));
-        }
+    if (!user) return;
+    
+    const loadData = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const [profRes, statsRes, badgesRes, questsRes] = await Promise.all([
+        supabase.from('nadi_profiles').select('*').eq('id', user.id).single(),
+        supabase.from('nadi_stats').select('*').eq('id', user.id).single(),
+        supabase.from('nadi_badges').select('*').eq('user_id', user.id),
+        supabase.from('nadi_quests').select('*').eq('user_id', user.id).eq('quest_date', today).maybeSingle()
+      ]);
+
+      if (profRes.data) setCrs(profRes.data.crs || 0);
+      
+      if (statsRes.data) {
+        setStats({
+          reports: statsRes.data.reports || 0,
+          volunteersAccepted: statsRes.data.volunteers_accepted || 0,
+          communityPosts: statsRes.data.community_posts || 0,
+          questDaysComplete: statsRes.data.quest_days_complete || 0,
+        });
+      }
+
+      if (badgesRes.data) {
+        const unlockedIds = badgesRes.data.map((b: any) => b.badge_id);
+        setBadges(prev => prev.map(b => unlockedIds.includes(b.id) ? { ...b, unlocked: true } : b));
+      }
+
+      if (questsRes.data) {
+        setQuests(questsRes.data.quests_data);
+        setBonusCollected(questsRes.data.bonus_collected);
       } else {
         const newQ = generateDailyQuests();
         setQuests(newQ);
-        localStorage.setItem('nadi_quests', JSON.stringify({ date: today, quests: newQ, bonusCollected: false }));
+        await supabase.from('nadi_quests').insert({ user_id: user.id, quest_date: today, quests_data: newQ });
       }
-      const savedBadges = localStorage.getItem('nadi_badges');
-      if (savedBadges) setBadges(JSON.parse(savedBadges));
-      const savedStats = localStorage.getItem('nadi_stats');
-      if (savedStats) setStats(JSON.parse(savedStats));
-      const savedCrs = localStorage.getItem('nadi_crs');
-      if (savedCrs) setCrs(parseInt(savedCrs));
-    } catch {}
-  }, []);
+    };
+    
+    loadData();
+  }, [user]);
 
-  const completeQuest = (type: Quest['type']) => {
+  const completeQuest = async (type: Quest['type']) => {
+    if (!user) return;
     setQuests(prev => {
       const updated = prev.map(q => q.type === type && !q.completed ? { ...q, completed: true } : q);
-      const today = new Date().toDateString();
-      localStorage.setItem('nadi_quests', JSON.stringify({ date: today, quests: updated, bonusCollected }));
+      const today = new Date().toISOString().split('T')[0];
+      supabase.from('nadi_quests').update({ quests_data: updated }).eq('user_id', user.id).eq('quest_date', today).then();
       return updated;
     });
   };
 
-  const collectBonus = () => {
+  const collectBonus = async () => {
+    if (!user) return;
     setBonusCollected(true);
-    const today = new Date().toDateString();
-    localStorage.setItem('nadi_quests', JSON.stringify({ date: today, quests, bonusCollected: true }));
+    const today = new Date().toISOString().split('T')[0];
+    await supabase.from('nadi_quests').update({ bonus_collected: true }).eq('user_id', user.id).eq('quest_date', today);
   };
 
-  const unlockBadge = (id: string) => {
+  const unlockBadge = async (id: string) => {
+    if (!user) return;
     setBadges(prev => {
-      const updated = prev.map(b => b.id === id && !b.unlocked ? { ...b, unlocked: true, unlockedAt: new Date().toISOString() } : b);
-      localStorage.setItem('nadi_badges', JSON.stringify(updated));
+      if (prev.find(b => b.id === id)?.unlocked) return prev;
+      const updated = prev.map(b => b.id === id ? { ...b, unlocked: true, unlockedAt: new Date().toISOString() } : b);
+      supabase.from('nadi_badges').insert({ user_id: user.id, badge_id: id }).then();
       return updated;
     });
   };
 
-  const updateCRS = (xp: number, trustScore: number, streak: number) => {
+  const updateCRS = async (xp: number, trustScore: number, streak: number) => {
+    if (!user) return;
     const score = calculateCRS(xp, trustScore, streak, badges);
     setCrs(score);
-    try { localStorage.setItem('nadi_crs', score.toString()); } catch {}
+    await supabase.from('nadi_profiles').update({ crs: score, xp, trust_score: trustScore, streak }).eq('id', user.id);
   };
 
-  const incrementStat = (stat: keyof typeof stats) => {
+  const incrementStat = async (stat: keyof typeof stats) => {
+    if (!user) return;
+    
     setStats(prev => {
       const updated = { ...prev, [stat]: prev[stat] + 1 };
-      localStorage.setItem('nadi_stats', JSON.stringify(updated));
+      
+      const dbMapping: Record<string, string> = {
+        reports: 'reports',
+        volunteersAccepted: 'volunteers_accepted',
+        communityPosts: 'community_posts',
+        questDaysComplete: 'quest_days_complete'
+      };
+      
+      supabase.from('nadi_stats').update({ [dbMapping[stat]]: updated[stat] }).eq('id', user.id).then();
+      
       // Auto-unlock badges
       if (updated.reports >= 10) unlockBadge('civic_hero');
       if (updated.volunteersAccepted >= 5) unlockBadge('first_responder');
-      if (updated.listingsPosted >= 10) unlockBadge('market_maker');
       if (updated.communityPosts >= 5) unlockBadge('community_voice');
       if (updated.questDaysComplete >= 3) unlockBadge('quest_champion');
+      
       return updated;
     });
   };

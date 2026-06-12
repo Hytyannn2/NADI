@@ -8,7 +8,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const { category, description, location } = await request.json();
+        const { category, description, location, image } = await request.json();
         if (!category || !description) {
             return NextResponse.json({ success: false, error: 'Category and description required.' }, { status: 400 });
         }
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
             category,
             description,
             location: location || 'Undisclosed',
+            image: image || null,
             timestamp: Date.now(),
             status: 'submitted',
             // Zero PII — no user info stored

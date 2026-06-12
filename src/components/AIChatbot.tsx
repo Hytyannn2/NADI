@@ -8,7 +8,7 @@ interface Message { id: string; role: 'user' | 'assistant'; content: string; }
 export default function AIChatbot({ activeTab }: { activeTab: string }) {
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: '0', role: 'assistant', content: 'Salam! Saya NADI Assistant 🇲🇾 Bagaimana saya boleh bantu anda hari ini?' }
+        { id: '0', role: 'assistant', content: 'Salam! Ambo NADI Assistant 🇲🇾 Gapo boleh ambo tolong demo hari ni? (Kelate / BM / English)' }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -38,9 +38,9 @@ export default function AIChatbot({ activeTab }: { activeTab: string }) {
     };
 
     const suggestions = [
-        'Am I eligible for Bantuan Rakyat?',
-        'Where is the nearest flood shelter?',
-        'How to renew roadtax?',
+        'Di mana pusat pemindahan banjir terdekat?',
+        'Ambo layak ke untuk Bantuan Prihatin?',
+        'Jalan rosak kat kampung saya, macam mana nak report?',
     ];
 
     return (

@@ -1,8 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import VolunteerChat from '@/src/components/VolunteerChat';
 import { useLanguage } from '@/src/context/LanguageContext';
+import { useAuth } from '@/src/context/AuthContext';
+import { useGame } from '@/src/context/GameContext';
+import { useXP } from '@/src/hooks/useXP';
 
 interface AidProgram {
     id: string;
@@ -31,6 +36,17 @@ interface VolunteerOpportunity {
     startDate: string;
 }
 
+interface VolunteerJob {
+    id: string;
+    name: string;
+    dist: string;
+    req: string;
+    status: 'open' | 'accepted';
+    bounty: number;
+    area: string;
+    priority: 'High' | 'Medium' | 'Low';
+}
+
 export default function BantuanView() {
     const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>('programs');
@@ -43,11 +59,42 @@ export default function BantuanView() {
     const [programsLoading, setProgramsLoading] = useState(true);
     const [locationName, setLocationName] = useState('');
 
+    // AI Matcher State
+    const [showAIMatcher, setShowAIMatcher] = useState(false);
+    const [isMatching, setIsMatching] = useState(false);
+    const [profile, setProfile] = useState({ age: '', income: '', status: 'Bekerja', dependents: '0' });
+    const [matchResults, setMatchResults] = useState<Record<string, { isEligible: boolean | 'maybe', reason: string }>>({});
+
     // Volunteer opportunities (nationwide from API)
     const [volOpportunities, setVolOpportunities] = useState<VolunteerOpportunity[]>([]);
     const [volPortals, setVolPortals] = useState<{id: string; title: string; organization: string; url: string; description: string}[]>([]);
     const [volLoading, setVolLoading] = useState(false);
     const [volSearchQuery, setVolSearchQuery] = useState('');
+
+    // Local P2P SOS Volunteering
+    const [localJobs, setLocalJobs] = useState<VolunteerJob[]>([]);
+    const [localJobsLoading, setLocalJobsLoading] = useState(false);
+    const [showJobForm, setShowJobForm] = useState(false);
+    const [isSubmittingJob, setIsSubmittingJob] = useState(false);
+    const [jobForm, setJobForm] = useState({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
+
+    const { user } = useAuth();
+    const { completeQuest } = useGame();
+    const { addXp } = useXP();
+
+    // Lock background scroll when modal is open and pre-fill name
+    useEffect(() => {
+        if (showJobForm) {
+            document.body.style.overflow = 'hidden';
+            if (!jobForm.name && user?.user_metadata?.full_name) {
+                setJobForm(prev => ({ ...prev, name: user.user_metadata.full_name }));
+            }
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [showJobForm, user]);
+    const [chatJobName, setChatJobName] = useState<string | null>(null);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -60,7 +107,7 @@ export default function BantuanView() {
                         .finally(() => setProgramsLoading(false));
                 },
                 () => {
-                    fetch('/api/bantuan/programs?lat=2.918&lng=101.771')
+                    fetch('/api/bantuan/programs?lat=6.125&lng=102.238')
                         .then(r => r.json())
                         .then(d => { if (d.success) { setAidPrograms(d.programs); setLocationName(d.location || ''); } })
                         .catch(() => {})
@@ -74,10 +121,85 @@ export default function BantuanView() {
     }, []);
 
     useEffect(() => {
-        if (activeTab === 'volunteer' && volOpportunities.length === 0) {
-            fetchVolunteerOpportunities();
+        if (activeTab === 'volunteer') {
+            if (volOpportunities.length === 0) fetchVolunteerOpportunities();
+            if (localJobs.length === 0) fetchLocalJobs();
         }
     }, [activeTab]);
+
+    const fetchLocalJobs = async () => {
+        setLocalJobsLoading(true);
+        try {
+            const res = await fetch('/api/bencana/jobs');
+            const data = await res.json();
+            if (data.success) setLocalJobs(data.jobs);
+        } catch {}
+        finally { setLocalJobsLoading(false); }
+    };
+
+    const handleAcceptJob = async (jobId: string) => {
+        try {
+            const res = await fetch('/api/bencana/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'accept', jobId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLocalJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j));
+            }
+        } catch {
+            alert('Failed to accept job. Try again.');
+        }
+    };
+
+    const handleCancelJob = async (jobId: string) => {
+        if (!confirm(t('bencana.cancel_confirm'))) return;
+        try {
+            const res = await fetch('/api/bencana/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cancel', jobId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLocalJobs(prev => prev.filter(j => j.id !== jobId));
+            }
+        } catch {
+            alert('Failed to cancel request. Try again.');
+        }
+    };
+
+    const handleSubmitJob = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!jobForm.name || !jobForm.req) return;
+        setIsSubmittingJob(true);
+        try {
+            const res = await fetch('/api/bencana/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'submit', ...jobForm }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLocalJobs(prev => [data.job, ...prev]);
+                setShowJobForm(false);
+                setJobForm({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
+                addXp(15);
+                completeQuest('report');
+            }
+        } catch {
+            alert('Failed to submit request. Try again.');
+        } finally {
+            setIsSubmittingJob(false);
+        }
+    };
+
+    const priorityColor = (p: string) => {
+        if (p === 'High') return 'text-red-400 bg-red-500/10 border-red-500/20';
+        if (p === 'Medium') return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
+        return 'text-zinc-400 bg-zinc-800/50 border-zinc-700/50';
+    };
 
     const fetchVolunteerOpportunities = async () => {
         setVolLoading(true);
@@ -135,8 +257,107 @@ export default function BantuanView() {
         if (url) window.open(url, '_blank', 'noopener,noreferrer');
     };
 
+    const handleAIMatch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsMatching(true);
+        try {
+            const res = await fetch('/api/bantuan/match', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profile, programs: aidPrograms })
+            });
+            const data = await res.json();
+            if (data.success && data.matches) {
+                const resultsObj: Record<string, any> = {};
+                data.matches.forEach((m: any) => {
+                    resultsObj[m.id] = m;
+                });
+                setMatchResults(resultsObj);
+                setShowAIMatcher(false);
+            }
+        } catch {
+            alert('Failed to check eligibility. Please try again.');
+        } finally {
+            setIsMatching(false);
+        }
+    };
+
     return (
         <div className="p-6 h-full flex flex-col relative z-0">
+
+            {showJobForm && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                        onClick={(e) => e.target === e.currentTarget && setShowJobForm(false)}
+                    >
+                        <motion.div
+                            initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+                            className="rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar"
+                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('bencana.request_volunteers')}</h3>
+                                <button onClick={() => setShowJobForm(false)} className="p-2" style={{ color: 'var(--text-muted)' }}><X className="w-5 h-5" /></button>
+                            </div>
+                            <form onSubmit={handleSubmitJob} className="space-y-4">
+                                {[
+                                    { key: 'name', placeholder: 'e.g. Keluarga Ibrahim', label: t('bencana.household'), required: true, defaultValue: user?.user_metadata?.full_name || '' },
+                                    { key: 'phone', placeholder: 'e.g. 012-3456789', label: 'Phone Number (Compulsory)', required: true },
+                                    { key: 'req', placeholder: 'e.g. Mud cleanup, furniture moving', label: t('bencana.help_needed'), required: true },
+                                    { key: 'dist', placeholder: 'e.g. 500m from main road', label: t('bencana.distance'), required: false },
+                                    { key: 'area', placeholder: 'e.g. Taman Sri Putra, Kota Bharu', label: t('bencana.area'), required: false },
+                                    { key: 'tools', placeholder: 'e.g. Chainsaw, Boots, Ropes (Optional)', label: 'Tools Needed (Optional)', required: false },
+                                    { key: 'pax', placeholder: 'e.g. 5', label: 'Volunteers Needed (Optional)', required: false },
+                                ].map(f => (
+                                    <div key={f.key}>
+                                        <label className="text-[9px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>{f.label}</label>
+                                        <input
+                                            type={f.key === 'pax' ? 'number' : 'text'}
+                                            value={(jobForm as any)[f.key] || f.defaultValue || ''}
+                                            onChange={e => setJobForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                                            placeholder={f.placeholder}
+                                            required={f.required}
+                                            className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+                                            style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                                        />
+                                    </div>
+                                ))}
+
+                                <div>
+                                    <label className="text-[9px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Priority Level</label>
+                                    <select
+                                        value={jobForm.priority}
+                                        onChange={e => setJobForm(prev => ({ ...prev, priority: e.target.value }))}
+                                        className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors appearance-none"
+                                        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                                    >
+                                        <option value="Low">Low (Non-urgent cleanup)</option>
+                                        <option value="Medium">Medium (Needs help soon)</option>
+                                        <option value="High">High (Urgent assistance required)</option>
+                                        <option value="Critical">Critical (Immediate danger/rescue)</option>
+                                    </select>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingJob}
+                                    className="w-full mt-4 flex items-center justify-center gap-2 py-4 rounded-xl font-bold uppercase tracking-widest text-xs transition-all active:scale-95 disabled:opacity-50"
+                                    style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}
+                                >
+                                    {isSubmittingJob ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Plus className="w-5 h-5" /> Submit Request</>}
+                                </button>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                </AnimatePresence>
+            , document.body)}
+
+            {/* Volunteer Chat Overlay */}
+            <AnimatePresence>
+                {chatJobName && <VolunteerChat jobName={chatJobName} onClose={() => setChatJobName(null)} />}
+            </AnimatePresence>
 
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -228,7 +449,70 @@ export default function BantuanView() {
                                 <div className="text-center py-12 rounded-2xl" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
                                     <p className="text-sm font-medium">No aid programs found for your area</p>
                                 </div>
-                            ) : filteredPrograms.map((aid, i) => (
+                            ) : (
+                                <>
+                                    {/* AI Matcher CTA */}
+                                    {!showAIMatcher && Object.keys(matchResults).length === 0 && (
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-4 rounded-2xl flex items-center justify-between shadow-sm cursor-pointer" style={{ background: 'linear-gradient(135deg, var(--accent-muted) 0%, rgba(197, 163, 103, 0.05) 100%)', border: '1px solid var(--accent)' }} onClick={() => setShowAIMatcher(true)}>
+                                            <div>
+                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><Search className="w-4 h-4 text-[#C5A367]" /> Semak Kelayakan AI</h4>
+                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>Biar NADI AI semak program mana yang anda layak mohon.</p>
+                                            </div>
+                                            <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white">Semak Sekarang</span>
+                                        </motion.div>
+                                    )}
+
+                                    {/* AI Matcher Form */}
+                                    <AnimatePresence>
+                                        {showAIMatcher && (
+                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 overflow-hidden">
+                                                <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)' }}>
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Profil Pemohon</h4>
+                                                        <button onClick={() => setShowAIMatcher(false)}><X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} /></button>
+                                                    </div>
+                                                    <form onSubmit={handleAIMatch} className="space-y-3">
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Umur</label>
+                                                                <input type="number" required value={profile.age} onChange={e => setProfile({...profile, age: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan (RM)</label>
+                                                                <input type="number" required value={profile.income} onChange={e => setProfile({...profile, income: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Status</label>
+                                                                <select value={profile.status} onChange={e => setProfile({...profile, status: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
+                                                                    <option>Bekerja</option><option>Tidak Bekerja</option><option>Pelajar</option><option>Pesara</option>
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Tanggungan</label>
+                                                                <input type="number" value={profile.dependents} onChange={e => setProfile({...profile, dependents: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                            </div>
+                                                        </div>
+                                                        <button type="submit" disabled={isMatching} className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mt-2" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
+                                                            {isMatching ? <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis...</> : 'Jalankan Analisis AI'}
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* Clear Results */}
+                                    {Object.keys(matchResults).length > 0 && !showAIMatcher && (
+                                        <div className="flex justify-between items-center mb-4">
+                                            <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">✅ AI Match Results Active</p>
+                                            <button onClick={() => setMatchResults({})} className="text-[10px] font-bold text-red-400 hover:text-red-500 transition-colors uppercase tracking-widest">Clear</button>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {filteredPrograms.map((aid, i) => {
+                                        const match = matchResults[aid.id];
+                                        return (
                                 <motion.div
                                     key={aid.id}
                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -252,6 +536,17 @@ export default function BantuanView() {
                                         )}
                                     </div>
                                     <h4 className="text-base font-bold mb-2 leading-tight group-hover:underline decoration-1 underline-offset-2" style={{ color: 'var(--text-primary)' }}>{aid.name}</h4>
+                                    
+                                    {match && (
+                                        <div className={`mb-3 p-3 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
+                                                {match.isEligible === true ? <CheckCircle className="w-3.5 h-3.5" /> : match.isEligible === false ? <X className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                                                {match.isEligible === true ? 'Layak' : match.isEligible === false ? 'Tidak Layak' : 'Mungkin Layak'}
+                                            </div>
+                                            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{match.reason}</p>
+                                        </div>
+                                    )}
+
                                     <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{aid.description}</p>
                                     <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
                                         <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -275,7 +570,11 @@ export default function BantuanView() {
                                         )}
                                     </div>
                                 </motion.div>
-                            ))}
+                                    );
+                                })}
+                                    </div>
+                                </>
+                            )}
                         </motion.div>
                     ) : (
                         <motion.div
@@ -283,15 +582,98 @@ export default function BantuanView() {
                             initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}
                             className="space-y-4"
                         >
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Nationwide Opportunities 🇲🇾</p>
-                                <button
-                                    onClick={fetchVolunteerOpportunities}
-                                    className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
-                                    style={{ background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-default)' }}
-                                >↻ Refresh</button>
+                            {/* --- SECTION 1: URGENT LOCAL SOS --- */}
+                            <div className="mb-8">
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>🚨 Urgent Local SOS</p>
+                                    <button
+                                        onClick={() => setShowJobForm(true)}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all"
+                                        style={{ background: 'var(--danger-muted)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
+                                    >
+                                        <Plus className="w-3 h-3" /> {t('bencana.request_help')}
+                                    </button>
+                                </div>
+                                
+                                {localJobsLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
+                                    </div>
+                                ) : localJobs.length === 0 ? (
+                                    <div className="text-center py-8 rounded-3xl text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
+                                        No local SOS requests
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {localJobs.map((job) => (
+                                            <div
+                                                key={job.id}
+                                                className="p-4 rounded-2xl border transition-all"
+                                                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{job.name}</h4>
+                                                        <div className="flex items-center gap-2 text-[9px] font-bold tracking-widest uppercase mb-2 flex-wrap">
+                                                            <span className="flex items-center gap-1.5 px-2 py-1 rounded" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }}>
+                                                                <MapPin className="w-3.5 h-3.5" /> {job.dist}
+                                                            </span>
+                                                            <span style={{ color: 'var(--danger)' }}>{job.req}</span>
+                                                        </div>
+                                                        <span className={`text-[8px] px-2 py-1 rounded-md font-bold uppercase tracking-widest border ${priorityColor(job.priority)}`}>
+                                                            {job.priority} Priority
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-2 ml-3 shrink-0">
+                                                        {job.status === 'open' ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleAcceptJob(job.id)}
+                                                                    className="px-4 py-2 rounded-xl text-[9px] font-bold tracking-widest uppercase transition-all shadow-lg active:scale-95"
+                                                                    style={{ background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-default)' }}
+                                                                >
+                                                                    Accept<br />
+                                                                    <span className="text-[8px] opacity-70 font-normal">+{job.bounty} pts</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleCancelJob(job.id)}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[8px] font-bold tracking-widest uppercase transition-all text-red-400/60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" /> Cancel
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <div className="flex flex-col items-end gap-2">
+                                                                <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }}>
+                                                                    <CheckCircle className="w-3.5 h-3.5 opacity-70" /> Secured
+                                                                </div>
+                                                                <button onClick={() => setChatJobName(job.name)}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[8px] font-bold tracking-widest uppercase transition-all"
+                                                                    style={{ color: 'var(--accent)', border: '1px solid var(--border-default)' }}
+                                                                >
+                                                                    <MessageCircle className="w-3 h-3" /> Chat
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
+
+                            {/* --- SECTION 2: NATIONWIDE CAMPAIGNS --- */}
+                            <div className="pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-3 mt-4">
+                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>🤝 Nationwide Campaigns 🇲🇾</p>
+                                    <button
+                                        onClick={fetchVolunteerOpportunities}
+                                        className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
+                                        style={{ background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-default)' }}
+                                    >↻ Refresh</button>
+                                </div>
 
                             {/* Volunteer Search */}
                             <div className="relative mb-2">
@@ -340,7 +722,8 @@ export default function BantuanView() {
                                     <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Try a different search or category</p>
                                 </div>
                             ) : (
-                                filteredVolunteers.map((vol, i) => {
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {filteredVolunteers.map((vol, i) => {
                                     const urgency = urgencyStyles[vol.urgency] || urgencyStyles.medium;
                                     const catIcon = categoryIcons[vol.category] || '🤝';
                                     return (
@@ -394,7 +777,8 @@ export default function BantuanView() {
                                             </div>
                                         </motion.div>
                                     );
-                                })
+                                })}
+                                </div>
                             )}
 
                             {/* Browse Portals Section */}
@@ -402,7 +786,7 @@ export default function BantuanView() {
                                 <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
                                     <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>🔗 Browse Directly</p>
                                     <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>Visit these official volunteer portals to find and sign up for specific activities:</p>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                         {volPortals.map(p => (
                                             <motion.a
                                                 key={p.id}
@@ -420,10 +804,12 @@ export default function BantuanView() {
                                     </div>
                                 </div>
                             )}
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
+
+        </div>
         </div>
     );
 }

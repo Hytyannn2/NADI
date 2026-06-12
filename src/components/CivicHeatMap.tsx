@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Map, X, Layers, AlertTriangle, Droplets, Construction, ShoppingBag, Loader2, RefreshCw } from 'lucide-react';
+import { Map, X, AlertTriangle, Droplets, Construction, Loader2, MapPin, Info } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // Dynamic import to avoid SSR issues with Leaflet
@@ -12,7 +12,7 @@ const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: f
 
 interface HeatPoint {
     lat: number; lng: number;
-    type: 'pothole' | 'flood' | 'volunteer' | 'listing';
+    type: 'pothole' | 'flood' | 'volunteer';
     label: string; severity: number;
 }
 
@@ -20,107 +20,43 @@ const TYPE_CONFIG = {
     pothole: { color: '#EF4444', label: 'Potholes', icon: Construction },
     flood: { color: '#3B82F6', label: 'Flood Zones', icon: Droplets },
     volunteer: { color: '#F59E0B', label: 'Volunteer', icon: AlertTriangle },
-    listing: { color: '#10B981', label: 'Niaga', icon: ShoppingBag },
 };
 
-// Generate realistic civic data points around a user's location
-function generateLocalPoints(lat: number, lng: number): HeatPoint[] {
-    const points: HeatPoint[] = [];
-
-    // Pothole hotspots — common in Malaysian roads
-    const potholeAreas = [
-        { offset: [0.008, 0.005], label: 'Jalan utama — lubang besar', sev: 4 },
-        { offset: [-0.003, 0.012], label: 'Simpang empat — permukaan rosak', sev: 3 },
-        { offset: [0.015, -0.008], label: 'Lorong belakang — jalan pecah', sev: 2 },
-        { offset: [-0.01, -0.006], label: 'Depan sekolah — lubang sederhana', sev: 3 },
-        { offset: [0.005, 0.018], label: 'Kawasan industri — jalan retak', sev: 4 },
-        { offset: [-0.012, 0.009], label: 'Taman perumahan — longkang rosak', sev: 2 },
-        { offset: [0.02, 0.003], label: 'Jalan kampung — lubang kecil', sev: 1 },
-    ];
-
-    // Flood-prone zones
-    const floodZones = [
-        { offset: [0.006, -0.015], label: 'Kawasan rendah — risiko banjir kilat', sev: 4 },
-        { offset: [-0.008, 0.02], label: 'Tebing sungai — paras air tinggi', sev: 5 },
-        { offset: [0.012, 0.01], label: 'Bawah jambatan — air bertakung', sev: 3 },
-        { offset: [-0.018, -0.004], label: 'Taman — saliran tersumbat', sev: 2 },
-        { offset: [0.003, -0.022], label: 'Padang — tanah lembap', sev: 2 },
-    ];
-
-    // Volunteer activity locations
-    const volLocations = [
-        { offset: [0.01, 0.008], label: 'Gotong-royong pembersihan — Sabtu', sev: 3 },
-        { offset: [-0.005, -0.012], label: 'Bantuan makanan komuniti', sev: 4 },
-        { offset: [0.018, -0.005], label: 'Kelas tuisyen percuma — setiap minggu', sev: 2 },
-        { offset: [-0.015, 0.015], label: 'Lawatan rumah warga emas', sev: 3 },
-    ];
-
-    // Niaga listings
-    const niagaListings = [
-        { offset: [0.004, 0.006], label: 'Ikan segar — RM15/kg', sev: 3 },
-        { offset: [-0.007, -0.003], label: 'Sayur organik — RM5/ikat', sev: 2 },
-        { offset: [0.009, -0.01], label: 'Telur ayam kampung — RM1.20/biji', sev: 2 },
-        { offset: [-0.002, 0.014], label: 'Beras tempatan 10kg — RM32', sev: 3 },
-        { offset: [0.013, 0.002], label: 'Kuih-muih — dari RM2', sev: 1 },
-    ];
-
-    potholeAreas.forEach(p => points.push({
-        lat: lat + p.offset[0], lng: lng + p.offset[1],
-        type: 'pothole', label: p.label, severity: p.sev,
-    }));
-    floodZones.forEach(p => points.push({
-        lat: lat + p.offset[0], lng: lng + p.offset[1],
-        type: 'flood', label: p.label, severity: p.sev,
-    }));
-    volLocations.forEach(p => points.push({
-        lat: lat + p.offset[0], lng: lng + p.offset[1],
-        type: 'volunteer', label: p.label, severity: p.sev,
-    }));
-    niagaListings.forEach(p => points.push({
-        lat: lat + p.offset[0], lng: lng + p.offset[1],
-        type: 'listing', label: p.label, severity: p.sev,
-    }));
-
-    return points;
-}
+// Default center (Bangi / UKM area) — map shows immediately
+const DEFAULT_CENTER: [number, number] = [2.9181, 101.7712];
 
 export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
-    const [loaded, setLoaded] = useState(false);
-    const [filters, setFilters] = useState({ pothole: true, flood: true, volunteer: true, listing: true });
-    const [userLat, setUserLat] = useState<number | null>(null);
-    const [userLng, setUserLng] = useState<number | null>(null);
+    const [filters, setFilters] = useState({ pothole: true, flood: true, volunteer: true });
     const [points, setPoints] = useState<HeatPoint[]>([]);
+    const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+    const [mapReady, setMapReady] = useState(false);
+    const mapRef = useRef<any>(null);
 
+    // Inject Leaflet CSS immediately
     useEffect(() => {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
         document.head.appendChild(link);
+        // Mark map as ready once CSS is injected
+        setMapReady(true);
 
+        // Try to get user location in the background — map renders regardless
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    setUserLat(lat);
-                    setUserLng(lng);
-                    setPoints(generateLocalPoints(lat, lng));
-                    setLoaded(true);
+                    const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                    setUserLocation(loc);
+                    // Pan the map if ref is available
+                    if (mapRef.current) {
+                        mapRef.current.flyTo(loc, 14, { duration: 1.5 });
+                    }
                 },
                 () => {
-                    // Default to Bangi
-                    setUserLat(2.9181);
-                    setUserLng(101.7712);
-                    setPoints(generateLocalPoints(2.9181, 101.7712));
-                    setLoaded(true);
+                    // Geolocation denied — stay at default center, no mock data
                 },
                 { enableHighAccuracy: true }
             );
-        } else {
-            setUserLat(2.9181);
-            setUserLng(101.7712);
-            setPoints(generateLocalPoints(2.9181, 101.7712));
-            setLoaded(true);
         }
 
         return () => { document.head.removeChild(link); };
@@ -131,9 +67,8 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     };
 
     const filteredPoints = points.filter(p => filters[p.type]);
-
-    // Count per type
     const countByType = (type: string) => points.filter(p => p.type === type).length;
+    const totalReports = points.length;
 
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -171,8 +106,20 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             </div>
 
             <div className="flex-1 relative">
-                {loaded && userLat !== null && userLng !== null ? (
-                    <MapContainer center={[userLat, userLng]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                {mapReady ? (
+                    <MapContainer
+                        center={DEFAULT_CENTER}
+                        zoom={14}
+                        style={{ height: '100%', width: '100%' }}
+                        zoomControl={false}
+                        ref={mapRef}
+                        whenReady={() => {
+                            // If user location already resolved, fly to it
+                            if (userLocation && mapRef.current) {
+                                mapRef.current.flyTo(userLocation, 14, { duration: 1.5 });
+                            }
+                        }}
+                    >
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
                         {filteredPoints.map((point, i) => (
                             <CircleMarker key={i} center={[point.lat, point.lng]} radius={point.severity * 6}
@@ -183,6 +130,16 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                                 </Popup>
                             </CircleMarker>
                         ))}
+
+                        {/* User location marker */}
+                        {userLocation && (
+                            <CircleMarker center={userLocation} radius={8}
+                                pathOptions={{ color: '#6366F1', fillColor: '#6366F1', fillOpacity: 0.7, weight: 3 }}>
+                                <Popup>
+                                    <div className="text-xs font-semibold">📍 Your Location</div>
+                                </Popup>
+                            </CircleMarker>
+                        )}
                     </MapContainer>
                 ) : (
                     <div className="flex items-center justify-center h-full">
@@ -190,26 +147,43 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                <div className="absolute bottom-4 left-4 rounded-2xl p-4 z-[500] backdrop-blur-xl"
+                {/* Info overlay */}
+                <div className="absolute bottom-4 left-4 right-4 rounded-2xl p-4 z-[500] backdrop-blur-xl"
                     style={{ background: 'var(--bg-card-translucent, rgba(255,255,255,0.92))', border: '1px solid var(--border-default)' }}
                 >
-                    <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Reports Near You</p>
-                    <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {filteredPoints.length} <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>points</span>
-                    </p>
-                    <div className="flex gap-3 mt-2">
-                        {(Object.keys(TYPE_CONFIG) as (keyof typeof TYPE_CONFIG)[]).map(type => {
-                            const cfg = TYPE_CONFIG[type];
-                            const count = filteredPoints.filter(p => p.type === type).length;
-                            if (count === 0) return null;
-                            return (
-                                <span key={type} className="text-[10px] font-bold flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full inline-block" style={{ background: cfg.color }} />
-                                    {count}
-                                </span>
-                            );
-                        })}
-                    </div>
+                    {totalReports > 0 ? (
+                        <>
+                            <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Reports Near You</p>
+                            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                                {filteredPoints.length} <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>points</span>
+                            </p>
+                            <div className="flex gap-3 mt-2">
+                                {(Object.keys(TYPE_CONFIG) as (keyof typeof TYPE_CONFIG)[]).map(type => {
+                                    const cfg = TYPE_CONFIG[type];
+                                    const count = filteredPoints.filter(p => p.type === type).length;
+                                    if (count === 0) return null;
+                                    return (
+                                        <span key={type} className="text-[10px] font-bold flex items-center gap-1">
+                                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: cfg.color }} />
+                                            {count}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-muted)' }}>
+                                <Info className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>No reports yet</p>
+                                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                                    Submit civic reports via Suara or Infra to see them here.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </motion.div>

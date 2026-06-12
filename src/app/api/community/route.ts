@@ -1,29 +1,63 @@
 import { NextResponse } from 'next/server';
-
-const feedStore: any[] = [];
+import { createClient } from '@/src/utils/supabase/server';
+import { cookies } from 'next/headers';
 
 export async function GET() {
-    const sorted = [...feedStore].sort((a, b) => b.timestamp - a.timestamp);
-    return NextResponse.json({ success: true, posts: sorted.slice(0, 30) });
+    try {
+        const supabase = createClient(await cookies());
+        const { data, error } = await supabase
+            .from('nadi_community_posts')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(30);
+
+        if (error) throw error;
+        
+        // Map created_at to timestamp for frontend compatibility
+        const posts = (data || []).map(p => ({
+            ...p,
+            timestamp: new Date(p.created_at).getTime()
+        }));
+
+        return NextResponse.json({ success: true, posts });
+    } catch (err) {
+        console.error('Community GET error:', err);
+        return NextResponse.json({ success: false, posts: [] });
+    }
 }
 
 export async function POST(request: Request) {
     try {
         const { content, author, type } = await request.json();
         if (!content) return NextResponse.json({ success: false, error: 'Content required.' }, { status: 400 });
-        const post = {
-            id: `post-${Date.now()}`,
+        
+        const supabase = createClient(await cookies());
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
+        const newPost = {
             content,
             author: author || 'Anonymous Warga',
             type: type || 'general',
-            timestamp: Date.now(),
             upvotes: 0,
-            comments: 0,
+            comments: 0
         };
-        feedStore.unshift(post);
-        if (feedStore.length > 100) feedStore.splice(100);
-        return NextResponse.json({ success: true, post });
-    } catch {
+
+        const { data, error } = await supabase
+            .from('nadi_community_posts')
+            .insert(newPost)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return NextResponse.json({ 
+            success: true, 
+            post: { ...data, timestamp: new Date(data.created_at).getTime() } 
+        });
+    } catch (error) {
+        console.error('Community POST error:', error);
         return NextResponse.json({ success: false, error: 'Failed to post.' }, { status: 500 });
     }
 }

@@ -3,6 +3,27 @@ import Groq from 'groq-sdk';
 import { checkSuaraLimit } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 
+const DIALECT_ENGINE_URL = process.env.DIALECT_ENGINE_URL || 'http://localhost:8100';
+
+/**
+ * Fetch dialect context from the Python engine.
+ * Returns a compact mapping string (e.g. "ghaso=rasa, make=makan, ...")
+ * or empty string if engine is not running.
+ */
+async function getDialectContext(region?: string): Promise<string> {
+    try {
+        const url = `${DIALECT_ENGINE_URL}/prompt-context${region ? `?region=${region}` : ''}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+            const data = await res.json();
+            return data.context || '';
+        }
+    } catch {
+        // Engine not available — that's fine
+    }
+    return '';
+}
+
 export async function POST(request: Request) {
     // Extract IP for rate limiting
     const headersList = await headers();
@@ -21,7 +42,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { inputText, targetLanguage } = body;
+        const { inputText, targetLanguage, dialectRegion } = body;
 
         // Basic input validation
         if (!inputText || typeof inputText !== 'string' || inputText.trim().length < 3) {
@@ -37,11 +58,21 @@ export async function POST(request: Request) {
             );
         }
 
+        // Fetch dialect context from the engine (non-blocking, with timeout)
+        const dialectContext = await getDialectContext(dialectRegion);
+
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
+        // Build dialect-enriched prompt
+        const dialectSection = dialectContext
+            ? `\n\nYou have access to a Malaysian dialect dictionary. Use these mappings to understand dialect words:\n${dialectContext}\n\nApply these mappings when parsing the user's input. If you encounter a word in the dictionary, use the standard Malay equivalent to understand the meaning.\n`
+            : '';
+
         const prompt = `
-You are an NLP model for NADI Civic OS trained to understand local Malaysian dialects (e.g., Kelantanese/Kecek Kelate) and parse civic complaints.
+You are an NLP model for NADI Civic OS trained to understand local Malaysian dialects (e.g., Kelantanese/Kecek Kelate, Terengganu, Kedah, Sabah, Sarawak) and parse civic complaints.
+${dialectSection}
 Extract the intent and location from the following user report. Also provide a translation into ${targetLanguage || 'English'}.
+
 User says: "${inputText}"
 
 Respond strictly with a JSON object in this format:
@@ -50,7 +81,9 @@ Respond strictly with a JSON object in this format:
   "location": "Extracted location name",
   "coordinates": {"lat": 1.23, "lng": 101.45},
   "urgency": "Low, Medium, or High",
-  "simplifiedTranslation": "Translation of the issue into ${targetLanguage || 'English'}"
+  "simplifiedTranslation": "Translation of the issue into ${targetLanguage || 'English'}",
+  "detectedDialect": "The dialect region detected (kelantan/terengganu/kedah/sabah/sarawak/standard/unknown)",
+  "dialectWords": ["list", "of", "dialect", "words", "found"]
 }
 `;
         let data;
@@ -75,6 +108,7 @@ Respond strictly with a JSON object in this format:
             success: true,
             data,
             remaining: limit.remaining,
+            dialectEnriched: dialectContext.length > 0,
         });
     } catch (error) {
         console.error('Suara parse error:', error);

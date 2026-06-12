@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Activity, AlertTriangle, Wallet, Store, ChevronRight, X, Sparkles, Heart } from 'lucide-react';
+import { Mic, Activity, AlertTriangle, Wallet, ChevronRight, X, Sparkles, Heart } from 'lucide-react';
 
 const STEPS = [
     {
@@ -27,12 +27,6 @@ const STEPS = [
         description: 'Detect potholes while driving (real accelerometer data) and monitor flood sensors in real-time. Bencana shows a live GPS map of your area with disaster readiness status.',
         icon: Activity,
         highlight: 'Your phone becomes a civic sensor.',
-    },
-    {
-        title: 'Niaga — Local Trade',
-        description: 'Connect directly with local producers. Post and discover fresh supplies — seafood, produce, poultry — all AI-verified for trust.',
-        icon: Store,
-        highlight: 'Support your local economy.',
     },
     {
         title: 'Bantuan — Aid & Volunteer',
