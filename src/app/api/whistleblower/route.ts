@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const reportsStore: any[] = [];
+export const reportsStore: any[] = [];
 
 export async function GET() {
     return NextResponse.json({ success: true, count: reportsStore.length });
