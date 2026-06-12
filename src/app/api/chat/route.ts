@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
+import { checkRateLimit } from '@/src/lib/rate-limiter';
 
 export async function POST(request: Request) {
     try {
+        const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+        const { allowed, retryAfter } = checkRateLimit(ip);
+
+        if (!allowed) {
+            return NextResponse.json({ 
+                success: false, 
+                reply: `Sistem sedang berehat kerana terlalu banyak mesej. Sila cuba lagi dalam ${retryAfter} saat.` 
+            }, { status: 429 });
+        }
+
         const { message, context } = await request.json();
         if (!message) return NextResponse.json({ success: false, error: 'No message' }, { status: 400 });
 

@@ -100,8 +100,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const today = new Date().toISOString().split('T')[0];
       
       const [profRes, statsRes, badgesRes, questsRes] = await Promise.all([
-        supabase.from('nadi_profiles').select('*').eq('id', user.id).single(),
-        supabase.from('nadi_stats').select('*').eq('id', user.id).single(),
+        supabase.from('nadi_profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('nadi_stats').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('nadi_badges').select('*').eq('user_id', user.id),
         supabase.from('nadi_quests').select('*').eq('user_id', user.id).eq('quest_date', today).maybeSingle()
       ]);

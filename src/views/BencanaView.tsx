@@ -16,6 +16,7 @@ const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
 });
 
 import { createClient } from '@/src/lib/supabase/client';
+import useSWR from 'swr';
 
 export interface FloodZone {
     district: string;
@@ -37,16 +38,12 @@ export default function BencanaView() {
     const [activeTab, setActiveTab] = useState<'map' | 'zones'>('map');
     const [showDashboard, setShowDashboard] = useState(false);
 
-    // Data from Supabase
-    const [floodZones, setFloodZones] = useState<FloodZone[]>([]);
-    const [evacCenters, setEvacCenters] = useState<EvacCenter[]>([]);
+    const supabase = createClient();
 
     // Default: null to prevent map jumping
     const [userLat, setUserLat] = useState<number | null>(null);
     const [userLng, setUserLng] = useState<number | null>(null);
     const [locationLabel, setLocationLabel] = useState('Locating...');
-
-    const supabase = createClient();
 
     // LoRaWAN sensor status
     const [sensorStatus, setSensorStatus] = useState<'safe' | 'warning' | 'danger'>('safe');
@@ -57,35 +54,32 @@ export default function BencanaView() {
     };
     const currentSensor = sensorLabels[sensorStatus];
 
+    // SWR Caching for Supabase Data
     const fetchBencanaData = async () => {
         const [{ data: zones }, { data: centers }] = await Promise.all([
             supabase.from('nadi_bencana_zones').select('*'),
             supabase.from('nadi_bencana_centers').select('*')
         ]);
-
-        if (zones) {
-            setFloodZones(zones.map((z: any) => ({
+        return {
+            zones: zones ? zones.map((z: any) => ({
                 district: z.district,
                 risk: z.risk,
                 river: z.river,
                 historicLevel: z.historic_level,
                 population: z.population
-            })));
-        }
-
-        if (centers) {
-            setEvacCenters(centers.map((c: any) => ({
+            })) : [],
+            centers: centers ? centers.map((c: any) => ({
                 name: c.name,
                 district: c.district,
                 capacity: c.capacity,
                 type: c.type
-            })));
-        }
+            })) : []
+        };
     };
 
-    useEffect(() => {
-        fetchBencanaData();
-    }, []);
+    const { data: bencanaData } = useSWR('bencana_data', fetchBencanaData, { revalidateOnFocus: false });
+    const floodZones: FloodZone[] = bencanaData?.zones || [];
+    const evacCenters: EvacCenter[] = bencanaData?.centers || [];
 
     // Real-time geolocation tracking
     useEffect(() => {

@@ -157,5 +157,5 @@ async def health():
 if __name__ == '__main__':
     import uvicorn
     port = int(os.environ.get('DIALECT_ENGINE_PORT', 8100))
-    print(f"\n🚀 NADI Dialect Engine starting on port {port}")
+    print(f"\n[START] NADI Dialect Engine starting on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 });
     }
 
+    let locationName = 'Malaysia';
     try {
         // First, reverse geocode to get location name
-        let locationName = 'Malaysia';
         try {
             const geoRes = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
@@ -88,10 +88,41 @@ Return 6-10 programs. ONLY respond with the JSON array, no markdown, no explanat
 
     } catch (error: any) {
         console.error('Bantuan programs API error:', error);
+        
+        // Fallback data when API fails
+        const fallbackPrograms = [
+            {
+                id: 'fallback_1',
+                name: 'Sumbangan Tunai Rahmah (STR)',
+                provider: 'Kementerian Kewangan',
+                type: 'government',
+                description: 'Bantuan kewangan untuk golongan B40 dan M40.',
+                eligibility: 'Pendapatan isi rumah bawah RM5,000',
+                status: 'active',
+                deadline: 'Ongoing',
+                location: locationName || 'Malaysia',
+                url: 'https://str.hasil.gov.my'
+            },
+            {
+                id: 'fallback_2',
+                name: 'Bantuan Awal Persekolahan (BAP)',
+                provider: 'Kementerian Pendidikan Malaysia',
+                type: 'government',
+                description: 'Bantuan tunai RM150 untuk setiap murid.',
+                eligibility: 'Murid sekolah',
+                status: 'active',
+                deadline: 'Ongoing',
+                location: locationName || 'Malaysia',
+                url: 'https://www.moe.gov.my'
+            }
+        ];
+        
         return NextResponse.json({
-            success: false,
-            error: 'Failed to fetch aid programs',
-            programs: [],
-        }, { status: 500 });
+            success: true,
+            error: 'Using fallback data due to API error',
+            programs: fallbackPrograms,
+            location: locationName,
+            total: fallbackPrograms.length,
+        });
     }
 }

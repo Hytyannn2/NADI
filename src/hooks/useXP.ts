@@ -17,7 +17,7 @@ export function useXP() {
   useEffect(() => {
     if (!user) return;
     const loadXP = async () => {
-      const { data } = await supabase.from('nadi_profiles').select('xp, streak, created_at').eq('id', user.id).single();
+      const { data } = await supabase.from('nadi_profiles').select('xp, streak, created_at').eq('id', user.id).maybeSingle();
       if (data) {
         setXp(data.xp || 0);
         setStreak(data.streak || 0);

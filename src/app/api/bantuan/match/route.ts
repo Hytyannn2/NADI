@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import Groq from 'groq-sdk';
+import { checkRateLimit } from '@/src/lib/rate-limiter';
 
-export async function POST(request: Request) {
-    try {
-        const { profile, programs } = await request.json();
-        
-        if (!profile) return NextResponse.json({ success: false, error: 'No profile data' }, { status: 400 });
-
+const getMatchedPrograms = unstable_cache(
+    async (profileStr: string, programsStr: string) => {
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
         
         const prompt = `
 You are an AI assistant for NADI Civic OS helping a citizen in Kelantan check their eligibility for various government and NGO aid programs.
 Here is the user's profile information:
-${JSON.stringify(profile, null, 2)}
+${profileStr}
 
 Here is the list of available aid programs:
-${JSON.stringify(programs, null, 2)}
+${programsStr}
 
 Analyze the user's profile against the eligibility criteria of EACH program. 
 Return a JSON array of matches. For each match, provide:
@@ -23,11 +21,12 @@ Return a JSON array of matches. For each match, provide:
 - isEligible: true, false, or "maybe"
 - reason: A short explanation (1-2 sentences) of why they are or aren't eligible, or what additional info is needed. Use standard Malay with a friendly tone.
 
-Return ONLY the JSON array. Example format:
-[
-  { "id": "prog_1", "isEligible": true, "reason": "Pendapatan anda di bawah RM2500, jadi anda layak untuk STR." },
-  ...
-]
+Return a JSON object with a single key "matches" containing the array of results. Example format:
+{
+  "matches": [
+    { "id": "prog_1", "isEligible": true, "reason": "Pendapatan anda di bawah RM2500, jadi anda layak." }
+  ]
+}
 `;
 
         const result = await groq.chat.completions.create({
@@ -36,16 +35,53 @@ Return ONLY the JSON array. Example format:
             response_format: { type: 'json_object' }
         });
 
-        // The model might return `{ "matches": [...] }` or just `[...]` depending on how it parses the request
         const rawJson = result.choices[0]?.message?.content || '{}';
         let parsed = JSON.parse(rawJson);
         
-        // Handle if it returned an object with a property containing the array
-        if (!Array.isArray(parsed) && parsed.matches) {
-            parsed = parsed.matches;
+        let matchesArray = [];
+        if (Array.isArray(parsed)) {
+            matchesArray = parsed;
+        } else if (parsed.matches && Array.isArray(parsed.matches)) {
+            matchesArray = parsed.matches;
+        } else {
+            // Find the first value that is an array if the LLM used a random key
+            const firstArrayObj = Object.values(parsed).find(val => Array.isArray(val));
+            if (firstArrayObj) {
+                matchesArray = firstArrayObj as any[];
+            }
         }
 
-        return NextResponse.json({ success: true, matches: parsed });
+        return matchesArray;
+    },
+    ['bantuan-match-v1'],
+    {
+        revalidate: 86400, // cache for 24 hours
+        tags: ['bantuan-match']
+    }
+);
+
+export async function POST(request: Request) {
+    try {
+        const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+        const { allowed, retryAfter } = checkRateLimit(ip);
+
+        if (!allowed) {
+            return NextResponse.json({ 
+                success: false, 
+                error: `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfter} saat.` 
+            }, { status: 429 });
+        }
+
+        const { profile, programs } = await request.json();
+        
+        if (!profile) return NextResponse.json({ success: false, error: 'No profile data' }, { status: 400 });
+
+        const profileStr = JSON.stringify(profile, null, 2);
+        const programsStr = JSON.stringify(programs, null, 2);
+
+        const matches = await getMatchedPrograms(profileStr, programsStr);
+
+        return NextResponse.json({ success: true, matches });
     } catch (error) {
         console.error('AI Matching error:', error);
         return NextResponse.json({ success: false, error: 'Gagal menyemak kelayakan.' }, { status: 500 });

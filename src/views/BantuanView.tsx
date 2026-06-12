@@ -8,6 +8,10 @@ import { useLanguage } from '@/src/context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
 import { useGame } from '@/src/context/GameContext';
 import { useXP } from '@/src/hooks/useXP';
+import { useDebounce } from '@/src/hooks/useDebounce';
+import useSWR from 'swr';
+
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 interface AidProgram {
     id: string;
@@ -53,11 +57,28 @@ export default function BantuanView() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
     const [volFilterCategory, setVolFilterCategory] = useState<string>('all');
+    
+    // Algorithmic Debouncing optimization
+    const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-    // Real aid programs fetched from API
-    const [aidPrograms, setAidPrograms] = useState<AidProgram[]>([]);
-    const [programsLoading, setProgramsLoading] = useState(true);
-    const [locationName, setLocationName] = useState('');
+    // SWR Fetcher logic
+    const [userLoc, setUserLoc] = useState<{lat: number, lng: number} | null>(null);
+    useEffect(() => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => setUserLoc({ lat: 6.125, lng: 102.238 }),
+                { enableHighAccuracy: true }
+            );
+        } else {
+            setUserLoc({ lat: 6.125, lng: 102.238 });
+        }
+    }, []);
+
+    const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}` : null;
+    const { data: programsData, isLoading: programsLoading } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
+    const aidPrograms: AidProgram[] = programsData?.programs || [];
+    const locationName = programsData?.location || '';
 
     // AI Matcher State
     const [showAIMatcher, setShowAIMatcher] = useState(false);
@@ -66,14 +87,16 @@ export default function BantuanView() {
     const [matchResults, setMatchResults] = useState<Record<string, { isEligible: boolean | 'maybe', reason: string }>>({});
 
     // Volunteer opportunities (nationwide from API)
-    const [volOpportunities, setVolOpportunities] = useState<VolunteerOpportunity[]>([]);
-    const [volPortals, setVolPortals] = useState<{id: string; title: string; organization: string; url: string; description: string}[]>([]);
-    const [volLoading, setVolLoading] = useState(false);
+    const { data: volData, isLoading: volLoading, mutate: mutateVolOpportunities } = useSWR(activeTab === 'volunteer' ? '/api/bantuan/volunteers' : null, fetcher, { revalidateOnFocus: false });
+    const volOpportunities: VolunteerOpportunity[] = volData?.opportunities || [];
+    const volPortals: VolunteerOpportunity[] = volData?.portals || [];
+    
     const [volSearchQuery, setVolSearchQuery] = useState('');
+    const debouncedVolSearchQuery = useDebounce(volSearchQuery, 300);
 
     // Local P2P SOS Volunteering
-    const [localJobs, setLocalJobs] = useState<VolunteerJob[]>([]);
-    const [localJobsLoading, setLocalJobsLoading] = useState(false);
+    const { data: localJobsData, isLoading: localJobsLoading, mutate: mutateLocalJobs } = useSWR(activeTab === 'volunteer' ? '/api/bencana/jobs' : null, fetcher);
+    const localJobs: VolunteerJob[] = localJobsData?.jobs || [];
     const [showJobForm, setShowJobForm] = useState(false);
     const [isSubmittingJob, setIsSubmittingJob] = useState(false);
     const [jobForm, setJobForm] = useState({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
@@ -96,47 +119,6 @@ export default function BantuanView() {
     }, [showJobForm, user]);
     const [chatJobName, setChatJobName] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    fetch(`/api/bantuan/programs?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
-                        .then(r => r.json())
-                        .then(d => { if (d.success) { setAidPrograms(d.programs); setLocationName(d.location || ''); } })
-                        .catch(() => {})
-                        .finally(() => setProgramsLoading(false));
-                },
-                () => {
-                    fetch('/api/bantuan/programs?lat=6.125&lng=102.238')
-                        .then(r => r.json())
-                        .then(d => { if (d.success) { setAidPrograms(d.programs); setLocationName(d.location || ''); } })
-                        .catch(() => {})
-                        .finally(() => setProgramsLoading(false));
-                },
-                { enableHighAccuracy: true }
-            );
-        } else {
-            setProgramsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (activeTab === 'volunteer') {
-            if (volOpportunities.length === 0) fetchVolunteerOpportunities();
-            if (localJobs.length === 0) fetchLocalJobs();
-        }
-    }, [activeTab]);
-
-    const fetchLocalJobs = async () => {
-        setLocalJobsLoading(true);
-        try {
-            const res = await fetch('/api/bencana/jobs');
-            const data = await res.json();
-            if (data.success) setLocalJobs(data.jobs);
-        } catch {}
-        finally { setLocalJobsLoading(false); }
-    };
-
     const handleAcceptJob = async (jobId: string) => {
         try {
             const res = await fetch('/api/bencana/jobs', {
@@ -146,7 +128,7 @@ export default function BantuanView() {
             });
             const data = await res.json();
             if (data.success) {
-                setLocalJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j));
+                mutateLocalJobs({ ...localJobsData, jobs: localJobs.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j) }, false);
             }
         } catch {
             alert('Failed to accept job. Try again.');
@@ -163,7 +145,7 @@ export default function BantuanView() {
             });
             const data = await res.json();
             if (data.success) {
-                setLocalJobs(prev => prev.filter(j => j.id !== jobId));
+                mutateLocalJobs({ ...localJobsData, jobs: localJobs.filter(j => j.id !== jobId) }, false);
             }
         } catch {
             alert('Failed to cancel request. Try again.');
@@ -182,7 +164,7 @@ export default function BantuanView() {
             });
             const data = await res.json();
             if (data.success) {
-                setLocalJobs(prev => [data.job, ...prev]);
+                mutateLocalJobs({ ...localJobsData, jobs: [data.job, ...localJobs] }, false);
                 setShowJobForm(false);
                 setJobForm({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
                 addXp(15);
@@ -201,18 +183,6 @@ export default function BantuanView() {
         return 'text-zinc-400 bg-zinc-800/50 border-zinc-700/50';
     };
 
-    const fetchVolunteerOpportunities = async () => {
-        setVolLoading(true);
-        try {
-            const res = await fetch('/api/bantuan/volunteers');
-            const data = await res.json();
-            if (data.success) {
-                setVolOpportunities(data.opportunities || []);
-                setVolPortals(data.portals || []);
-            }
-        } catch {}
-        finally { setVolLoading(false); }
-    };
 
     const typeColors: Record<string, string> = {
         government: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -240,17 +210,17 @@ export default function BantuanView() {
 
     const filteredPrograms = aidPrograms.filter(a =>
         (filterType === 'all' || a.type === filterType) &&
-        (searchQuery.trim() === '' ||
-            a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            a.provider?.toLowerCase().includes(searchQuery.toLowerCase()))
+        (debouncedSearchQuery.trim() === '' ||
+            a.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+            a.provider?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
     );
 
     const filteredVolunteers = volOpportunities.filter(v =>
         (volFilterCategory === 'all' || v.category === volFilterCategory) &&
-        (volSearchQuery.trim() === '' ||
-            v.title.toLowerCase().includes(volSearchQuery.toLowerCase()) ||
-            v.organization.toLowerCase().includes(volSearchQuery.toLowerCase()) ||
-            v.location.toLowerCase().includes(volSearchQuery.toLowerCase()))
+        (debouncedVolSearchQuery.trim() === '' ||
+            v.title.toLowerCase().includes(debouncedVolSearchQuery.toLowerCase()) ||
+            v.organization.toLowerCase().includes(debouncedVolSearchQuery.toLowerCase()) ||
+            v.location.toLowerCase().includes(debouncedVolSearchQuery.toLowerCase()))
     );
 
     const openUrl = (url?: string) => {
@@ -274,9 +244,11 @@ export default function BantuanView() {
                 });
                 setMatchResults(resultsObj);
                 setShowAIMatcher(false);
+            } else {
+                alert(data.error || 'Failed to check eligibility. Please try again.');
             }
-        } catch {
-            alert('Failed to check eligibility. Please try again.');
+        } catch (err: any) {
+            alert(err.message || 'Failed to check eligibility. Please try again.');
         } finally {
             setIsMatching(false);
         }
@@ -669,7 +641,7 @@ export default function BantuanView() {
                                 <div className="flex items-center justify-between mb-3 mt-4">
                                     <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>🤝 Nationwide Campaigns 🇲🇾</p>
                                     <button
-                                        onClick={fetchVolunteerOpportunities}
+                                        onClick={() => mutateVolOpportunities()}
                                         className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
                                         style={{ background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-default)' }}
                                     >↻ Refresh</button>

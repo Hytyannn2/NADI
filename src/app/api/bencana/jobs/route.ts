@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
 import Groq from 'groq-sdk';
@@ -10,8 +11,9 @@ export async function GET() {
         const { data, error } = await supabase
             .from('nadi_bencana_jobs')
             .select('*')
+            .neq('status', 'banned') // Filter out inappropriate requests
             .order('created_at', { ascending: false });
-            
+
         if (error) throw error;
         return NextResponse.json({ success: true, jobs: data });
     } catch (err) {
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
                 .eq('id', jobId)
                 .select()
                 .single();
-                
+
             if (error) return NextResponse.json({ success: false, error: 'Job not found or error.' }, { status: 404 });
             return NextResponse.json({ success: true, job: data });
         }
@@ -49,14 +51,15 @@ export async function POST(request: Request) {
                 .from('nadi_bencana_jobs')
                 .delete()
                 .eq('id', jobId);
-                
+
             if (error) return NextResponse.json({ success: false, error: 'Job not found.' }, { status: 404 });
             return NextResponse.json({ success: true });
         }
 
-        // Submit new job with AI-generated priority
+        // Submit new job with QUEUEING THEORY & AUTO-MODERATION
         if (action === 'submit') {
             if (!name || !req) return NextResponse.json({ success: false, error: 'Name and request are required.' }, { status: 400 });
+            if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
             let fullReq = req;
             if (phone) fullReq += ` | Phone: ${phone}`;
@@ -64,30 +67,7 @@ export async function POST(request: Request) {
             if (pax) fullReq += ` | Pax: ${pax}`;
 
             let priority = userPriority || 'Medium';
-            let bounty = 30;
-            try {
-                const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
-                const result = await groq.chat.completions.create({
-                    messages: [{
-                        role: 'user',
-                        content: `You are a disaster relief coordinator for Malaysia's NADI Bencana (flood/crisis response) system.
-A victim needs help: "${fullReq}" for household "${name}" in area "${area || 'unknown'}".
-Assess this request and respond with JSON:
-{
-  "bountyPoints": <integer between 20-100, reflecting urgency>,
-  "category": "Mud Cleanup/Furniture Moving/Medical/Supply Delivery/Evacuation/Other"
-}`
-                    }],
-                    model: 'llama-3.3-70b-versatile',
-                    response_format: { type: 'json_object' },
-                });
-                const data = JSON.parse(result.choices[0]?.message?.content || '{}');
-                bounty = data.bountyPoints || 30;
-            } catch {
-                // fallback defaults
-            }
-
-            if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+            let bounty = 30; // Default
 
             const newJob = {
                 name,
@@ -98,14 +78,59 @@ Assess this request and respond with JSON:
                 area: area || 'Unknown',
                 priority,
             };
-            
+
+            // Instantly save to DB and return to user (0ms wait for AI)
             const { data, error } = await supabase
                 .from('nadi_bencana_jobs')
                 .insert(newJob)
                 .select()
                 .single();
-                
+
             if (error) throw error;
+
+            // Background Task (Queueing Theory) - Runs after response is sent
+            after(async () => {
+                try {
+                    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
+                    const result = await groq.chat.completions.create({
+                        messages: [{
+                            role: 'user',
+                            content: `You are a disaster relief AI moderator for Malaysia's NADI Bencana system.
+A user submitted this SOS request: "${fullReq}" for household "${name}" in area "${area || 'unknown'}".
+1. Check for inappropriate content, pranks, hate speech, or spam.
+2. If legitimate, assess urgency and assign bounty.
+Respond with JSON:
+{
+  "isInappropriate": <boolean>,
+  "bountyPoints": <integer between 20-100, reflecting urgency>,
+  "category": "Mud Cleanup/Furniture Moving/Medical/Supply Delivery/Evacuation/Other"
+}`
+                        }],
+                        model: 'llama-3.3-70b-versatile',
+                        response_format: { type: 'json_object' },
+                    });
+
+                    const parsedData = JSON.parse(result.choices[0]?.message?.content || '{}');
+
+                    // Admin client to update without user cookie context
+                    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+                    const adminSupabase = createAdminClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                    );
+
+                    if (parsedData.isInappropriate) {
+                        // Temporarily ban/remove the request if prank/inappropriate
+                        await adminSupabase.from('nadi_bencana_jobs').update({ status: 'banned', bounty: 0 }).eq('id', data.id);
+                    } else {
+                        // Update with actual calculated bounty
+                        const updatedBounty = parsedData.bountyPoints || 30;
+                        await adminSupabase.from('nadi_bencana_jobs').update({ bounty: updatedBounty }).eq('id', data.id);
+                    }
+                } catch (e) {
+                    console.error('Background AI Task Failed:', e);
+                }
+            });
 
             return NextResponse.json({ success: true, job: data });
         }

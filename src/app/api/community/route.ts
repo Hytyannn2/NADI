@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
+import { checkRateLimit } from '@/src/lib/rate-limiter';
+
+export const runtime = 'edge'; // Edge Computing for extreme performance
 
 export async function GET() {
     try {
@@ -12,7 +15,7 @@ export async function GET() {
             .limit(30);
 
         if (error) throw error;
-        
+
         // Map created_at to timestamp for frontend compatibility
         const posts = (data || []).map(p => ({
             ...p,
@@ -28,12 +31,22 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+        const { allowed, retryAfter } = checkRateLimit(ip);
+
+        if (!allowed) {
+            return NextResponse.json({
+                success: false,
+                error: `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfter} saat.`
+            }, { status: 429 });
+        }
+
         const { content, author, type } = await request.json();
         if (!content) return NextResponse.json({ success: false, error: 'Content required.' }, { status: 400 });
-        
+
         const supabase = createClient(await cookies());
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
         const newPost = {
@@ -52,9 +65,9 @@ export async function POST(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json({ 
-            success: true, 
-            post: { ...data, timestamp: new Date(data.created_at).getTime() } 
+        return NextResponse.json({
+            success: true,
+            post: { ...data, timestamp: new Date(data.created_at).getTime() }
         });
     } catch (error) {
         console.error('Community POST error:', error);
