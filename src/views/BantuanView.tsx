@@ -57,12 +57,12 @@ export default function BantuanView() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
     const [volFilterCategory, setVolFilterCategory] = useState<string>('all');
-    
+
     // Algorithmic Debouncing optimization
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
     // SWR Fetcher logic
-    const [userLoc, setUserLoc] = useState<{lat: number, lng: number} | null>(null);
+    const [userLoc, setUserLoc] = useState<{ lat: number, lng: number } | null>(null);
     useEffect(() => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
@@ -90,7 +90,7 @@ export default function BantuanView() {
     const { data: volData, isLoading: volLoading, mutate: mutateVolOpportunities } = useSWR(activeTab === 'volunteer' ? '/api/bantuan/volunteers' : null, fetcher, { revalidateOnFocus: false });
     const volOpportunities: VolunteerOpportunity[] = volData?.opportunities || [];
     const volPortals: VolunteerOpportunity[] = volData?.portals || [];
-    
+
     const [volSearchQuery, setVolSearchQuery] = useState('');
     const debouncedVolSearchQuery = useDebounce(volSearchQuery, 300);
 
@@ -324,7 +324,7 @@ export default function BantuanView() {
                         </motion.div>
                     </motion.div>
                 </AnimatePresence>
-            , document.body)}
+                , document.body)}
 
             {/* Volunteer Chat Overlay */}
             <AnimatePresence>
@@ -447,21 +447,21 @@ export default function BantuanView() {
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <div>
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Umur</label>
-                                                                <input type="number" required value={profile.age} onChange={e => setProfile({...profile, age: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                <input type="number" required value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                             <div>
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan (RM)</label>
-                                                                <input type="number" required value={profile.income} onChange={e => setProfile({...profile, income: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                <input type="number" required value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                             <div>
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Status</label>
-                                                                <select value={profile.status} onChange={e => setProfile({...profile, status: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
+                                                                <select value={profile.status} onChange={e => setProfile({ ...profile, status: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
                                                                     <option>Bekerja</option><option>Tidak Bekerja</option><option>Pelajar</option><option>Pesara</option>
                                                                 </select>
                                                             </div>
                                                             <div>
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Tanggungan</label>
-                                                                <input type="number" value={profile.dependents} onChange={e => setProfile({...profile, dependents: e.target.value})} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                <input type="number" value={profile.dependents} onChange={e => setProfile({ ...profile, dependents: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                         </div>
                                                         <button type="submit" disabled={isMatching} className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mt-2" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
@@ -482,68 +482,68 @@ export default function BantuanView() {
                                     )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {filteredPrograms.map((aid, i) => {
-                                        const match = matchResults[aid.id];
-                                        return (
-                                <motion.div
-                                    key={aid.id}
-                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                                    onClick={() => openUrl(aid.url)}
-                                    className="rounded-2xl p-5 transition-all shadow-sm group"
-                                    style={{
-                                        background: 'var(--bg-card)',
-                                        border: '1px solid var(--border-default)',
-                                        cursor: aid.url ? 'pointer' : 'default',
-                                    }}
-                                >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md border ${typeColors[aid.type]}`}>{aid.type}</span>
-                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md"
-                                                style={{ background: aid.status === 'active' ? 'var(--success-muted)' : 'var(--accent-muted)', color: aid.status === 'active' ? 'var(--success)' : 'var(--accent)' }}
-                                            >{aid.status}</span>
-                                        </div>
-                                        {aid.url && (
-                                            <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
-                                        )}
-                                    </div>
-                                    <h4 className="text-base font-bold mb-2 leading-tight group-hover:underline decoration-1 underline-offset-2" style={{ color: 'var(--text-primary)' }}>{aid.name}</h4>
-                                    
-                                    {match && (
-                                        <div className={`mb-3 p-3 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
-                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
-                                                {match.isEligible === true ? <CheckCircle className="w-3.5 h-3.5" /> : match.isEligible === false ? <X className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                                                {match.isEligible === true ? 'Layak' : match.isEligible === false ? 'Tidak Layak' : 'Mungkin Layak'}
-                                            </div>
-                                            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{match.reason}</p>
-                                        </div>
-                                    )}
+                                        {filteredPrograms.map((aid, i) => {
+                                            const match = matchResults[aid.id];
+                                            return (
+                                                <motion.div
+                                                    key={aid.id}
+                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                                                    onClick={() => openUrl(aid.url)}
+                                                    className="rounded-2xl p-5 transition-all shadow-sm group"
+                                                    style={{
+                                                        background: 'var(--bg-card)',
+                                                        border: '1px solid var(--border-default)',
+                                                        cursor: aid.url ? 'pointer' : 'default',
+                                                    }}
+                                                >
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md border ${typeColors[aid.type]}`}>{aid.type}</span>
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md"
+                                                                style={{ background: aid.status === 'active' ? 'var(--success-muted)' : 'var(--accent-muted)', color: aid.status === 'active' ? 'var(--success)' : 'var(--accent)' }}
+                                                            >{aid.status}</span>
+                                                        </div>
+                                                        {aid.url && (
+                                                            <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
+                                                        )}
+                                                    </div>
+                                                    <h4 className="text-base font-bold mb-2 leading-tight group-hover:underline decoration-1 underline-offset-2" style={{ color: 'var(--text-primary)' }}>{aid.name}</h4>
 
-                                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{aid.description}</p>
-                                    <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                            <MapPin className="w-3 h-3 shrink-0" /> {aid.location}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                            <Users className="w-3 h-3 shrink-0" /> {aid.eligibility}
-                                        </div>
-                                        {aid.deadline && (
-                                            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                                <Clock className="w-3 h-3 shrink-0" /> {aid.deadline}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center justify-between mt-3">
-                                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Provider: {aid.provider}</p>
-                                        {aid.url && (
-                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                Visit Site →
-                                            </span>
-                                        )}
-                                    </div>
-                                </motion.div>
-                                    );
-                                })}
+                                                    {match && (
+                                                        <div className={`mb-3 p-3 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+                                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
+                                                                {match.isEligible === true ? <CheckCircle className="w-3.5 h-3.5" /> : match.isEligible === false ? <X className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                                                                {match.isEligible === true ? 'Layak' : match.isEligible === false ? 'Tidak Layak' : 'Mungkin Layak'}
+                                                            </div>
+                                                            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{match.reason}</p>
+                                                        </div>
+                                                    )}
+
+                                                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{aid.description}</p>
+                                                    <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+                                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                                            <MapPin className="w-3 h-3 shrink-0" /> {aid.location}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                                            <Users className="w-3 h-3 shrink-0" /> {aid.eligibility}
+                                                        </div>
+                                                        {aid.deadline && (
+                                                            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                                                <Clock className="w-3 h-3 shrink-0" /> {aid.deadline}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-3">
+                                                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Provider: {aid.provider}</p>
+                                                        {aid.url && (
+                                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                                                                Visit Site →
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
                                     </div>
                                 </>
                             )}
@@ -566,7 +566,7 @@ export default function BantuanView() {
                                         <Plus className="w-3 h-3" /> {t('bencana.request_help')}
                                     </button>
                                 </div>
-                                
+
                                 {localJobsLoading ? (
                                     <div className="flex items-center justify-center py-8">
                                         <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
@@ -647,141 +647,141 @@ export default function BantuanView() {
                                     >↻ Refresh</button>
                                 </div>
 
-                            {/* Volunteer Search */}
-                            <div className="relative mb-2">
-                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                    <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                                </div>
-                                <input
-                                    type="text" value={volSearchQuery} onChange={e => setVolSearchQuery(e.target.value)}
-                                    placeholder="Search by org, location, or role..."
-                                    className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
-                                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-                                />
-                            </div>
-
-                            {/* Category filter pills */}
-                            <div className="flex gap-2 flex-wrap mb-2 overflow-x-auto pb-1">
-                                {[
-                                    { key: 'all', label: 'All' },
-                                    { key: 'disaster_relief', label: '🆘 Disaster' },
-                                    { key: 'education', label: '📚 Education' },
-                                    { key: 'environment', label: '🌿 Environment' },
-                                    { key: 'healthcare', label: '🏥 Health' },
-                                    { key: 'community', label: '🤝 Community' },
-                                    { key: 'elderly_care', label: '👵 Elderly' },
-                                    { key: 'youth', label: '⚡ Youth' },
-                                ].map(c => (
-                                    <button key={c.key} onClick={() => setVolFilterCategory(c.key)}
-                                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap shrink-0"
-                                        style={volFilterCategory === c.key
-                                            ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
-                                            : { color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
-                                        }
-                                    >{c.label}</button>
-                                ))}
-                            </div>
-
-                            {volLoading ? (
-                                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
-                                    <p className="text-xs font-medium animate-pulse" style={{ color: 'var(--text-muted)' }}>Finding volunteer opportunities...</p>
-                                </div>
-                            ) : filteredVolunteers.length === 0 ? (
-                                <div className="text-center py-12 rounded-2xl" style={{ border: '1px dashed var(--border-default)' }}>
-                                    <Briefcase className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>No matching opportunities</p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Try a different search or category</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {filteredVolunteers.map((vol, i) => {
-                                    const urgency = urgencyStyles[vol.urgency] || urgencyStyles.medium;
-                                    const catIcon = categoryIcons[vol.category] || '🤝';
-                                    return (
-                                        <motion.div
-                                            key={vol.id}
-                                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                                            onClick={() => openUrl(vol.url)}
-                                            className="p-4 rounded-2xl transition-all group cursor-pointer hover:shadow-md"
-                                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
-                                        >
-                                            {/* Top row: category + urgency */}
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-lg">{catIcon}</span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md"
-                                                        style={{ background: urgency.bg, color: urgency.text }}
-                                                    >{urgency.label}</span>
-                                                </div>
-                                                <ExternalLink className="w-4 h-4 opacity-30 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
-                                            </div>
-
-                                            {/* Title + org */}
-                                            <h4 className="text-sm font-bold mb-1 group-hover:underline decoration-1 underline-offset-2" style={{ color: 'var(--text-primary)' }}>{vol.title}</h4>
-                                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--accent)' }}>{vol.organization}</p>
-                                            <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{vol.description}</p>
-
-                                            {/* Meta row */}
-                                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                                <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                                    <MapPin className="w-3 h-3" /> {vol.location}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                                    <Clock className="w-3 h-3" /> {vol.commitment}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                                    <UserCheck className="w-3 h-3" /> {vol.spots} spots
-                                                </span>
-                                                <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                                    <Calendar className="w-3 h-3" /> {vol.startDate}
-                                                </span>
-                                            </div>
-
-                                            {/* CTA */}
-                                            <div className="flex items-center justify-between mt-3">
-                                                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{vol.url?.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
-                                                <span className="text-[11px] font-bold px-3 py-1 rounded-lg transition-all group-hover:shadow-sm"
-                                                    style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}
-                                                >
-                                                    Sign Up →
-                                                </span>
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                                </div>
-                            )}
-
-                            {/* Browse Portals Section */}
-                            {volPortals.length > 0 && (
-                                <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                    <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>🔗 Browse Directly</p>
-                                    <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>Visit these official volunteer portals to find and sign up for specific activities:</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                        {volPortals.map(p => (
-                                            <motion.a
-                                                key={p.id}
-                                                href={p.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                whileTap={{ scale: 0.97 }}
-                                                className="p-3 rounded-xl text-center transition-all hover:shadow-sm"
-                                                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
-                                            >
-                                                <p className="text-xs font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>{p.organization}</p>
-                                                <p className="text-[9px]" style={{ color: 'var(--accent)' }}>{p.url.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 30)}</p>
-                                            </motion.a>
-                                        ))}
+                                {/* Volunteer Search */}
+                                <div className="relative mb-2">
+                                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                        <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                                     </div>
+                                    <input
+                                        type="text" value={volSearchQuery} onChange={e => setVolSearchQuery(e.target.value)}
+                                        placeholder="Search by org, location, or role..."
+                                        className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
+                                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                                    />
                                 </div>
-                            )}
+
+                                {/* Category filter pills */}
+                                <div className="flex gap-2 flex-wrap mb-2 overflow-x-auto pb-1">
+                                    {[
+                                        { key: 'all', label: 'All' },
+                                        { key: 'disaster_relief', label: '🆘 Disaster' },
+                                        { key: 'education', label: '📚 Education' },
+                                        { key: 'environment', label: '🌿 Environment' },
+                                        { key: 'healthcare', label: '🏥 Health' },
+                                        { key: 'community', label: '🤝 Community' },
+                                        { key: 'elderly_care', label: '👵 Elderly' },
+                                        { key: 'youth', label: '⚡ Youth' },
+                                    ].map(c => (
+                                        <button key={c.key} onClick={() => setVolFilterCategory(c.key)}
+                                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap shrink-0"
+                                            style={volFilterCategory === c.key
+                                                ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
+                                                : { color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
+                                            }
+                                        >{c.label}</button>
+                                    ))}
+                                </div>
+
+                                {volLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+                                        <p className="text-xs font-medium animate-pulse" style={{ color: 'var(--text-muted)' }}>Finding volunteer opportunities...</p>
+                                    </div>
+                                ) : filteredVolunteers.length === 0 ? (
+                                    <div className="text-center py-12 rounded-2xl" style={{ border: '1px dashed var(--border-default)' }}>
+                                        <Briefcase className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>No matching opportunities</p>
+                                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Try a different search or category</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {filteredVolunteers.map((vol, i) => {
+                                            const urgency = urgencyStyles[vol.urgency] || urgencyStyles.medium;
+                                            const catIcon = categoryIcons[vol.category] || '🤝';
+                                            return (
+                                                <motion.div
+                                                    key={vol.id}
+                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                                                    onClick={() => openUrl(vol.url)}
+                                                    className="p-4 rounded-2xl transition-all group cursor-pointer hover:shadow-md"
+                                                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                                                >
+                                                    {/* Top row: category + urgency */}
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-lg">{catIcon}</span>
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md"
+                                                                style={{ background: urgency.bg, color: urgency.text }}
+                                                            >{urgency.label}</span>
+                                                        </div>
+                                                        <ExternalLink className="w-4 h-4 opacity-30 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
+                                                    </div>
+
+                                                    {/* Title + org */}
+                                                    <h4 className="text-sm font-bold mb-1 group-hover:underline decoration-1 underline-offset-2" style={{ color: 'var(--text-primary)' }}>{vol.title}</h4>
+                                                    <p className="text-xs font-semibold mb-2" style={{ color: 'var(--accent)' }}>{vol.organization}</p>
+                                                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{vol.description}</p>
+
+                                                    {/* Meta row */}
+                                                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
+                                                        <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                                            <MapPin className="w-3 h-3" /> {vol.location}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                                            <Clock className="w-3 h-3" /> {vol.commitment}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                                            <UserCheck className="w-3 h-3" /> {vol.spots} spots
+                                                        </span>
+                                                        <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                                            <Calendar className="w-3 h-3" /> {vol.startDate}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* CTA */}
+                                                    <div className="flex items-center justify-between mt-3">
+                                                        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{vol.url?.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+                                                        <span className="text-[11px] font-bold px-3 py-1 rounded-lg transition-all group-hover:shadow-sm"
+                                                            style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}
+                                                        >
+                                                            Sign Up →
+                                                        </span>
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Browse Portals Section */}
+                                {volPortals.length > 0 && (
+                                    <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
+                                        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>🔗 Browse Directly</p>
+                                        <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>Visit these official volunteer portals to find and sign up for specific activities:</p>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                            {volPortals.map(p => (
+                                                <motion.a
+                                                    key={p.id}
+                                                    href={p.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    whileTap={{ scale: 0.97 }}
+                                                    className="p-3 rounded-xl text-center transition-all hover:shadow-sm"
+                                                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
+                                                >
+                                                    <p className="text-xs font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>{p.organization}</p>
+                                                    <p className="text-[9px]" style={{ color: 'var(--accent)' }}>{p.url.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 30)}</p>
+                                                </motion.a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-        </div>
+            </div>
         </div>
     );
 }

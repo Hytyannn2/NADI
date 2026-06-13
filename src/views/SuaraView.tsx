@@ -85,10 +85,31 @@ export default function SuaraView() {
         }
     };
 
-    const handleRate = (id: string, rating: 'up' | 'down') => {
+    const handleRate = async (id: string, rating: 'up' | 'down') => {
         setReports(prev => prev.map(r =>
             r.id === id ? { ...r, rating } : r
         ));
+
+        if (rating === 'up') {
+            const report = reports.find(r => r.id === id);
+            if (report && report.raw && report.simplifiedTranslation) {
+                try {
+                    await fetch('/api/dialect/feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            dialectText: report.raw.trim(),
+                            correctMeaning: report.simplifiedTranslation.trim(),
+                            region: report.detectedDialect && report.detectedDialect !== 'unknown' ? report.detectedDialect : 'kelantan',
+                            rawVoice: report.raw || '',
+                            reportId: report.id,
+                        }),
+                    });
+                } catch (e) {
+                    console.error('Auto-correction failed', e);
+                }
+            }
+        }
     };
 
     const handleRemoveReport = (id: string) => {
@@ -139,6 +160,23 @@ export default function SuaraView() {
 
         setIsProcessing(true);
         try {
+            let coords: { lat: number, lng: number } | null = null;
+            try {
+                if ('geolocation' in navigator) {
+                    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, maximumAge: 0, enableHighAccuracy: true });
+                    });
+                    coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                } else {
+                    throw new Error("Geolocation not supported");
+                }
+            } catch (geoErr) {
+                console.log("Geolocation failed:", geoErr);
+                alert("Sila benarkan akses lokasi (GPS) untuk menghantar laporan. (Please allow GPS access)");
+                setIsProcessing(false);
+                return;
+            }
+
             const res = await fetch('/api/suara/parse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -158,6 +196,8 @@ export default function SuaraView() {
                 id: Date.now().toString(),
                 raw: inputText,
                 ...result.data,
+                coordinates: coords || result.data.coordinates,
+                location: result.data.location || (coords ? 'Current Location' : 'Unknown Location'),
                 timestamp: new Date()
             }, ...prev]);
 
@@ -359,7 +399,7 @@ export default function SuaraView() {
                                 {/* Location Tag */}
                                 <div className="flex text-[10px] uppercase font-bold tracking-widest mb-4">
                                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-primary)', background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                        <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} /> {report.location}
+                                        <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} /> {report.location || 'Unknown Location'}
                                     </span>
                                 </div>
 
@@ -373,7 +413,7 @@ export default function SuaraView() {
                                 </div>
 
                                 {/* GPS Chip (replaces fake map) */}
-                                {report.coordinates && (
+                                {report.coordinates?.lat !== undefined && report.coordinates?.lng !== undefined && (
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
                                             <MapPin className="w-3 h-3" style={{ color: 'var(--accent)' }} />

@@ -3,7 +3,6 @@ import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { checkRateLimit } from '@/src/lib/rate-limiter';
 
-export const runtime = 'edge'; // Edge Computing for extreme performance
 
 export async function GET() {
     try {
