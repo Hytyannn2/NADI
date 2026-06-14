@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* ====== CUSTOM FONTS ====== */
@@ -248,3 +249,75 @@ body {
   background: var(--bg-subtle);
 }
 .empty-state p { color: var(--text-muted); font-size: 13px; }
+
+/* ====== ACCESSIBILITY & CUSTOMIZATION ====== */
+
+/* 1. High Contrast */
+.high-contrast {
+  --bg-base: #000000 !important;
+  --bg-card: #000000 !important;
+  --bg-subtle: #000000 !important;
+  --bg-muted: #111111 !important;
+  --bg-elevated: #000000 !important;
+  --border-default: #FFFFFF !important;
+  --border-subtle: #CCCCCC !important;
+  --text-primary: #FFFFFF !important;
+  --text-secondary: #E0E0E0 !important;
+  --text-muted: #BDBDBD !important;
+  --accent: #FFFF00 !important;
+  --accent-muted: rgba(255, 255, 0, 0.2) !important;
+  --text-on-accent: #000000 !important;
+  --success: #00FF00 !important;
+  --success-muted: rgba(0, 255, 0, 0.2) !important;
+  --danger: #FF0000 !important;
+  --danger-muted: rgba(255, 0, 0, 0.2) !important;
+  --warning: #FF8800 !important;
+}
+
+/* 2. Dyslexia Font */
+.font-dyslexic {
+  --font-sans: 'Lexend', 'OpenDyslexic', 'Comic Sans MS', 'Comic Sans', Arial, sans-serif !important;
+  letter-spacing: 0.05em !important;
+  word-spacing: 0.1em !important;
+  line-height: 1.6 !important;
+}
+
+/* 3. Colorblind Modes */
+/* Protanopia & Deuteranopia (Red/Green blind) -> Map to Blue/Orange */
+.colorblind-protanopia, .colorblind-deuteranopia {
+  --success: #3B82F6 !important; /* Blue */
+  --success-light: #EFF6FF !important;
+  --success-muted: rgba(59, 130, 246, 0.15) !important;
+  --danger: #F59E0B !important; /* Orange */
+  --danger-light: #FFFBEB !important;
+  --danger-muted: rgba(245, 158, 11, 0.15) !important;
+  --warning: #10B981 !important; /* Green for warning to keep distinct */
+}
+
+/* Tritanopia (Blue-blind) -> Map to Cyan/Red */
+.colorblind-tritanopia {
+  --success: #06B6D4 !important; /* Cyan */
+  --success-light: #ECFEFF !important;
+  --success-muted: rgba(6, 182, 212, 0.15) !important;
+  --accent: #EF4444 !important; /* Red */
+  --accent-hover: #DC2626 !important;
+  --accent-light: #FEF2F2 !important;
+  --accent-muted: rgba(239, 68, 68, 0.15) !important;
+  --danger: #8B5CF6 !important; /* Purple */
+  --danger-light: #F5F3FF !important;
+  --danger-muted: rgba(139, 92, 246, 0.15) !important;
+}
+
+/* 4. Reduce Motion */
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+/* ====== VIEW TRANSITION ====== */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

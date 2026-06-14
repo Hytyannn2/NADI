@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 
 /**
  * GET /api/bantuan/volunteers
@@ -34,7 +34,7 @@ const REAL_PORTALS = [
     { name: 'Yayasan Sukarelawan Siswa', url: 'https://yss.mohe.gov.my', searchUrl: 'https://yss.mohe.gov.my' },
 ];
 
-async function scrapeMysukarelawan(): Promise<VolunteerOpp[]> {
+async function scrapeMysukarelawan(targetLang: string): Promise<VolunteerOpp[]> {
     try {
         // Try fetching from mysukarelawan.gov.my search page
         const res = await fetch('https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti', {
@@ -69,14 +69,24 @@ async function scrapeMysukarelawan(): Promise<VolunteerOpp[]> {
                 const title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
                 if (title.length < 5) continue;
 
+                const translate = (en: string, ms: string, zh: string, ta: string, ar: string) => {
+                    switch (targetLang) {
+                        case 'Malay': return ms;
+                        case 'Chinese': return zh;
+                        case 'Tamil': return ta;
+                        case 'Arabic': return ar;
+                        default: return en;
+                    }
+                };
+
                 activities.push({
                     id: `mysk-${idx}`,
                     title,
                     organization: 'MySukarelawan',
                     category: 'community',
-                    description: `Volunteer activity from MySukarelawan, Malaysia's official government volunteer portal.`,
-                    location: 'Malaysia',
-                    commitment: 'See details',
+                    description: translate('Volunteer activity from MySukarelawan, Malaysia\'s official government volunteer portal.', 'Aktiviti sukarelawan dari MySukarelawan, portal sukarelawan rasmi kerajaan.', '来自马来西亚官方政府志愿服务门户网站 MySukarelawan 的志愿活动。', 'மலேசியாவின் அதிகாரப்பூர்வ அரசாங்க தன்னார்வத் தொண்டு நிறுவனமான MySukarelawan இலிருந்து தன்னார்வ செயல்பாடு.', 'نشاط تطوعي من بوابة التطوع الحكومية الرسمية في ماليزيا.'),
+                    location: translate('Malaysia', 'Malaysia', '马来西亚', 'மலேசியா', 'ماليزيا'),
+                    commitment: translate('See details', 'Lihat butiran', '查看详情', 'விவரங்களைக் காண்க', 'انظر التفاصيل'),
                     spots: 0,
                     url: linkMatch ? `https://mysukarelawan.gov.my${linkMatch[1]}` : 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti',
                     urgency: 'medium',
@@ -92,7 +102,7 @@ async function scrapeMysukarelawan(): Promise<VolunteerOpp[]> {
     }
 }
 
-async function getGroqVolunteers(groqKey: string): Promise<VolunteerOpp[]> {
+async function getGroqVolunteers(groqKey: string, targetLang: string = 'English'): Promise<VolunteerOpp[]> {
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -102,6 +112,8 @@ async function getGroqVolunteers(groqKey: string): Promise<VolunteerOpp[]> {
                 messages: [{
                     role: 'system',
                     content: `You are a Malaysian volunteer opportunity aggregator. The current year is 2026. Return ONLY valid JSON array of volunteer opportunities across Malaysia.
+
+CRITICAL INSTRUCTION: You MUST translate the string values of 'title', 'description', 'organization', 'location', and 'commitment' into ${targetLang}. Keep the exact JSON structure and keys in English.
 
 CRITICAL RULES FOR URLs:
 - For each opportunity, the "url" field MUST point to the SPECIFIC volunteer/get-involved page of the organization, NOT the homepage.
@@ -128,7 +140,7 @@ Each item: id (string), title (string), organization (string), category ("disast
 Return 12-15 diverse opportunities from different states. ONLY JSON array, no markdown.`
                 }, {
                     role: 'user',
-                    content: 'List active volunteer opportunities across Malaysia for 2026. Use the SPECIFIC volunteer page URLs I gave you, NOT homepages. Cover disaster relief, environment, education, health, community service, elderly care, youth programs across KL, Selangor, Penang, Johor, Sabah, Sarawak, Kelantan, Perak, Terengganu etc.'
+                    content: `List active volunteer opportunities across Malaysia for 2026. Use the SPECIFIC volunteer page URLs I gave you, NOT homepages. Cover disaster relief, environment, education, health, community service, elderly care, youth programs across KL, Selangor, Penang, Johor, Sabah, Sarawak, Kelantan, Perak, Terengganu etc. Provide output translated into ${targetLang}.`
                 }],
                 temperature: 0.3,
                 max_tokens: 4000,
@@ -148,7 +160,12 @@ Return 12-15 diverse opportunities from different states. ONLY JSON array, no ma
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const { searchParams } = new URL(request.url);
+    const langParam = searchParams.get('lang') || 'en';
+    const langMap: Record<string, string> = { ms: 'Malay', en: 'English', zh: 'Chinese', ta: 'Tamil', ar: 'Arabic' };
+    const targetLang = langMap[langParam] || 'English';
+
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
     if (!GROQ_API_KEY) {
@@ -158,8 +175,8 @@ export async function GET() {
     try {
         // Try scraping real data first, and get AI-generated listings in parallel
         const [scraped, aiGenerated] = await Promise.all([
-            scrapeMysukarelawan(),
-            getGroqVolunteers(GROQ_API_KEY),
+            scrapeMysukarelawan(targetLang),
+            getGroqVolunteers(GROQ_API_KEY, targetLang),
         ]);
 
         // Merge: scraped first (real data), then AI-enriched
@@ -174,19 +191,29 @@ export async function GET() {
             return true;
         });
 
+        const translate = (en: string, ms: string, zh: string, ta: string, ar: string) => {
+            switch (langParam) {
+                case 'ms': return ms;
+                case 'zh': return zh;
+                case 'ta': return ta;
+                case 'ar': return ar;
+                default: return en;
+            }
+        };
+
         // Also add the portal links as a special "browse more" section
         const portals = REAL_PORTALS.map((p, i) => ({
             id: `portal-${i}`,
-            title: `Browse ${p.name}`,
+            title: translate(`Browse ${p.name}`, `Layari ${p.name}`, `浏览 ${p.name}`, `உலாவுக ${p.name}`, `تصفح ${p.name}`),
             organization: p.name,
             category: 'community' as const,
-            description: `Visit ${p.name}'s volunteer listing page to find and sign up for current opportunities directly.`,
-            location: 'Nationwide',
-            commitment: 'Various',
+            description: translate(`Visit ${p.name}'s volunteer listing page to find and sign up for current opportunities directly.`, `Lawati halaman senarai sukarelawan ${p.name} untuk mencari dan mendaftar peluang terkini.`, `访问 ${p.name} 的志愿者列表页面，直接查找和注册当前机会。`, `தற்போதைய வாய்ப்புகளைக் கண்டறிந்து பதிவுசெய்ய ${p.name} இன் தன்னார்வப் பட்டியல் பக்கத்தைப் பார்வையிடவும்.`, `تفضل بزيارة صفحة قائمة المتطوعين لـ ${p.name} للعثور على الفرص الحالية والتسجيل فيها مباشرة.`),
+            location: translate('Nationwide', 'Seluruh Negara', '全国', 'நாடு தழுவிய', 'على الصعيد الوطني'),
+            commitment: translate('Various', 'Pelbagai', '各种各样', 'பல்வேறு', 'متنوع'),
             spots: 0,
             url: p.searchUrl,
             urgency: 'low' as const,
-            startDate: 'Ongoing',
+            startDate: translate('Ongoing', 'Berterusan', '进行中', 'தொடர்ந்து', 'مستمر'),
             isPortal: true,
         }));
 

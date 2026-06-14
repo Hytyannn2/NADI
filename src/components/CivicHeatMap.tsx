@@ -72,7 +72,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex flex-col"
+            className="fixed inset-0 z-[100] flex flex-col md:pl-64"
             style={{ background: 'var(--bg-main)' }}
         >
             <div className="flex items-center justify-between p-4" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
@@ -148,8 +148,8 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                 )}
 
                 {/* Info overlay */}
-                <div className="absolute bottom-4 left-4 right-4 rounded-2xl p-4 z-[500] backdrop-blur-xl"
-                    style={{ background: 'var(--bg-card-translucent, rgba(255,255,255,0.92))', border: '1px solid var(--border-default)' }}
+                <div className="absolute bottom-4 left-4 right-4 md:left-auto md:w-[360px] md:right-6 rounded-2xl p-4 z-[500] backdrop-blur-xl shadow-2xl"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                 >
                     {totalReports > 0 ? (
                         <>

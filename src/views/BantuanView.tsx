@@ -52,7 +52,7 @@ interface VolunteerJob {
 }
 
 export default function BantuanView() {
-    const { t } = useLanguage();
+    const { t, lang } = useLanguage();
     const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>('programs');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
@@ -75,7 +75,7 @@ export default function BantuanView() {
         }
     }, []);
 
-    const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}` : null;
+    const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}&lang=${lang}` : null;
     const { data: programsData, isLoading: programsLoading } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
     const aidPrograms: AidProgram[] = programsData?.programs || [];
     const locationName = programsData?.location || '';
@@ -87,7 +87,7 @@ export default function BantuanView() {
     const [matchResults, setMatchResults] = useState<Record<string, { isEligible: boolean | 'maybe', reason: string }>>({});
 
     // Volunteer opportunities (nationwide from API)
-    const { data: volData, isLoading: volLoading, mutate: mutateVolOpportunities } = useSWR(activeTab === 'volunteer' ? '/api/bantuan/volunteers' : null, fetcher, { revalidateOnFocus: false });
+    const { data: volData, isLoading: volLoading, mutate: mutateVolOpportunities } = useSWR(activeTab === 'volunteer' ? `/api/bantuan/volunteers?lang=${lang}` : null, fetcher, { revalidateOnFocus: false });
     const volOpportunities: VolunteerOpportunity[] = volData?.opportunities || [];
     const volPortals: VolunteerOpportunity[] = volData?.portals || [];
 
@@ -335,9 +335,9 @@ export default function BantuanView() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="mb-6"
             >
-                <h2 className="text-2xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>Bantuan</h2>
+                <h2 className="text-2xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>{t('bantuan.title')}</h2>
                 <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                    Aid &amp; Volunteer{locationName ? ` · ${locationName}` : ''}
+                    {t('bantuan.desc')}{locationName ? ` · ${locationName}` : ''}
                 </p>
             </motion.div>
 
@@ -349,17 +349,17 @@ export default function BantuanView() {
                 <div className="rounded-2xl p-4 text-center" style={{ background: 'var(--success-light)', border: '1px solid var(--border-default)' }}>
                     <Package className="w-4 h-4 mx-auto mb-2" style={{ color: 'var(--success)' }} />
                     <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{aidPrograms.filter(a => a.status === 'active').length}</p>
-                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Active Aid</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{t('bantuan.active_aid')}</p>
                 </div>
                 <div className="rounded-2xl p-4 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                     <Globe className="w-4 h-4 mx-auto mb-2" style={{ color: 'var(--accent)' }} />
                     <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{volOpportunities.length}</p>
-                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Volunteer</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{t('bantuan.volunteer')}</p>
                 </div>
                 <div className="rounded-2xl p-4 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                     <HandHeart className="w-4 h-4 mx-auto mb-2" style={{ color: 'var(--warning)' }} />
                     <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{volOpportunities.reduce((sum, v) => sum + (v.spots || 0), 0)}</p>
-                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Open Spots</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{t('bantuan.open_spots')}</p>
                 </div>
             </motion.div>
 
@@ -373,12 +373,12 @@ export default function BantuanView() {
                     onClick={() => setActiveTab('programs')}
                     className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
                     style={activeTab === 'programs' ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' } : { color: 'var(--text-muted)' }}
-                >Aid Programs</button>
+                >{t('bantuan.tab_aid')}</button>
                 <button
                     onClick={() => setActiveTab('volunteer')}
                     className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
                     style={activeTab === 'volunteer' ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' } : { color: 'var(--text-muted)' }}
-                >Volunteer 🇲🇾</button>
+                >{t('bantuan.tab_vol')} 🇲🇾</button>
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -396,7 +396,7 @@ export default function BantuanView() {
                                 </div>
                                 <input
                                     type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                                    placeholder="Search aid programs..."
+                                    placeholder={t('bantuan.search_aid')}
                                     className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
                                     style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
                                 />
@@ -419,7 +419,7 @@ export default function BantuanView() {
                                 </div>
                             ) : filteredPrograms.length === 0 ? (
                                 <div className="text-center py-12 rounded-2xl" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
-                                    <p className="text-sm font-medium">No aid programs found for your area</p>
+                                    <p className="text-sm font-medium">{t('bantuan.no_aid')}</p>
                                 </div>
                             ) : (
                                 <>
@@ -427,10 +427,10 @@ export default function BantuanView() {
                                     {!showAIMatcher && Object.keys(matchResults).length === 0 && (
                                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-4 rounded-2xl flex items-center justify-between shadow-sm cursor-pointer" style={{ background: 'linear-gradient(135deg, var(--accent-muted) 0%, rgba(197, 163, 103, 0.05) 100%)', border: '1px solid var(--accent)' }} onClick={() => setShowAIMatcher(true)}>
                                             <div>
-                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><Search className="w-4 h-4 text-[#C5A367]" /> Semak Kelayakan AI</h4>
-                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>Biar NADI AI semak program mana yang anda layak mohon.</p>
+                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><Search className="w-4 h-4 text-[#C5A367]" /> {t('bantuan.ai_title')}</h4>
+                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>{t('bantuan.ai_desc')}</p>
                                             </div>
-                                            <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white">Semak Sekarang</span>
+                                            <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white">{t('bantuan.ai_btn')}</span>
                                         </motion.div>
                                     )}
 
@@ -440,32 +440,32 @@ export default function BantuanView() {
                                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 overflow-hidden">
                                                 <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)' }}>
                                                     <div className="flex justify-between items-center mb-3">
-                                                        <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Profil Pemohon</h4>
+                                                        <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{t('bantuan.profile')}</h4>
                                                         <button onClick={() => setShowAIMatcher(false)}><X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} /></button>
                                                     </div>
                                                     <form onSubmit={handleAIMatch} className="space-y-3">
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Umur</label>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.age')}</label>
                                                                 <input type="number" required value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                             <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan (RM)</label>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.income')}</label>
                                                                 <input type="number" required value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                             <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Status</label>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.status')}</label>
                                                                 <select value={profile.status} onChange={e => setProfile({ ...profile, status: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
-                                                                    <option>Bekerja</option><option>Tidak Bekerja</option><option>Pelajar</option><option>Pesara</option>
+                                                                    <option>{t('bantuan.status_work')}</option><option>{t('bantuan.status_nowork')}</option><option>{t('bantuan.status_student')}</option><option>{t('bantuan.status_retiree')}</option>
                                                                 </select>
                                                             </div>
                                                             <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Tanggungan</label>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.dependents')}</label>
                                                                 <input type="number" value={profile.dependents} onChange={e => setProfile({ ...profile, dependents: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                         </div>
                                                         <button type="submit" disabled={isMatching} className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mt-2" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
-                                                            {isMatching ? <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis...</> : 'Jalankan Analisis AI'}
+                                                            {isMatching ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('bantuan.analyzing')}</> : t('bantuan.run_ai')}
                                                         </button>
                                                     </form>
                                                 </div>
@@ -513,7 +513,7 @@ export default function BantuanView() {
                                                         <div className={`mb-3 p-3 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
                                                             <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
                                                                 {match.isEligible === true ? <CheckCircle className="w-3.5 h-3.5" /> : match.isEligible === false ? <X className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                                                                {match.isEligible === true ? 'Layak' : match.isEligible === false ? 'Tidak Layak' : 'Mungkin Layak'}
+                                                                {match.isEligible === true ? t('bantuan.eligible') : match.isEligible === false ? t('bantuan.not_eligible') : t('bantuan.maybe_eligible')}
                                                             </div>
                                                             <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{match.reason}</p>
                                                         </div>
@@ -534,10 +534,10 @@ export default function BantuanView() {
                                                         )}
                                                     </div>
                                                     <div className="flex items-center justify-between mt-3">
-                                                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Provider: {aid.provider}</p>
+                                                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>{t('bantuan.provider')} {aid.provider}</p>
                                                         {aid.url && (
                                                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                                Visit Site →
+                                                                {t('bantuan.visit_site')}
                                                             </span>
                                                         )}
                                                     </div>
@@ -557,7 +557,7 @@ export default function BantuanView() {
                             {/* --- SECTION 1: URGENT LOCAL SOS --- */}
                             <div className="mb-8">
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>🚨 Urgent Local SOS</p>
+                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{t('vol.urgent_sos')}</p>
                                     <button
                                         onClick={() => setShowJobForm(true)}
                                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all"
@@ -573,7 +573,7 @@ export default function BantuanView() {
                                     </div>
                                 ) : localJobs.length === 0 ? (
                                     <div className="text-center py-8 rounded-3xl text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
-                                        No local SOS requests
+                                        {t('vol.no_sos')}
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -639,12 +639,12 @@ export default function BantuanView() {
                             <div className="pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
                                 {/* Header */}
                                 <div className="flex items-center justify-between mb-3 mt-4">
-                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>🤝 Nationwide Campaigns 🇲🇾</p>
+                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{t('vol.nationwide')}</p>
                                     <button
                                         onClick={() => mutateVolOpportunities()}
                                         className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
                                         style={{ background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-default)' }}
-                                    >↻ Refresh</button>
+                                    >{t('vol.refresh')}</button>
                                 </div>
 
                                 {/* Volunteer Search */}
@@ -654,7 +654,7 @@ export default function BantuanView() {
                                     </div>
                                     <input
                                         type="text" value={volSearchQuery} onChange={e => setVolSearchQuery(e.target.value)}
-                                        placeholder="Search by org, location, or role..."
+                                        placeholder={t('vol.search')}
                                         className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
                                         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
                                     />
@@ -663,14 +663,14 @@ export default function BantuanView() {
                                 {/* Category filter pills */}
                                 <div className="flex gap-2 flex-wrap mb-2 overflow-x-auto pb-1">
                                     {[
-                                        { key: 'all', label: 'All' },
-                                        { key: 'disaster_relief', label: '🆘 Disaster' },
-                                        { key: 'education', label: '📚 Education' },
-                                        { key: 'environment', label: '🌿 Environment' },
-                                        { key: 'healthcare', label: '🏥 Health' },
-                                        { key: 'community', label: '🤝 Community' },
-                                        { key: 'elderly_care', label: '👵 Elderly' },
-                                        { key: 'youth', label: '⚡ Youth' },
+                                        { key: 'all', label: t('vol.cat_all') },
+                                        { key: 'disaster_relief', label: t('vol.cat_disaster') },
+                                        { key: 'education', label: t('vol.cat_edu') },
+                                        { key: 'environment', label: t('vol.cat_env') },
+                                        { key: 'healthcare', label: t('vol.cat_health') },
+                                        { key: 'community', label: t('vol.cat_comm') },
+                                        { key: 'elderly_care', label: t('vol.cat_elderly') },
+                                        { key: 'youth', label: t('vol.cat_youth') },
                                     ].map(c => (
                                         <button key={c.key} onClick={() => setVolFilterCategory(c.key)}
                                             className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap shrink-0"
@@ -685,13 +685,13 @@ export default function BantuanView() {
                                 {volLoading ? (
                                     <div className="flex flex-col items-center justify-center py-16 gap-3">
                                         <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
-                                        <p className="text-xs font-medium animate-pulse" style={{ color: 'var(--text-muted)' }}>Finding volunteer opportunities...</p>
+                                        <p className="text-xs font-medium animate-pulse" style={{ color: 'var(--text-muted)' }}>{t('vol.finding')}</p>
                                     </div>
                                 ) : filteredVolunteers.length === 0 ? (
                                     <div className="text-center py-12 rounded-2xl" style={{ border: '1px dashed var(--border-default)' }}>
                                         <Briefcase className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>No matching opportunities</p>
-                                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Try a different search or category</p>
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{t('vol.no_match')}</p>
+                                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('vol.try_diff')}</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -731,7 +731,7 @@ export default function BantuanView() {
                                                             <Clock className="w-3 h-3" /> {vol.commitment}
                                                         </span>
                                                         <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                                            <UserCheck className="w-3 h-3" /> {vol.spots} spots
+                                                            <UserCheck className="w-3 h-3" /> {vol.spots} {t('vol.spots')}
                                                         </span>
                                                         <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                                                             <Calendar className="w-3 h-3" /> {vol.startDate}
@@ -744,7 +744,7 @@ export default function BantuanView() {
                                                         <span className="text-[11px] font-bold px-3 py-1 rounded-lg transition-all group-hover:shadow-sm"
                                                             style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}
                                                         >
-                                                            Sign Up →
+                                                            {t('vol.signup')}
                                                         </span>
                                                     </div>
                                                 </motion.div>
@@ -756,8 +756,8 @@ export default function BantuanView() {
                                 {/* Browse Portals Section */}
                                 {volPortals.length > 0 && (
                                     <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>🔗 Browse Directly</p>
-                                        <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>Visit these official volunteer portals to find and sign up for specific activities:</p>
+                                        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>{t('vol.browse')}</p>
+                                        <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>{t('vol.visit_portals')}</p>
                                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                             {volPortals.map(p => (
                                                 <motion.a

@@ -1,5 +1,5 @@
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -26,6 +26,18 @@ export interface FloodZone {
     population: number;
 }
 
+export interface WeatherData {
+    temp: number;
+    feelsLike: number;
+    humidity: number;
+    windSpeed: number;
+    rainMm: number;
+    floodRisk: string;
+    aqi: number;
+    pm25: number;
+    pm10: number;
+}
+
 export interface EvacCenter {
     name: string;
     district: string;
@@ -44,6 +56,8 @@ export default function BencanaView() {
     const [userLat, setUserLat] = useState<number | null>(null);
     const [userLng, setUserLng] = useState<number | null>(null);
     const [locationLabel, setLocationLabel] = useState('Locating...');
+    const [weather, setWeather] = useState<WeatherData | null>(null);
+    const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
     // LoRaWAN sensor status
     const [sensorStatus, setSensorStatus] = useState<'safe' | 'warning' | 'danger'>('safe');
@@ -95,6 +109,13 @@ export default function BencanaView() {
                 .then(r => r.json())
                 .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Unknown Location'); })
                 .catch(() => { setLocationLabel('Unknown Location'); });
+
+            setIsWeatherLoading(true);
+            fetch(`/api/weather?lat=${lat}&lng=${lng}`)
+                .then(r => r.json())
+                .then(d => { if (d.success) setWeather(d.weather); })
+                .catch(() => {})
+                .finally(() => setIsWeatherLoading(false));
         };
 
         if (navigator.geolocation) {
@@ -106,6 +127,13 @@ export default function BencanaView() {
                 },
                 (err) => {
                     setLocationLabel('Location Access Denied');
+                    // Fallback to Kuala Lumpur if denied
+                    setIsWeatherLoading(true);
+                    fetch(`/api/weather?lat=3.139&lng=101.6869`)
+                        .then(r => r.json())
+                        .then(d => { if (d.success) setWeather(d.weather); })
+                        .catch(() => {})
+                        .finally(() => setIsWeatherLoading(false));
                 },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
@@ -143,9 +171,90 @@ export default function BencanaView() {
             >
                 <h2 className="text-2xl font-bold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>{t('bencana.title')}</h2>
                 <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                    {t('bencana.subtitle')} · Kelantan
+                    {t('bencana.subtitle')} · {locationLabel === 'Locating...' ? 'Malaysia' : locationLabel === 'Location Access Denied' ? 'Kuala Lumpur (Fallback)' : locationLabel}
                 </p>
             </motion.div>
+
+            {/* Environmental Dashboard */}
+            {isWeatherLoading ? (
+                <div className="mb-5 animate-pulse">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div className="h-28 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                        <div className="h-28 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="h-20 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                        <div className="h-20 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                        <div className="h-20 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                    </div>
+                </div>
+            ) : weather && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
+                    className="mb-5"
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        {/* Primary Weather Card */}
+                        <div className="rounded-2xl p-4 flex flex-col justify-between" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Cloud className="w-5 h-5 text-blue-400" />
+                                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Weather</span>
+                                </div>
+                                <span className="text-2xl font-light text-white">{weather.temp}°C</span>
+                            </div>
+                            <div>
+                                <p className="text-xs text-zinc-400">Feels like {weather.feelsLike}°C</p>
+                            </div>
+                        </div>
+
+                        {/* AQI Card */}
+                        <div className="rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl -translate-y-8 translate-x-8 ${weather.aqi > 100 ? 'bg-orange-500/20' : weather.aqi > 50 ? 'bg-yellow-500/10' : 'bg-emerald-500/10'}`}></div>
+                            <div className="flex items-start justify-between mb-2 relative z-10">
+                                <div className="flex items-center gap-2">
+                                    <Activity className={`w-5 h-5 ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-yellow-400' : 'text-emerald-400'}`} />
+                                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Air Quality</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`text-2xl font-light leading-none block ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-yellow-400' : 'text-emerald-400'}`}>{weather.aqi} <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">AQI</span></span>
+                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${weather.aqi > 100 ? 'text-orange-500' : weather.aqi > 50 ? 'text-yellow-500' : 'text-emerald-500'}`}>{weather.aqi <= 50 ? 'Safe (<50)' : weather.aqi <= 100 ? 'Moderate (51-100)' : 'Unsafe (>100)'}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1 text-[10px] text-zinc-400 relative z-10 mt-1">
+                                <div className="flex justify-between items-center">
+                                    <span>PM2.5: <strong className={weather.pm25 > 35.4 ? 'text-orange-400' : weather.pm25 > 12 ? 'text-yellow-400' : 'text-emerald-400'}>{weather.pm25}</strong> µg/m³</span>
+                                    <span className="text-[8px] opacity-60">Avg Safe: &lt;12</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span>PM10: <strong className={weather.pm10 > 154 ? 'text-orange-400' : weather.pm10 > 54 ? 'text-yellow-400' : 'text-emerald-400'}>{weather.pm10}</strong> µg/m³</span>
+                                    <span className="text-[8px] opacity-60">Avg Safe: &lt;54</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            <Droplets className="w-4 h-4 text-blue-400 mb-1.5" />
+                            <span className="text-sm font-bold text-white">{weather.rainMm}<span className="text-[10px] text-zinc-400 ml-0.5">mm</span></span>
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Rain</span>
+                        </div>
+                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            <Wind className="w-4 h-4 text-teal-400 mb-1.5" />
+                            <span className="text-sm font-bold text-white">{weather.windSpeed}<span className="text-[10px] text-zinc-400 ml-0.5">km/h</span></span>
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Wind</span>
+                        </div>
+                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            <div className="w-4 h-4 rounded-full flex items-center justify-center mb-1.5" style={{ background: weather.floodRisk === 'High' ? 'rgba(239,68,68,0.2)' : weather.floodRisk === 'Moderate' ? 'rgba(249,115,22,0.2)' : 'rgba(16,185,129,0.2)' }}>
+                                <AlertTriangle className={`w-2.5 h-2.5 ${weather.floodRisk === 'High' ? 'text-red-500' : weather.floodRisk === 'Moderate' ? 'text-orange-500' : 'text-emerald-500'}`} />
+                            </div>
+                            <span className={`text-sm font-bold ${weather.floodRisk === 'High' ? 'text-red-500' : weather.floodRisk === 'Moderate' ? 'text-orange-500' : 'text-emerald-500'}`}>{weather.floodRisk}</span>
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Flood Risk</span>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
 
             {/* LoRaWAN Sensor Status */}
             <motion.div

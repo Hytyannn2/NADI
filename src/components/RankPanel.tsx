@@ -18,7 +18,7 @@ export default function RankPanel({ visible, level, currentRankIndex }: RankPane
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.95 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="absolute top-[118px] left-5 right-5 z-50 bg-[#111113] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
+          className="absolute top-[118px] right-5 z-50 w-[calc(100%-40px)] md:w-80 bg-[#111113] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
         >
           <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">

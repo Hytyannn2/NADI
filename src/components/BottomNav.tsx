@@ -28,6 +28,7 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
               <motion.button
                 key={tab.id}
                 id={`tab-${tab.id}`}
+                aria-label={`Navigate to ${tab.name}`}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onTabSwitch(tab.id)}
                 className="flex flex-col items-center justify-center focus:outline-none relative -mt-6"
@@ -60,7 +61,7 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
                   />
                 </motion.div>
                 <span
-                  className="text-[10px] font-bold mt-1 transition-colors duration-200"
+                  className="text-xs font-bold mt-2 transition-colors duration-200"
                   style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}
                 >
                   {tab.name}
@@ -87,9 +88,10 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
             <motion.button
               key={tab.id}
               id={`tab-${tab.id}`}
+              aria-label={`Navigate to ${tab.name}`}
               whileTap={{ scale: 0.9 }}
               onClick={() => onTabSwitch(tab.id)}
-              className="flex flex-col items-center justify-center w-16 py-1.5 rounded-xl transition-all duration-200 focus:outline-none relative"
+              className="flex flex-col items-center justify-center w-20 py-2 min-h-[64px] rounded-xl transition-all duration-200 focus:outline-none relative"
             >
               <div
                 className="p-2 rounded-xl mb-0.5 transition-all duration-200"
@@ -101,7 +103,7 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
                 />
               </div>
               <span
-                className="text-[10px] font-bold transition-colors duration-200"
+                className="text-xs font-bold transition-colors duration-200"
                 style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}
               >
                 {tab.name}

@@ -31,19 +31,9 @@ interface Anomaly {
     expanded?: boolean;
 }
 
-interface WeatherData {
-    condition: string;
-    description: string;
-    temp: number;
-    humidity: number;
-    rainMm: number;
-    floodRisk: string;
-}
-
 export default function InfraView() {
     const [isDriving, setIsDriving] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
-    const [weather, setWeather] = useState<WeatherData | null>(null);
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const [userLat, setUserLat] = useState('0');
     const [userLng, setUserLng] = useState('0');
@@ -64,25 +54,12 @@ export default function InfraView() {
                     const lng = pos.coords.longitude.toFixed(4);
                     setUserLat(lat);
                     setUserLng(lng);
-                    fetch(`/api/infra/weather?lat=${lat}&lng=${lng}`)
-                        .then(r => r.json())
-                        .then(d => { if (d.success) setWeather(d.weather); })
-                        .catch(() => {});
                 },
                 () => {
                     // Fallback to default coords if user denies location
-                    fetch(`/api/infra/weather?lat=${userLat}&lng=${userLng}`)
-                        .then(r => r.json())
-                        .then(d => { if (d.success) setWeather(d.weather); })
-                        .catch(() => {});
                 },
                 { enableHighAccuracy: true }
             );
-        } else {
-            fetch(`/api/infra/weather?lat=${userLat}&lng=${userLng}`)
-                .then(r => r.json())
-                .then(d => { if (d.success) setWeather(d.weather); })
-                .catch(() => {});
         }
     }, []);
 
@@ -216,7 +193,7 @@ export default function InfraView() {
     };
 
     return (
-        <div className="p-5 h-full flex flex-col relative z-0" style={{ background: 'var(--bg-base)' }}>
+        <div className="p-5 h-full flex flex-col relative z-0">
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
 
             <motion.div
@@ -230,7 +207,7 @@ export default function InfraView() {
                         {isDriving && <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
                     </p>
                     {isDriving && (
-                        <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--text-muted)' }}>{userLat}°N {userLng}°E</p>
+                        <p className="text-xs font-mono mt-1" style={{ color: 'var(--text-muted)' }}>{userLat}°N {userLng}°E</p>
                     )}
                 </div>
                 <button
@@ -248,35 +225,6 @@ export default function InfraView() {
                 </div>
             )}
 
-            {/* Weather + Flood Risk Banner */}
-            {weather && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
-                    className="rounded-2xl p-4 mb-5 shadow-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl" style={{ background: 'var(--accent-light)' }}>
-                                <Cloud className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                            </div>
-                            <div>
-                                <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Live Weather</span>
-                                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{weather.condition} · {weather.temp}°C</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="text-right">
-                                <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-600">Rain</span>
-                                <p className="text-sm font-medium text-zinc-300 flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-400" />{weather.rainMm}mm</p>
-                            </div>
-                            <span className={`text-[8px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg border ${floodColor(weather.floodRisk)}`}>
-                                Flood: {weather.floodRisk}
-                            </span>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
-
             {/* Stats */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
@@ -286,13 +234,13 @@ export default function InfraView() {
                     <div className="absolute -inset-4 bg-gradient-to-br from-[#10B981]/10 to-transparent blur-2xl"></div>
                     <Activity className="w-5 h-5 text-[#C5A367] mb-3 opacity-90 relative z-10" />
                     <div className="text-4xl font-light mb-1 text-[#FAFAFA] relative z-10 tracking-tight">{totalDetected}</div>
-                    <div className="text-[9px] text-[#10B981]/70 font-bold uppercase tracking-widest relative z-10">Detected</div>
+                    <div className="text-xs text-[#10B981]/70 font-bold uppercase tracking-widest relative z-10">Detected</div>
                 </div>
                 <div className="bg-gradient-to-br from-[#1A1C16] to-[#0A0A0C] border border-[#C5A367]/20 text-white p-5 rounded-3xl relative overflow-hidden shadow-xl">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A367]/10 rounded-full blur-2xl -translate-y-10 translate-x-10"></div>
                     <Check className="w-5 h-5 text-[#C5A367] mb-3 relative z-10" />
                     <div className="text-4xl font-light mb-1 text-white relative z-10 tracking-tight">{totalVerified}</div>
-                    <div className="text-[9px] text-[#C5A367]/80 font-bold uppercase tracking-widest relative z-10">Verified</div>
+                    <div className="text-xs text-[#C5A367]/80 font-bold uppercase tracking-widest relative z-10">Verified</div>
                 </div>
             </motion.div>
 
@@ -304,8 +252,8 @@ export default function InfraView() {
                 <div className="bg-[#10B981]/10 p-2 rounded-xl border border-[#10B981]/20 shrink-0">
                     <Radar className="w-5 h-5 text-[#10B981]" />
                 </div>
-                <p className="text-[11px] font-medium leading-relaxed mt-0.5 text-zinc-400">
-                    <span className="text-zinc-200 font-bold">AI-Powered:</span> Tap <Zap className="w-3 h-3 inline text-[#C5A367]" /> to classify any anomaly with Gemini. Tap <Camera className="w-3 h-3 inline text-blue-400" /> to add photo evidence for vision analysis.
+                <p className="text-xs font-medium leading-relaxed mt-0.5 text-zinc-300">
+                    <span className="text-zinc-100 font-bold">AI-Powered:</span> Tap <Zap className="w-3 h-3 inline text-[#C5A367]" /> to classify any anomaly with Gemini. Tap <Camera className="w-3 h-3 inline text-blue-400" /> to add photo evidence for vision analysis.
                 </p>
             </motion.div>
 
@@ -313,13 +261,13 @@ export default function InfraView() {
             <div className="flex-1 pb-10">
                 <motion.h3
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-                    className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-6 flex items-center justify-between px-1"
+                    className="text-xs uppercase font-bold tracking-widest text-zinc-400 mb-6 flex items-center justify-between px-1"
                 >
                     <span>Live Deviations</span>
                     <div className="flex gap-2">
                         {(['all', 'pending', 'verified'] as const).map((f) => (
                             <button key={f} onClick={() => setFilter(f)}
-                                className={`px-2 py-1 rounded text-[8px] border transition-all ${filter === f ? 'bg-zinc-800 border-zinc-600 text-zinc-200' : 'bg-transparent border-zinc-800 text-zinc-600 hover:text-zinc-400'}`}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] border transition-all ${filter === f ? 'bg-zinc-800 border-zinc-600 text-zinc-200' : 'bg-transparent border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
                             >{f.toUpperCase()}</button>
                         ))}
                     </div>
@@ -346,15 +294,15 @@ export default function InfraView() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-center mb-1">
-                                            <span className="font-mono text-[9px] bg-[#0A0A0C] text-zinc-400 px-2.5 py-1 rounded-md border border-zinc-800/80 uppercase font-bold tracking-widest">
+                                            <span className="font-mono text-[10px] bg-[#0A0A0C] text-zinc-400 px-3 py-1.5 rounded-md border border-zinc-800/80 uppercase font-bold tracking-widest">
                                                 ID: {a.id.slice(-4)}
                                             </span>
-                                            <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">{a.time}</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{a.time}</span>
                                         </div>
                                         <h4 className="font-serif text-lg text-white mb-3 mt-2">{a.lat}°, {a.lng}°</h4>
-                                        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest border-t border-zinc-800/50 pt-3">
-                                            <span className="text-red-400 bg-[#1a0505] border border-red-900/30 px-2 py-1 rounded-md">Z: {a.zDropped.toFixed(1)}g</span>
-                                            <span className={a.verifications >= 15 ? 'text-[#C5A367]' : 'text-zinc-500'}>
+                                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest border-t border-zinc-800/50 pt-3">
+                                            <span className="text-red-400 bg-[#1a0505] border border-red-900/30 px-3 py-1.5 rounded-md">Z: {a.zDropped.toFixed(1)}g</span>
+                                            <span className={a.verifications >= 15 ? 'text-[#C5A367]' : 'text-zinc-400'}>
                                                 {a.verifications}/15 VERIFICATIONS
                                             </span>
                                         </div>
@@ -364,23 +312,23 @@ export default function InfraView() {
                                             <button
                                                 onClick={() => analyzeAnomaly(a.id)}
                                                 disabled={a.isAnalyzing}
-                                                className="flex items-center gap-1.5 px-3 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-40"
+                                                className="flex items-center gap-1.5 px-4 py-3 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
-                                                {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                                {a.isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                                                 AI Analyze
                                             </button>
                                             <button
                                                 onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
                                                 disabled={a.isAnalyzing}
-                                                className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-40"
+                                                className="flex items-center gap-1.5 px-4 py-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
-                                                <Camera className="w-3.5 h-3.5" /> Photo
+                                                <Camera className="w-4 h-4" /> Photo
                                             </button>
                                             {a.aiAnalysis && (
                                                 <button onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
-                                                    className="ml-auto p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                                                    className="ml-auto p-3 text-zinc-400 hover:text-zinc-200 transition-colors"
                                                 >
-                                                    {a.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                    {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                                 </button>
                                             )}
                                         </div>
@@ -401,32 +349,32 @@ export default function InfraView() {
                                                     </div>
                                                 )}
                                                 <div className="flex flex-wrap gap-2">
-                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg border ${severityColor(a.aiAnalysis.severityScore)}`}>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border ${severityColor(a.aiAnalysis.severityScore)}`}>
                                                         {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Sev {a.aiAnalysis.severityScore}/5)
                                                     </span>
                                                     {a.aiAnalysis.nearestRoadType && (
-                                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg border bg-zinc-800/50 border-zinc-700 text-zinc-300">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-zinc-800/50 border-zinc-700 text-zinc-300">
                                                             {a.aiAnalysis.nearestRoadType}
                                                         </span>
                                                     )}
                                                     {a.aiAnalysis.recommendedAction && (
-                                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg border ${a.aiAnalysis.recommendedAction === 'Immediate' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-400'}`}>
+                                                        <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border ${a.aiAnalysis.recommendedAction === 'Immediate' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-400'}`}>
                                                             {a.aiAnalysis.recommendedAction}
                                                         </span>
                                                     )}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {a.aiAnalysis.estimatedWidth && <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50"><span className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest block mb-1">Size</span><span className="text-xs text-zinc-300 font-medium">{a.aiAnalysis.estimatedWidth} × {a.aiAnalysis.estimatedDepth}</span></div>}
-                                                    {a.aiAnalysis.repairCostMYR && <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50"><span className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest block mb-1">Est. Cost</span><span className="text-xs text-[#C5A367] font-medium">{a.aiAnalysis.repairCostMYR}</span></div>}
+                                                    {a.aiAnalysis.estimatedWidth && <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50"><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Size</span><span className="text-xs text-zinc-300 font-medium">{a.aiAnalysis.estimatedWidth} × {a.aiAnalysis.estimatedDepth}</span></div>}
+                                                    {a.aiAnalysis.repairCostMYR && <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50"><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Est. Cost</span><span className="text-xs text-[#C5A367] font-medium">{a.aiAnalysis.repairCostMYR}</span></div>}
                                                 </div>
                                                 {a.aiAnalysis.riskAssessment && (
-                                                    <p className="text-[11px] text-zinc-400 font-medium leading-relaxed bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                        <span className="text-zinc-200 font-bold">Risk: </span>{a.aiAnalysis.riskAssessment}
+                                                    <p className="text-xs text-zinc-300 font-medium leading-relaxed bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
+                                                        <span className="text-zinc-100 font-bold">Risk: </span>{a.aiAnalysis.riskAssessment}
                                                     </p>
                                                 )}
                                                 {a.aiAnalysis.repairMethod && (
-                                                    <p className="text-[11px] text-zinc-500 font-medium leading-relaxed">
-                                                        <span className="text-zinc-400 font-bold">Fix: </span>{a.aiAnalysis.repairMethod}
+                                                    <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                                                        <span className="text-zinc-300 font-bold">Fix: </span>{a.aiAnalysis.repairMethod}
                                                     </p>
                                                 )}
                                             </div>
@@ -437,7 +385,7 @@ export default function InfraView() {
                         ))}
                     </AnimatePresence>
                     {anomalies.length === 0 && (
-                        <div className="text-center py-12 text-zinc-600 border border-dashed border-zinc-800 rounded-3xl text-[10px] font-bold uppercase tracking-widest">
+                        <div className="text-center py-12 text-zinc-400 border border-dashed border-zinc-800 rounded-3xl text-sm font-bold uppercase tracking-widest">
                             AWAITING TELEMETRY...
                         </div>
                     )}

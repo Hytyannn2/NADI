@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'motion/react';
+import { useLanguage } from '@/src/context/LanguageContext';
 
 interface Tab {
   id: string;
@@ -15,6 +16,8 @@ interface SideNavProps {
 }
 
 export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) {
+  const { t } = useLanguage();
+
   return (
     <nav className="hidden md:flex flex-col w-64 h-full fixed left-0 top-0 bottom-0 p-4 shrink-0 z-[100] border-r" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
       <div className="mb-8 px-4 mt-2">
@@ -23,7 +26,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
             NADI
           </span>
         </h1>
-        <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: 'var(--text-muted)' }}>
           National Dashboard
         </p>
       </div>
@@ -36,9 +39,16 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
           if (tab.isCenter) {
             return (
               <motion.button
+                id={`tour-${tab.id}`}
                 key={tab.id}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                aria-label={`Navigate to ${tab.name}`}
+                animate={{ 
+                  scale: isActive ? 1.04 : 1,
+                  y: isActive ? -2 : 0
+                }}
+                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                whileHover={{ scale: isActive ? 1.04 : 1.02 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => onTabSwitch(tab.id)}
                 className="flex items-center gap-4 px-4 py-3 rounded-2xl relative overflow-hidden group mb-4 mt-2"
                 style={{
@@ -62,7 +72,6 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
                 </div>
                 <div className="text-left relative z-10">
                   <span className={`text-sm font-bold block ${isActive ? 'text-white' : ''}`} style={{ color: isActive ? 'white' : 'var(--text-primary)' }}>{tab.name}</span>
-                  <span className={`text-[10px] font-semibold ${isActive ? 'text-white/80' : ''}`} style={{ color: isActive ? 'white' : 'var(--accent)' }}>Access Pass</span>
                 </div>
               </motion.button>
             );
@@ -70,17 +79,26 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
 
           return (
             <motion.button
+              id={`tour-${tab.id}`}
               key={tab.id}
-              whileHover={{ x: 4 }}
-              whileTap={{ scale: 0.98 }}
+              aria-label={`Navigate to ${tab.name}`}
+              animate={{ 
+                scale: isActive ? 1.05 : 1,
+                x: isActive ? 6 : 0
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 12 }}
+              whileHover={{ x: isActive ? 6 : 4, scale: isActive ? 1.05 : 1.01 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() => onTabSwitch(tab.id)}
-              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${isActive ? 'shadow-sm' : ''}`}
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors ${isActive ? 'shadow-sm' : ''}`}
               style={{
                 background: isActive ? 'var(--accent-muted)' : 'transparent',
                 border: isActive ? '1px solid var(--accent)' : '1px solid transparent'
               }}
             >
-              <Icon className="w-5 h-5 shrink-0 transition-colors" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }} />
+              <motion.div animate={{ scale: isActive ? 1.15 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 12 }}>
+                <Icon className="w-5 h-5 shrink-0 transition-colors" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }} />
+              </motion.div>
               <span className="text-sm font-bold transition-colors" style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)' }}>
                 {tab.name}
               </span>
@@ -90,8 +108,8 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
       </div>
       
       <div className="mt-auto p-4 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-         <p className="text-[10px] text-center font-semibold" style={{ color: 'var(--text-muted)' }}>
-            NADI Platform<br/>Malaysia MADANI
+         <p className="text-xs text-center font-semibold" style={{ color: 'var(--text-muted)' }}>
+            NADI Platform<br/>{t('nav.madani') || 'Malaysia MADANI'}
          </p>
       </div>
     </nav>

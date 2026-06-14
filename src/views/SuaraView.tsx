@@ -217,7 +217,7 @@ export default function SuaraView() {
                 className="mb-10 text-center mt-4"
             >
                 <h2 className="text-3xl font-serif mb-2 tracking-tight" style={{ color: 'var(--text-primary)' }}>Maklum Balas</h2>
-                <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color: 'var(--accent)' }}>
+                <p className="text-xs uppercase font-bold tracking-widest" style={{ color: 'var(--accent)' }}>
                     AI Dialect Parsing
                 </p>
             </motion.div>
@@ -236,12 +236,12 @@ export default function SuaraView() {
                     <p className="font-serif text-lg italic leading-tight" style={{ color: 'var(--text-primary)' }}>
                         "Tangki rumah saya pecah..."
                     </p>
-                    <p className="text-[9px] uppercase font-bold tracking-widest mt-5" style={{ color: 'var(--text-muted)' }}>Speak in local dialect</p>
+                    <p className="text-xs uppercase font-bold tracking-widest mt-5" style={{ color: 'var(--text-muted)' }}>Speak in local dialect</p>
                 </motion.div>
 
                 <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-                    className="flex items-center gap-2 mb-8 text-[10px] uppercase font-bold tracking-widest animate-pulse text-center"
+                    className="flex items-center gap-2 mb-8 text-xs uppercase font-bold tracking-widest animate-pulse text-center"
                     style={{ color: 'var(--text-muted)' }}
                 >
                     <span>Tap the microphone below to report</span>
@@ -251,7 +251,7 @@ export default function SuaraView() {
                 <div className="w-full max-w-xs mb-4 relative z-40">
                     <button
                         onClick={() => setShowLangMenu(!showLangMenu)}
-                        className="w-full backdrop-blur-xl px-4 py-2 rounded-xl flex items-center justify-between text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        className="w-full backdrop-blur-xl px-4 py-3 rounded-xl flex items-center justify-between text-xs font-bold uppercase tracking-widest transition-colors"
                         style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
                     >
                         <div className="flex items-center gap-2">
@@ -275,7 +275,7 @@ export default function SuaraView() {
                                             setTargetLanguage(lang);
                                             setShowLangMenu(false);
                                         }}
-                                        className="w-full px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest flex items-center justify-between transition-colors"
+                                        className="w-full px-4 py-4 text-left text-xs font-bold uppercase tracking-widest flex items-center justify-between transition-colors"
                                         style={targetLanguage === lang ? { background: 'var(--accent-muted)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
                                     >
                                         {lang}
@@ -295,14 +295,14 @@ export default function SuaraView() {
                         >
                             <ShieldAlert className="w-5 h-5 text-red-400 shrink-0" />
                             <div>
-                                <p className="text-xs font-bold text-red-300">Rate Limited</p>
-                                <p className="text-[10px] text-red-400/70 font-medium">Try again in {spam.cooldownRemaining}s</p>
+                                <p className="text-sm font-bold text-red-300">Rate Limited</p>
+                                <p className="text-xs text-red-400/70 font-medium">Try again in {spam.cooldownRemaining}s</p>
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
                 {spam.statusMessage && spam.cooldownRemaining === 0 && (
-                    <p className="text-[9px] uppercase font-bold tracking-widest text-orange-400/70 mb-3">{spam.statusMessage}</p>
+                    <p className="text-xs uppercase font-bold tracking-widest text-orange-400/70 mb-3">{spam.statusMessage}</p>
                 )}
 
                 {/* Fallback/Demo Input */}
@@ -314,8 +314,9 @@ export default function SuaraView() {
                 >
                     <button
                         type="button"
+                        aria-label="Toggle voice input"
                         onClick={toggleListening}
-                        className={`absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : ''}`}
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : ''}`}
                         style={!isListening ? { color: 'var(--text-muted)' } : {}}
                     >
                         {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -334,8 +335,9 @@ export default function SuaraView() {
                     </div>
                     <button
                         type="submit"
+                        aria-label="Send report"
                         disabled={isProcessing || !inputText.trim()}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl disabled:opacity-30 transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl disabled:opacity-30 transition-colors"
                         style={{ color: 'var(--accent)' }}
                     >
                         {isProcessing ? <Sparkles className="w-5 h-5 animate-pulse" /> : <Send className="w-5 h-5" />}
@@ -350,10 +352,10 @@ export default function SuaraView() {
                     style={{ borderTop: '1px solid var(--border-default)' }}
                 >
                     <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+                        <h3 className="text-xs uppercase font-bold tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
                             <ShieldAlert className="w-4 h-4" /> Live Community Feed
                         </h3>
-                        <span className="text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-[#10B981]/10 text-[#10B981]">
+                        <span className="text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest bg-[#10B981]/10 text-[#10B981]">
                             {reports.length} Updates
                         </span>
                     </div>
@@ -380,12 +382,12 @@ export default function SuaraView() {
                                                     <Check className="w-2 h-2 text-white" />
                                                 </div>
                                             </div>
-                                            <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                                            <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                                                 {report.timestamp ? new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                                             </p>
                                         </div>
                                     </div>
-                                    <span className={`px-3 py-1 text-[9px] font-bold rounded-full uppercase tracking-widest border flex items-center justify-center ${report.urgency === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                    <span className={`px-3 py-1.5 text-[10px] font-bold rounded-full uppercase tracking-widest border flex items-center justify-center ${report.urgency === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                                         report.urgency === 'Medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                                             'bg-[#C5A367]/10 text-[#C5A367] border-[#C5A367]/20'
                                         }`}>
@@ -397,31 +399,31 @@ export default function SuaraView() {
                                 <h4 className="font-serif text-lg mb-3 leading-snug" style={{ color: 'var(--text-primary)' }}>"{report.intent}"</h4>
                                 
                                 {/* Location Tag */}
-                                <div className="flex text-[10px] uppercase font-bold tracking-widest mb-4">
-                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-primary)', background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                        <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} /> {report.location || 'Unknown Location'}
+                                <div className="flex text-xs uppercase font-bold tracking-widest mb-4">
+                                    <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg" style={{ color: 'var(--text-primary)', background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        <MapPin className="w-4 h-4" style={{ color: 'var(--accent)' }} /> {report.location || 'Unknown Location'}
                                     </span>
                                 </div>
 
                                 {/* AI Translation Box */}
-                                <div className="rounded-2xl p-4 mb-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <Bot className="w-3 h-3" style={{ color: 'var(--accent)' }} />
-                                        <span className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'var(--text-muted)' }}>AI Translation ({targetLanguage})</span>
+                                <div className="rounded-2xl p-5 mb-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Bot className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                                        <span className="text-xs uppercase tracking-widest font-bold" style={{ color: 'var(--text-muted)' }}>AI Translation ({targetLanguage})</span>
                                     </div>
                                     <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{report.simplifiedTranslation}</p>
                                 </div>
 
                                 {/* GPS Chip (replaces fake map) */}
                                 {report.coordinates?.lat !== undefined && report.coordinates?.lng !== undefined && (
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
-                                            <MapPin className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+                                    <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
+                                            <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
                                             GPS: {report.coordinates?.lat?.toFixed(4)}, {report.coordinates?.lng?.toFixed(4)}
                                         </span>
                                         {report.detectedDialect && report.detectedDialect !== 'unknown' && report.detectedDialect !== 'standard' && (
-                                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                <BookOpen className="w-3 h-3" />
+                                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                                                <BookOpen className="w-3.5 h-3.5" />
                                                 {report.detectedDialect}
                                             </span>
                                         )}
@@ -430,33 +432,36 @@ export default function SuaraView() {
 
                                 {/* Feedback Mechanism */}
                                 <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                    <span className="text-[9px] uppercase font-bold tracking-widest" style={{ color: report.rating === 'corrected' ? 'var(--success)' : 'var(--text-muted)' }}>
+                                    <span className="text-xs uppercase font-bold tracking-widest" style={{ color: report.rating === 'corrected' ? 'var(--success)' : 'var(--text-muted)' }}>
                                         {report.rating === 'corrected' ? '✓ Corrected — Terima kasih!' : report.rating === 'up' ? '✓ Accurate' : 'Rate accuracy'}
                                     </span>
                                     <div className="flex gap-2">
                                         <button
+                                            aria-label="Rate as accurate"
                                             onClick={() => handleRate(report.id, 'up')}
-                                            className={`p-2 rounded-lg border transition-all ${report.rating === 'up' ? 'bg-[#10B981]/20 border-[#10B981]/40 text-[#10B981]' : ''}`}
+                                            className={`p-3 rounded-lg border transition-all ${report.rating === 'up' ? 'bg-[#10B981]/20 border-[#10B981]/40 text-[#10B981]' : ''}`}
                                             style={report.rating !== 'up' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : {}}
                                             title="AI got it right"
                                         >
-                                            <ThumbsUp className="w-3.5 h-3.5" />
+                                            <ThumbsUp className="w-4 h-4" />
                                         </button>
                                         <button
+                                            aria-label="Suggest correction"
                                             onClick={() => openCorrection(report)}
-                                            className={`p-2 rounded-lg border transition-all ${report.rating === 'down' || report.rating === 'corrected' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' : ''}`}
+                                            className={`p-3 rounded-lg border transition-all ${report.rating === 'down' || report.rating === 'corrected' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' : ''}`}
                                             style={report.rating !== 'down' && report.rating !== 'corrected' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : {}}
                                             title="AI got it wrong — teach it"
                                         >
-                                            <ThumbsDown className="w-3.5 h-3.5" />
+                                            <ThumbsDown className="w-4 h-4" />
                                         </button>
                                         <button
+                                            aria-label="Delete report"
                                             onClick={() => handleRemoveReport(report.id)}
-                                            className="p-2 rounded-lg border transition-all hover:text-red-400 hover:bg-red-500/10 ml-1"
+                                            className="p-3 rounded-lg border transition-all hover:text-red-400 hover:bg-red-500/10 ml-1"
                                             style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
                                             title="Delete this report"
                                         >
-                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
@@ -493,13 +498,13 @@ export default function SuaraView() {
                             </p>
 
                             {/* What AI heard */}
-                            <div className="rounded-xl p-3 mb-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                <p className="text-[9px] uppercase font-bold tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>AI heard</p>
+                            <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                <p className="text-xs uppercase font-bold tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>AI heard</p>
                                 <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>"{correctionTarget.raw}"</p>
                             </div>
 
                             {/* Dialect input */}
-                            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                            <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: 'var(--text-muted)' }}>
                                 What you said (dialect spelling)
                             </label>
                             <input
@@ -511,7 +516,7 @@ export default function SuaraView() {
                             />
 
                             {/* Meaning input */}
-                            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                            <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: 'var(--text-muted)' }}>
                                 Correct meaning (Malay / English)
                             </label>
                             <input
