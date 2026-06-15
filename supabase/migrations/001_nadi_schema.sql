@@ -117,14 +117,28 @@ CREATE POLICY "Users can read own quests" ON public.nadi_quests FOR SELECT USING
 CREATE POLICY "Users can update own quests" ON public.nadi_quests FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own quests" ON public.nadi_quests FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Public read community posts" ON public.nadi_community_posts;
 CREATE POLICY "Public read community posts" ON public.nadi_community_posts FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read bencana jobs" ON public.nadi_bencana_jobs;
 CREATE POLICY "Public read bencana jobs" ON public.nadi_bencana_jobs FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read bencana zones" ON public.nadi_bencana_zones;
 CREATE POLICY "Public read bencana zones" ON public.nadi_bencana_zones FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read bencana centers" ON public.nadi_bencana_centers;
 CREATE POLICY "Public read bencana centers" ON public.nadi_bencana_centers FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Auth users insert community posts" ON public.nadi_community_posts;
 CREATE POLICY "Auth users insert community posts" ON public.nadi_community_posts FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Auth users insert bencana jobs" ON public.nadi_bencana_jobs;
 CREATE POLICY "Auth users insert bencana jobs" ON public.nadi_bencana_jobs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Auth users update bencana jobs" ON public.nadi_bencana_jobs;
 CREATE POLICY "Auth users update bencana jobs" ON public.nadi_bencana_jobs FOR UPDATE USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Auth users delete bencana jobs" ON public.nadi_bencana_jobs;
 CREATE POLICY "Auth users delete bencana jobs" ON public.nadi_bencana_jobs FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Auto-create Profile and Stats when a user signs up
