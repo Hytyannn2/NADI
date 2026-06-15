@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, Bot, Loader2, Sparkles, MapPin, ThumbsUp, ThumbsDown, Mic, MicOff, Languages, ChevronDown, Check, ShieldAlert, X, Trash2, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAntiSpam } from '../hooks/useAntiSpam';
+import { useGame } from '../context/GameContext';
+import { useXP } from '../hooks/useXP';
 
 export default function SuaraView() {
     const [inputText, setInputText] = useState('');
@@ -11,6 +13,9 @@ export default function SuaraView() {
     const [isListening, setIsListening] = useState(false);
     const [targetLanguage, setTargetLanguage] = useState('English');
     const [showLangMenu, setShowLangMenu] = useState(false);
+
+    const { completeQuest, incrementStat } = useGame();
+    const { addXp } = useXP();
 
     // Dialect correction modal state
     const [correctionTarget, setCorrectionTarget] = useState<any>(null);
@@ -202,6 +207,10 @@ export default function SuaraView() {
             }, ...prev]);
 
             setInputText('');
+            incrementStat('reports');
+            completeQuest('report').then(xp => {
+                if (xp > 0) addXp(xp);
+            });
         } catch (error) {
             console.error("AI Parsing Error", error);
             alert("Failed to process report. Try again.");

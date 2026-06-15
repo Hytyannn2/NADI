@@ -3,6 +3,8 @@ import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, C
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
+import { useGame } from '@/src/context/GameContext';
+import { useXP } from '@/src/hooks/useXP';
 import dynamic from 'next/dynamic';
 
 const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
@@ -50,6 +52,8 @@ export default function BencanaView() {
     const [activeTab, setActiveTab] = useState<'map' | 'zones'>('map');
     const [showDashboard, setShowDashboard] = useState(false);
 
+    const { completeQuest } = useGame();
+    const { addXp } = useXP();
     const supabase = createClient();
 
     // Default: null to prevent map jumping
@@ -97,6 +101,10 @@ export default function BencanaView() {
 
     // Real-time geolocation tracking
     useEffect(() => {
+        completeQuest('flood').then(xp => {
+            if (xp > 0) addXp(xp);
+        });
+
         let watchId: number | null = null;
         let lastFetchedLat: number | null = null;
 

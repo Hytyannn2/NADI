@@ -1,7 +1,16 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl;
+  
+  // Forward OAuth codes from root to the proper callback handler
+  if (url.pathname === '/' && url.searchParams.has('code')) {
+    const callbackUrl = new URL('/auth/callback', request.url);
+    callbackUrl.search = url.search;
+    return NextResponse.redirect(callbackUrl);
+  }
+
   return createClient(request);
 }
 

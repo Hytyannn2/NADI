@@ -64,6 +64,10 @@ export default function BantuanView() {
     // SWR Fetcher logic
     const [userLoc, setUserLoc] = useState<{ lat: number, lng: number } | null>(null);
     useEffect(() => {
+        completeQuest('listing').then(xp => {
+            if (xp > 0) addXp(xp);
+        });
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
@@ -129,6 +133,8 @@ export default function BantuanView() {
             const data = await res.json();
             if (data.success) {
                 mutateLocalJobs({ ...localJobsData, jobs: localJobs.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j) }, false);
+                const xp = await completeQuest('volunteer');
+                if (xp > 0) addXp(xp);
             }
         } catch {
             alert('Failed to accept job. Try again.');
@@ -168,7 +174,8 @@ export default function BantuanView() {
                 setShowJobForm(false);
                 setJobForm({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
                 addXp(15);
-                completeQuest('report');
+                const xp = await completeQuest('report');
+                if (xp > 0) addXp(xp);
             }
         } catch {
             alert('Failed to submit request. Try again.');

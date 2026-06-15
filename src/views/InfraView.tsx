@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Activity, Car, Check, Radar, AlertCircle, Camera, Cloud, Droplets, X, Loader2, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useGame } from '../context/GameContext';
+import { useXP } from '../hooks/useXP';
 
 interface AiAnalysis {
     severityScore: number;
@@ -40,6 +42,9 @@ export default function InfraView() {
     const [motionError, setMotionError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
+
+    const { completeQuest, incrementStat } = useGame();
+    const { addXp } = useXP();
 
     const filteredAnomalies = anomalies.filter(a => filter === 'all' || a.status === filter);
     const totalDetected = anomalies.length;
@@ -141,6 +146,9 @@ export default function InfraView() {
             const data = await res.json();
             if (data.success) {
                 setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: data.analysis, isAnalyzing: false, expanded: true } : a));
+                incrementStat('reports');
+                const xp = await completeQuest('report');
+                if (xp > 0) addXp(xp);
             } else {
                 setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
             }
@@ -169,6 +177,9 @@ export default function InfraView() {
                 const data = await res.json();
                 if (data.success) {
                     setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: { ...a.aiAnalysis, ...data.analysis } as AiAnalysis, isAnalyzing: false, expanded: true } : a));
+                    incrementStat('reports');
+                    const xp = await completeQuest('report');
+                    if (xp > 0) addXp(xp);
                 } else {
                     setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
                 }

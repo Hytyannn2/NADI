@@ -42,9 +42,10 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
                 setPosts(prev => [d.post, ...prev]); 
                 setContent(''); 
                 setShowCompose(false); 
-                addXp(10);
                 incrementStat('communityPosts');
-                completeQuest('community');
+                completeQuest('community').then(xp => {
+                    if (xp > 0) addXp(xp);
+                });
             }
         } catch {} finally { setPosting(false); }
     };
@@ -89,8 +90,9 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
                 setWbLocation('');
                 setWbImage(null);
                 setTimeout(() => setWbSuccess(false), 3000); 
-                addXp(30);
-                completeQuest('report');
+                completeQuest('report').then(xp => {
+                    if (xp > 0) addXp(xp);
+                });
             }
         } catch {} finally { setWbSubmitting(false); }
     };

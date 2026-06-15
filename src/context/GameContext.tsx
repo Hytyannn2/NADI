@@ -28,11 +28,45 @@ const DEFAULT_BADGES: Badge[] = [
 
 function generateDailyQuests(): Quest[] {
   const pool: Quest[] = [
+    // Report Quests
     { id: 'q1', title: 'Report 1 Issue', description: 'Submit an infrastructure report via Suara or Infra', xpReward: 25, type: 'report', completed: false },
+    { id: 'q_r2', title: 'Whistleblower Action', description: 'Submit an anonymous report about an incident', xpReward: 40, type: 'report', completed: false },
+    { id: 'q_r3', title: 'Report Pothole', description: 'File a report about road damage in your area', xpReward: 25, type: 'report', completed: false },
+    { id: 'q_r4', title: 'Report Broken Streetlight', description: 'File a report for a malfunctioning streetlight', xpReward: 25, type: 'report', completed: false },
+    { id: 'q_r5', title: 'Report Illegal Dumping', description: 'File a report about illegal waste dumping', xpReward: 30, type: 'report', completed: false },
+    { id: 'q_r6', title: 'Suggest an Improvement', description: 'Submit an idea to improve local infrastructure', xpReward: 20, type: 'report', completed: false },
+    
+    // Flood / Bencana Quests
     { id: 'q2', title: 'Check Flood Status', description: 'Open the Bencana tab and review sensor data', xpReward: 15, type: 'flood', completed: false },
+    { id: 'q_f2', title: 'Monitor River Levels', description: 'Check the river level sensors in the Bencana tab', xpReward: 15, type: 'flood', completed: false },
+    { id: 'q_f3', title: 'Review Evacuation Centers', description: 'Check the nearest evacuation centers in the Bencana tab', xpReward: 15, type: 'flood', completed: false },
+    { id: 'q_f4', title: 'Check Weather Forecast', description: 'View the weather forecast in the Bencana tab', xpReward: 10, type: 'flood', completed: false },
+    { id: 'q_f5', title: 'Share Flood Warning', description: 'Review the active warnings in the Bencana tab', xpReward: 20, type: 'flood', completed: false },
+    { id: 'q_f6', title: 'Prepare Emergency Kit', description: 'Review emergency preparedness guidelines in the Bencana tab', xpReward: 25, type: 'flood', completed: false },
+
+    // Listing / Bantuan Quests
     { id: 'q3', title: 'Check Aid Programs', description: 'Browse available aid in the Bantuan tab', xpReward: 20, type: 'listing', completed: false },
+    { id: 'q_l2', title: 'Explore Bantuan Khas', description: 'Check out the special aid programs in the Bantuan tab', xpReward: 20, type: 'listing', completed: false },
+    { id: 'q_l3', title: 'Find Subsidies', description: 'Look for available subsidies in the Bantuan tab', xpReward: 20, type: 'listing', completed: false },
+    { id: 'q_l4', title: 'Check Education Aid', description: 'Browse scholarships or education aid in the Bantuan tab', xpReward: 20, type: 'listing', completed: false },
+    { id: 'q_l5', title: 'Review Business Grants', description: 'Explore grants for small businesses in the Bantuan tab', xpReward: 20, type: 'listing', completed: false },
+    { id: 'q_l6', title: 'Share Aid Info', description: 'Find an aid program you can share with others', xpReward: 15, type: 'listing', completed: false },
+
+    // Volunteer Quests
     { id: 'q4', title: 'Accept a Volunteer Job', description: 'Help your community by accepting a volunteer request', xpReward: 30, type: 'volunteer', completed: false },
+    { id: 'q_v2', title: 'Join Cleanup Crew', description: 'Accept a post-flood cleanup volunteer job', xpReward: 35, type: 'volunteer', completed: false },
+    { id: 'q_v3', title: 'Distribute Supplies', description: 'Accept a food/supply distribution volunteer job', xpReward: 30, type: 'volunteer', completed: false },
+    { id: 'q_v4', title: 'Help Elderly Neighbors', description: 'Accept a volunteer job assisting the elderly', xpReward: 30, type: 'volunteer', completed: false },
+    { id: 'q_v5', title: 'Logistics Support', description: 'Accept a transportation/logistics volunteer job', xpReward: 35, type: 'volunteer', completed: false },
+    { id: 'q_v6', title: 'First Aid Volunteer', description: 'Accept a medical/first-aid volunteer job', xpReward: 40, type: 'volunteer', completed: false },
+
+    // Community Quests
     { id: 'q5', title: 'Help a Neighbour', description: 'Post in community feed or help someone in your kampung', xpReward: 20, type: 'community', completed: false },
+    { id: 'q_c2', title: 'Welcome a New Member', description: 'Post a welcoming message in the community feed', xpReward: 15, type: 'community', completed: false },
+    { id: 'q_c3', title: 'Share Local News', description: 'Share an update about your area in the community feed', xpReward: 20, type: 'community', completed: false },
+    { id: 'q_c4', title: 'Ask a Question', description: 'Ask for advice or recommendations in the community feed', xpReward: 10, type: 'community', completed: false },
+    { id: 'q_c5', title: 'Praise a Local Business', description: 'Give a shoutout to a local shop in the community feed', xpReward: 20, type: 'community', completed: false },
+    { id: 'q_c6', title: 'Organize a Meetup', description: 'Propose a gathering or gotong-royong in the community feed', xpReward: 30, type: 'community', completed: false },
   ];
   // Pick 3 random quests for today
   const shuffled = pool.sort(() => 0.5 - Math.random());
@@ -57,7 +91,7 @@ function getCRSLabel(score: number): string {
 }
 
 interface GameContextType {
-  quests: Quest[]; completeQuest: (type: Quest['type']) => void; allQuestsComplete: boolean; bonusCollected: boolean; collectBonus: () => void;
+  quests: Quest[]; completeQuest: (type: Quest['type']) => Promise<number>; allQuestsComplete: boolean; bonusCollected: boolean; collectBonus: () => void;
   badges: Badge[]; unlockBadge: (id: string) => void;
   crs: number; crsLabel: string; updateCRS: (xp: number, trustScore: number, streak: number) => void;
   // Leaderboard (Feature 5)
@@ -68,7 +102,7 @@ interface GameContextType {
 }
 
 const GameContext = createContext<GameContextType>({
-  quests: [], completeQuest: () => {}, allQuestsComplete: false, bonusCollected: false, collectBonus: () => {},
+  quests: [], completeQuest: async () => 0, allQuestsComplete: false, bonusCollected: false, collectBonus: () => {},
   badges: DEFAULT_BADGES, unlockBadge: () => {},
   crs: 0, crsLabel: 'New Member', updateCRS: () => {},
   leaderboard: [],
@@ -135,14 +169,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
     loadData();
   }, [user]);
 
-  const completeQuest = async (type: Quest['type']) => {
-    if (!user) return;
+  const completeQuest = async (type: Quest['type']): Promise<number> => {
+    if (!user) return 0;
+    
+    let xpEarned = 0;
+    let changed = false;
+
     setQuests(prev => {
-      const updated = prev.map(q => q.type === type && !q.completed ? { ...q, completed: true } : q);
-      const today = new Date().toISOString().split('T')[0];
-      supabase.from('nadi_quests').update({ quests_data: updated }).eq('user_id', user.id).eq('quest_date', today).then();
+      const updated = prev.map(q => {
+        if (q.type === type && !q.completed) {
+          changed = true;
+          xpEarned += q.xpReward;
+          return { ...q, completed: true };
+        }
+        return q;
+      });
+
+      if (changed) {
+        const today = new Date().toISOString().split('T')[0];
+        supabase.from('nadi_quests').update({ quests_data: updated }).eq('user_id', user.id).eq('quest_date', today).then();
+      }
       return updated;
     });
+
+    // Wait a brief moment for setQuests callback to run synchronously
+    await new Promise(r => setTimeout(r, 0));
+    return xpEarned;
   };
 
   const collectBonus = async () => {
