@@ -72,6 +72,28 @@ export default function BencanaView() {
     };
     const currentSensor = sensorLabels[sensorStatus];
 
+    // Real-time Supabase Subscription for LoRaWAN
+    useEffect(() => {
+        // Fetch initial status
+        supabase.from('nadi_bencana_sensors').select('*').eq('name', 'Sungai Kelantan Node A').single()
+            .then(({ data }) => {
+                if (data && data.status) setSensorStatus(data.status);
+            });
+
+        // Subscribe to real-time changes
+        const channel = supabase.channel('sensor_changes')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_bencana_sensors' }, (payload) => {
+                if (payload.new && payload.new.status) {
+                    setSensorStatus(payload.new.status as any);
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [supabase]);
+
     // SWR Caching for Supabase Data
     const fetchBencanaData = async () => {
         const [{ data: zones }, { data: centers }] = await Promise.all([
@@ -281,7 +303,11 @@ export default function BencanaView() {
                         </span>
                         
                         <button 
-                            onClick={() => setSensorStatus(s => s === 'safe' ? 'danger' : 'safe')} 
+                            onClick={async () => {
+                                const newStatus = sensorStatus === 'safe' ? 'danger' : 'safe';
+                                setSensorStatus(newStatus); // Optimistic UI update
+                                await supabase.from('nadi_bencana_sensors').update({ status: newStatus }).eq('name', 'Sungai Kelantan Node A');
+                            }} 
                             className={`text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-colors border ${sensorStatus === 'danger' ? 'bg-red-500 text-white border-red-600 animate-pulse' : 'text-gray-500 border-gray-600 hover:text-white'}`}
                         >
                             {sensorStatus === 'danger' ? 'Stop Simulation' : 'Simulate Hardware'}

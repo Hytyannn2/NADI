@@ -57,7 +57,7 @@
 /* ====== DARK MODE ====== */
 .dark {
   --bg-base: #0F0F11;
-  --bg-card: #18181B;
+  --bg-card: rgba(24, 24, 27, 0.65);
   --bg-subtle: #1E1E22;
   --bg-muted: #27272A;
   --bg-elevated: #1E1E22;
@@ -105,13 +105,29 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: box-shadow 0.3s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
 }
 .card:active {
-  transform: scale(0.99);
+  transform: scale(0.98);
+}
+
+/* Glassmorphism Utility */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+.dark .glass {
+  background: rgba(15, 15, 17, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Interactive touch target */

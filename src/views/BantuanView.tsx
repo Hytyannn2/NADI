@@ -61,6 +61,13 @@ export default function BantuanView() {
     // Algorithmic Debouncing optimization
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+    // Toast Alert State
+    const [toastMessage, setToastMessage] = useState<{title: string, desc: string} | null>(null);
+    const showToast = (title: string, desc: string) => {
+        setToastMessage({ title, desc });
+        setTimeout(() => setToastMessage(null), 3000);
+    };
+
     // SWR Fetcher logic
     const [userLoc, setUserLoc] = useState<{ lat: number, lng: number } | null>(null);
     useEffect(() => {
@@ -135,6 +142,7 @@ export default function BantuanView() {
                 mutateLocalJobs({ ...localJobsData, jobs: localJobs.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j) }, false);
                 const xp = await completeQuest('volunteer');
                 if (xp > 0) addXp(xp);
+                showToast('Job Accepted', `You have accepted to help: ${localJobs.find(j => j.id === jobId)?.name}`);
             }
         } catch {
             alert('Failed to accept job. Try again.');
@@ -176,6 +184,7 @@ export default function BantuanView() {
                 addXp(15);
                 const xp = await completeQuest('report');
                 if (xp > 0) addXp(xp);
+                showToast('Request Submitted', 'Your SOS request has been posted to the community.');
             }
         } catch {
             alert('Failed to submit request. Try again.');
@@ -263,6 +272,20 @@ export default function BantuanView() {
 
     return (
         <div className="p-6 h-full flex flex-col relative z-0">
+            {/* Global Toast for Bantuan */}
+            <AnimatePresence>
+                {toastMessage && (
+                    <motion.div initial={{ opacity: 0, y: -20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: -20, x: '-50%' }}
+                        className="fixed top-6 left-1/2 z-[9999] bg-[#10B981]/10 border border-[#10B981]/30 backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[300px]"
+                    >
+                        <CheckCircle className="w-5 h-5 text-[#10B981]" />
+                        <div>
+                            <p className="text-sm font-bold text-white">{toastMessage.title}</p>
+                            <p className="text-[10px] text-zinc-300">{toastMessage.desc}</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {showJobForm && typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>

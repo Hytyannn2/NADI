@@ -4,6 +4,7 @@ import { Activity, Car, Check, Radar, AlertCircle, Camera, Cloud, Droplets, X, L
 import { motion, AnimatePresence } from 'motion/react';
 import { useGame } from '../context/GameContext';
 import { useXP } from '../hooks/useXP';
+import { createClient } from '@/src/lib/supabase/client';
 
 interface AiAnalysis {
     severityScore: number;
@@ -45,6 +46,7 @@ export default function InfraView() {
 
     const { completeQuest, incrementStat } = useGame();
     const { addXp } = useXP();
+    const supabase = createClient();
 
     const filteredAnomalies = anomalies.filter(a => filter === 'all' || a.status === filter);
     const totalDetected = anomalies.length;
@@ -66,7 +68,51 @@ export default function InfraView() {
                 { enableHighAccuracy: true }
             );
         }
-    }, []);
+
+        // Fetch existing anomalies
+        supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(50)
+            .then(({ data }) => {
+                if (data) {
+                    const mapped = data.map((d: any) => ({
+                        id: d.id,
+                        lat: d.lat,
+                        lng: d.lng,
+                        zDropped: d.z_dropped,
+                        verifications: d.verifications,
+                        status: d.status,
+                        time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        aiAnalysis: d.ai_analysis,
+                        photoBase64: d.photo_url
+                    }));
+                    setAnomalies(mapped);
+                }
+            });
+
+        // Real-time subscription
+        const channel = supabase.channel('infra_reports')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_infra_reports' }, (payload) => {
+                if (payload.new) {
+                    const d = payload.new as any;
+                    setAnomalies(prev => {
+                        if (prev.some(a => a.id === d.id)) return prev;
+                        return [{
+                            id: d.id,
+                            lat: d.lat,
+                            lng: d.lng,
+                            zDropped: d.z_dropped,
+                            verifications: d.verifications,
+                            status: d.status,
+                            time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            aiAnalysis: d.ai_analysis,
+                            photoBase64: d.photo_url
+                        }, ...prev];
+                    });
+                }
+            })
+            .subscribe();
+            
+        return () => { supabase.removeChannel(channel); };
+    }, [supabase]);
 
     // Real DeviceMotion detection while driving
     useEffect(() => {
@@ -93,8 +139,9 @@ export default function InfraView() {
             // Pothole threshold: sudden Z-drop > 3g from gravity baseline
             const zDrop = z - 9.8;
             if (zDrop < -3.0) {
+                const tempId = Date.now().toString();
                 const newAnomaly: Anomaly = {
-                    id: Date.now().toString(),
+                    id: tempId,
                     lat: lastGoodLat,
                     lng: lastGoodLng,
                     zDropped: parseFloat(zDrop.toFixed(2)),
@@ -103,6 +150,18 @@ export default function InfraView() {
                     time: 'Just now'
                 };
                 setAnomalies(prev => [newAnomaly, ...prev]);
+
+                // Persist to DB
+                supabase.from('nadi_infra_reports').insert({
+                    lat: lastGoodLat,
+                    lng: lastGoodLng,
+                    z_dropped: parseFloat(zDrop.toFixed(2)),
+                    status: 'pending'
+                }).select().single().then(({ data }) => {
+                    if (data) {
+                        setAnomalies(prev => prev.map(a => a.id === tempId ? { ...a, id: data.id } : a));
+                    }
+                });
             }
         };
 
@@ -145,7 +204,13 @@ export default function InfraView() {
             });
             const data = await res.json();
             if (data.success) {
-                setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: data.analysis, isAnalyzing: false, expanded: true } : a));
+                setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: data.analysis, isAnalyzing: false, expanded: true, status: 'verified' } : a));
+                
+                await supabase.from('nadi_infra_reports').update({
+                    ai_analysis: data.analysis,
+                    status: 'verified'
+                }).eq('id', id);
+
                 incrementStat('reports');
                 const xp = await completeQuest('report');
                 if (xp > 0) addXp(xp);
@@ -176,7 +241,13 @@ export default function InfraView() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: { ...a.aiAnalysis, ...data.analysis } as AiAnalysis, isAnalyzing: false, expanded: true } : a));
+                    setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: { ...a.aiAnalysis, ...data.analysis } as AiAnalysis, isAnalyzing: false, expanded: true, status: 'verified' } : a));
+                    
+                    await supabase.from('nadi_infra_reports').update({
+                        ai_analysis: { ...anomaly.aiAnalysis, ...data.analysis },
+                        status: 'verified'
+                    }).eq('id', id);
+
                     incrementStat('reports');
                     const xp = await completeQuest('report');
                     if (xp > 0) addXp(xp);

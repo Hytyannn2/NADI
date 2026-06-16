@@ -2,10 +2,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, X, Camera } from 'lucide-react';
 import { motion } from 'motion/react';
+import { createClient } from '@/src/lib/supabase/client';
+import { useAuth } from '@/src/context/AuthContext';
 
 interface ChatMsg { id: string; text: string; sender: 'me' | 'them'; time: string; }
 
 export default function VolunteerChat({ jobName, onClose }: { jobName: string; onClose: () => void }) {
+    const supabase = createClient();
+    const { user } = useAuth();
     const [messages, setMessages] = useState<ChatMsg[]>([
         { id: '0', text: `Terima kasih kerana menerima permintaan bantuan kami. Sila hubungi kami apabila sampai.`, sender: 'them', time: 'Now' },
     ]);
@@ -14,14 +18,54 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
 
     useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
 
-    const send = () => {
+    useEffect(() => {
+        // Fetch existing messages
+        supabase.from('nadi_bencana_chat').select('*').eq('job_name', jobName).order('created_at', { ascending: true })
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    const mapped = data.map((m: any) => ({
+                        id: m.id,
+                        text: m.text,
+                        sender: m.user_id === user?.id ? 'me' : 'them',
+                        time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }));
+                    setMessages(prev => [...prev.filter(p => p.id === '0'), ...mapped]);
+                }
+            });
+
+        // Real-time Subscription
+        const channel = supabase.channel(`chat_${jobName.replace(/[^a-zA-Z0-9]/g, '_')}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_bencana_chat', filter: `job_name=eq.${jobName}` }, (payload) => {
+                if (payload.new && payload.new.user_id !== user?.id) {
+                    setMessages(prev => [...prev, {
+                        id: payload.new.id,
+                        text: payload.new.text,
+                        sender: 'them',
+                        time: new Date(payload.new.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }]);
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [jobName, user, supabase]);
+
+    const send = async () => {
         if (!input.trim()) return;
-        setMessages(prev => [...prev, { id: Date.now().toString(), text: input.trim(), sender: 'me', time: 'Now' }]);
+        const msgText = input.trim();
         setInput('');
-        // Simulate auto-reply after 2s
-        setTimeout(() => {
-            setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: 'Baik, terima kasih! Kami tunggu di lokasi. 🙏', sender: 'them', time: 'Now' }]);
-        }, 2000);
+        
+        // Optimistic UI
+        const tempId = Date.now().toString();
+        setMessages(prev => [...prev, { id: tempId, text: msgText, sender: 'me', time: 'Now' }]);
+
+        // Send to DB
+        await supabase.from('nadi_bencana_chat').insert({
+            job_name: jobName,
+            text: msgText,
+            sender: user?.user_metadata?.full_name || 'Volunteer',
+            user_id: user?.id
+        });
     };
 
     return (
