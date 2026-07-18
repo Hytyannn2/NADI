@@ -126,10 +126,12 @@ CREATE INDEX IF NOT EXISTS idx_infra_reports_user
 DROP POLICY IF EXISTS "Auth users update bencana jobs" ON public.nadi_bencana_jobs;
 DROP POLICY IF EXISTS "Auth users delete bencana jobs" ON public.nadi_bencana_jobs;
 
+DROP POLICY IF EXISTS "Owner can update own jobs" ON public.nadi_bencana_jobs;
 CREATE POLICY "Owner can update own jobs"
   ON public.nadi_bencana_jobs FOR UPDATE
   USING (auth.uid() = posted_by);
 
+DROP POLICY IF EXISTS "Owner can delete own jobs" ON public.nadi_bencana_jobs;
 CREATE POLICY "Owner can delete own jobs"
   ON public.nadi_bencana_jobs FOR DELETE
   USING (auth.uid() = posted_by);
@@ -142,6 +144,7 @@ DROP POLICY IF EXISTS "Auth users update sensors" ON public.nadi_bencana_sensors
 -- === Infra Reports: Restrict UPDATE to report owner ===
 DROP POLICY IF EXISTS "Auth users update infra reports" ON public.nadi_infra_reports;
 
+DROP POLICY IF EXISTS "Owner can update own infra reports" ON public.nadi_infra_reports;
 CREATE POLICY "Owner can update own infra reports"
   ON public.nadi_infra_reports FOR UPDATE
   USING (auth.uid() = user_id);
