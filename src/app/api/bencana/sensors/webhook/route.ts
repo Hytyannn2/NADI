@@ -79,7 +79,7 @@ export async function POST(request: Request) {
             .from('nadi_bencana_sensors')
             .select('id')
             .eq('dev_eui', devEui)
-            .single();
+            .maybeSingle();
 
         let sensorId: string;
 
@@ -150,9 +150,9 @@ export async function POST(request: Request) {
             water_level: waterLevel,
             status,
         });
-    } catch (err) {
+    } catch (err: any) {
         console.error('[Webhook] Error processing TTN uplink:', err);
-        return NextResponse.json({ success: false, error: 'Webhook processing failed' }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Webhook processing failed', debug: err?.message || String(err) }, { status: 500 });
     }
 }
 
