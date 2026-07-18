@@ -42,10 +42,32 @@ CREATE POLICY "Public read infra reports" ON public.nadi_infra_reports FOR SELEC
 CREATE POLICY "Auth users insert infra reports" ON public.nadi_infra_reports FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Auth users update infra reports" ON public.nadi_infra_reports FOR UPDATE USING (auth.role() = 'authenticated');
 
--- Enable realtime for both tables
-begin;
-  alter publication supabase_realtime drop table public.nadi_bencana_sensors;
-  alter publication supabase_realtime drop table public.nadi_infra_reports;
-commit;
-alter publication supabase_realtime add table public.nadi_bencana_sensors;
-alter publication supabase_realtime add table public.nadi_infra_reports;
+-- Enable realtime for both tables safely and idempotently
+DO $$
+BEGIN
+  -- Add nadi_bencana_sensors if not already present in the publication
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr
+    JOIN pg_publication p ON p.oid = pr.prpubid
+    JOIN pg_class c ON c.oid = pr.prrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE p.pubname = 'supabase_realtime' 
+      AND c.relname = 'nadi_bencana_sensors'
+      AND n.nspname = 'public'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.nadi_bencana_sensors;
+  END IF;
+
+  -- Add nadi_infra_reports if not already present in the publication
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr
+    JOIN pg_publication p ON p.oid = pr.prpubid
+    JOIN pg_class c ON c.oid = pr.prrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE p.pubname = 'supabase_realtime' 
+      AND c.relname = 'nadi_infra_reports'
+      AND n.nspname = 'public'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.nadi_infra_reports;
+  END IF;
+END $$;

@@ -17,6 +17,7 @@ const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
     )
 });
 
+import { useWeather } from '@/src/hooks/useWeather';
 import { createClient } from '@/src/lib/supabase/client';
 import useSWR from 'swr';
 
@@ -26,18 +27,6 @@ export interface FloodZone {
     river: string;
     historicLevel: string;
     population: number;
-}
-
-export interface WeatherData {
-    temp: number;
-    feelsLike: number;
-    humidity: number;
-    windSpeed: number;
-    rainMm: number;
-    floodRisk: string;
-    aqi: number;
-    pm25: number;
-    pm10: number;
 }
 
 export interface EvacCenter {
@@ -56,12 +45,7 @@ export default function BencanaView() {
     const { addXp } = useXP();
     const supabase = createClient();
 
-    // Default: null to prevent map jumping
-    const [userLat, setUserLat] = useState<number | null>(null);
-    const [userLng, setUserLng] = useState<number | null>(null);
-    const [locationLabel, setLocationLabel] = useState('Locating...');
-    const [weather, setWeather] = useState<WeatherData | null>(null);
-    const [isWeatherLoading, setIsWeatherLoading] = useState(true);
+    const { weather, isWeatherLoading, locationLabel, userLat, userLng } = useWeather();
 
     // LoRaWAN sensor status
     const [sensorStatus, setSensorStatus] = useState<'safe' | 'warning' | 'danger'>('safe');
@@ -126,68 +110,7 @@ export default function BencanaView() {
         completeQuest('flood').then(xp => {
             if (xp > 0) addXp(xp);
         });
-
-        let watchId: number | null = null;
-        let lastFetchedLat: number | null = null;
-
-        const fetchLocationName = (lat: number, lng: number) => {
-            // Prevent spamming the geocoding API
-            if (lastFetchedLat === lat) return;
-            lastFetchedLat = lat;
-
-            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=12`, { headers: { 'User-Agent': 'NADI/1.0' } })
-                .then(r => r.json())
-                .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Unknown Location'); })
-                .catch(() => { setLocationLabel('Unknown Location'); });
-
-            setIsWeatherLoading(true);
-            fetch(`/api/weather?lat=${lat}&lng=${lng}`)
-                .then(r => r.json())
-                .then(d => { if (d.success) setWeather(d.weather); })
-                .catch(() => {})
-                .finally(() => setIsWeatherLoading(false));
-        };
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    setUserLat(pos.coords.latitude);
-                    setUserLng(pos.coords.longitude);
-                    fetchLocationName(pos.coords.latitude, pos.coords.longitude);
-                },
-                (err) => {
-                    setLocationLabel('Location Access Denied');
-                    // Fallback to Kuala Lumpur if denied
-                    setIsWeatherLoading(true);
-                    fetch(`/api/weather?lat=3.139&lng=101.6869`)
-                        .then(r => r.json())
-                        .then(d => { if (d.success) setWeather(d.weather); })
-                        .catch(() => {})
-                        .finally(() => setIsWeatherLoading(false));
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-            watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    setUserLat(pos.coords.latitude);
-                    setUserLng(pos.coords.longitude);
-                    setLocationLabel((prev: string) => {
-                        if (prev === 'Locating...' || prev === 'Unknown Location' || prev === 'Location Access Denied') {
-                            fetchLocationName(pos.coords.latitude, pos.coords.longitude);
-                        }
-                        return prev;
-                    });
-                },
-                () => { },
-                { enableHighAccuracy: true, maximumAge: 10000 }
-            );
-        } else {
-            setLocationLabel('Geolocation Unsupported');
-        }
-
-        return () => {
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
@@ -207,15 +130,15 @@ export default function BencanaView() {
 
             {/* Environmental Dashboard */}
             {isWeatherLoading ? (
-                <div className="mb-5 animate-pulse">
+                <div className="mb-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <div className="h-28 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
-                        <div className="h-28 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                        <div className="h-28 skeleton"></div>
+                        <div className="h-28 skeleton"></div>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                        <div className="h-20 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
-                        <div className="h-20 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
-                        <div className="h-20 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}></div>
+                        <div className="h-20 skeleton"></div>
+                        <div className="h-20 skeleton"></div>
+                        <div className="h-20 skeleton"></div>
                     </div>
                 </div>
             ) : weather && (
@@ -306,7 +229,11 @@ export default function BencanaView() {
                             onClick={async () => {
                                 const newStatus = sensorStatus === 'safe' ? 'danger' : 'safe';
                                 setSensorStatus(newStatus); // Optimistic UI update
-                                await supabase.from('nadi_bencana_sensors').update({ status: newStatus }).eq('name', 'Sungai Kelantan Node A');
+                                await fetch('/api/bencana/sensors', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ name: 'Sungai Kelantan Node A', status: newStatus }),
+                                                });
                             }} 
                             className={`text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-colors border ${sensorStatus === 'danger' ? 'bg-red-500 text-white border-red-600 animate-pulse' : 'text-gray-500 border-gray-600 hover:text-white'}`}
                         >

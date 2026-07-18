@@ -16,9 +16,18 @@ ALTER TABLE public.nadi_bencana_chat ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read bencana chat" ON public.nadi_bencana_chat FOR SELECT USING (true);
 CREATE POLICY "Auth users insert chat" ON public.nadi_bencana_chat FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
--- Enable realtime for chat table
-begin;
-  -- remove the table from the publication if it already exists, to avoid errors
-  alter publication supabase_realtime drop table public.nadi_bencana_chat;
-commit;
-alter publication supabase_realtime add table public.nadi_bencana_chat;
+-- Enable realtime for chat table safely and idempotently
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr
+    JOIN pg_publication p ON p.oid = pr.prpubid
+    JOIN pg_class c ON c.oid = pr.prrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE p.pubname = 'supabase_realtime' 
+      AND c.relname = 'nadi_bencana_chat'
+      AND n.nspname = 'public'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.nadi_bencana_chat;
+  END IF;
+END $$;

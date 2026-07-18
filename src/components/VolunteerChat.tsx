@@ -26,7 +26,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
                     const mapped = data.map((m: any) => ({
                         id: m.id,
                         text: m.text,
-                        sender: m.user_id === user?.id ? 'me' : 'them',
+                        sender: (m.user_id === user?.id ? 'me' : 'them') as 'me' | 'them',
                         time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     }));
                     setMessages(prev => [...prev.filter(p => p.id === '0'), ...mapped]);

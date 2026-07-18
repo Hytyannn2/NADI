@@ -22,8 +22,8 @@ interface AiAnalysis {
 
 interface Anomaly {
     id: string;
-    lat: string;
-    lng: string;
+    lat: number;
+    lng: number;
     zDropped: number;
     verifications: number;
     status: 'pending' | 'verified';
@@ -38,8 +38,8 @@ export default function InfraView() {
     const [isDriving, setIsDriving] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-    const [userLat, setUserLat] = useState('0');
-    const [userLng, setUserLng] = useState('0');
+    const [userLat, setUserLat] = useState(0);
+    const [userLng, setUserLng] = useState(0);
     const [motionError, setMotionError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
@@ -57,10 +57,8 @@ export default function InfraView() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    const lat = pos.coords.latitude.toFixed(4);
-                    const lng = pos.coords.longitude.toFixed(4);
-                    setUserLat(lat);
-                    setUserLng(lng);
+                    setUserLat(pos.coords.latitude);
+                    setUserLng(pos.coords.longitude);
                 },
                 () => {
                     // Fallback to default coords if user denies location
@@ -75,8 +73,8 @@ export default function InfraView() {
                 if (data) {
                     const mapped = data.map((d: any) => ({
                         id: d.id,
-                        lat: d.lat,
-                        lng: d.lng,
+                        lat: typeof d.lat === 'string' ? parseFloat(d.lat) : d.lat,
+                        lng: typeof d.lng === 'string' ? parseFloat(d.lng) : d.lng,
                         zDropped: d.z_dropped,
                         verifications: d.verifications,
                         status: d.status,
@@ -97,8 +95,8 @@ export default function InfraView() {
                         if (prev.some(a => a.id === d.id)) return prev;
                         return [{
                             id: d.id,
-                            lat: d.lat,
-                            lng: d.lng,
+                            lat: typeof d.lat === 'string' ? parseFloat(d.lat) : d.lat,
+                            lng: typeof d.lng === 'string' ? parseFloat(d.lng) : d.lng,
                             zDropped: d.z_dropped,
                             verifications: d.verifications,
                             status: d.status,
@@ -126,8 +124,8 @@ export default function InfraView() {
         if (navigator.geolocation) {
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
-                    lastGoodLat = pos.coords.latitude.toFixed(4);
-                    lastGoodLng = pos.coords.longitude.toFixed(4);
+                    lastGoodLat = parseFloat(pos.coords.latitude.toFixed(4));
+                    lastGoodLng = parseFloat(pos.coords.longitude.toFixed(4));
                 },
                 () => {}
             );
@@ -289,7 +287,7 @@ export default function InfraView() {
                         {isDriving && <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
                     </p>
                     {isDriving && (
-                        <p className="text-xs font-mono mt-1" style={{ color: 'var(--text-muted)' }}>{userLat}°N {userLng}°E</p>
+                        <p className="text-xs font-mono mt-1" style={{ color: 'var(--text-muted)' }}>{userLat.toFixed(4)}°N {userLng.toFixed(4)}°E</p>
                     )}
                 </div>
                 <button
@@ -381,7 +379,7 @@ export default function InfraView() {
                                             </span>
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{a.time}</span>
                                         </div>
-                                        <h4 className="font-serif text-lg text-white mb-3 mt-2">{a.lat}°, {a.lng}°</h4>
+                                        <h4 className="font-serif text-lg text-white mb-3 mt-2">{typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, {typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°</h4>
                                         <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest border-t border-zinc-800/50 pt-3">
                                             <span className="text-red-400 bg-[#1a0505] border border-red-900/30 px-3 py-1.5 rounded-md">Z: {a.zDropped.toFixed(1)}g</span>
                                             <span className={a.verifications >= 15 ? 'text-[#C5A367]' : 'text-zinc-400'}>

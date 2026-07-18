@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, Activity, AlertTriangle, Wallet, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles } from 'lucide-react';
+import { Mic, Activity, AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
@@ -17,7 +17,7 @@ import AuthView from '@/src/views/AuthView';
 import SuaraView from '../views/SuaraView';
 import InfraView from '../views/InfraView';
 import BencanaView from '../views/BencanaView';
-import SivikView from '../views/SivikView';
+import DashboardView from '../views/DashboardView';
 import BantuanView from '../views/BantuanView';
 
 // === Components ===
@@ -28,14 +28,13 @@ import SettingsModal from '@/src/components/SettingsModal';
 import CivicHeatMap from '@/src/components/CivicHeatMap';
 import LevelUpToast from '@/src/components/LevelUpToast';
 import QuestPanel from '@/src/components/QuestPanel';
-import MyKadScanner from '@/src/components/MyKadScanner';
 import SideNav from '@/src/components/SideNav';
 import BottomNav from '../components/BottomNav';
 import RankPanel from '../components/RankPanel';
 import LoadingScreen from '../components/LoadingScreen';
 
 // ===== TAB TYPE =====
-type TabId = 'suara' | 'infra' | 'bencana' | 'sivik' | 'bantuan';
+type TabId = 'suara' | 'infra' | 'bencana' | 'dashboard' | 'bantuan';
 
 export default function App() {
   // === Auth & Context ===
@@ -50,13 +49,12 @@ export default function App() {
   const { xp, level, showLevelUp, xpToNext } = useXP();
 
   // === UI State ===
-  const [activeTab, setActiveTab] = useState<TabId>('sivik');
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showQuestPanel, setShowQuestPanel] = useState(false);
-  const [showMyKad, setShowMyKad] = useState(false);
   const [showCommunity, setShowCommunity] = useState(false);
   const fabX = useMotionValue(0);
   const fabY = useMotionValue(0);
@@ -99,7 +97,6 @@ export default function App() {
   useEffect(() => {
     try {
       if (!localStorage.getItem('nadi_onboarded')) setShowOnboarding(true);
-      else if (!localStorage.getItem('nadi_mykad_done')) setShowMyKad(true);
     } catch { }
   }, []);
 
@@ -120,7 +117,7 @@ export default function App() {
   const tabs = [
     { id: 'suara', name: t('nav.voice'), icon: Mic },
     { id: 'infra', name: t('nav.infra'), icon: Activity },
-    { id: 'sivik', name: t('nav.nadipass'), icon: Wallet, isCenter: true },
+    { id: 'dashboard', name: t('nav.dashboard') || 'Home', icon: Home, isCenter: true },
     { id: 'bencana', name: t('nav.bencana'), icon: AlertTriangle },
     { id: 'bantuan', name: t('bantuan.title'), icon: Heart },
   ];
@@ -133,15 +130,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col transition-colors duration-300 overflow-hidden font-sans" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
 
       {/* === Overlays === */}
-      {showOnboarding && <OnboardingWalkthrough onComplete={() => { setShowOnboarding(false); if (!localStorage.getItem('nadi_mykad_done')) setShowMyKad(true); }} />}
-      <AnimatePresence>
-        {showMyKad && (
-          <MyKadScanner
-            onComplete={() => { setShowMyKad(false); try { localStorage.setItem('nadi_mykad_done', 'true'); } catch { } }}
-            onSkip={() => { setShowMyKad(false); try { localStorage.setItem('nadi_mykad_done', 'true'); } catch { } }}
-          />
-        )}
-      </AnimatePresence>
+      {showOnboarding && <OnboardingWalkthrough onComplete={() => { setShowOnboarding(false); }} />}
       <AnimatePresence>{showCommunity && <CommunityFeed onClose={() => setShowCommunity(false)} />}</AnimatePresence>
       <AnimatePresence>{showHeatMap && <CivicHeatMap onClose={() => setShowHeatMap(false)} />}</AnimatePresence>
 
@@ -457,7 +446,7 @@ export default function App() {
                   {activeTab === 'suara' && <SuaraView />}
                   {activeTab === 'infra' && <InfraView />}
                   {activeTab === 'bencana' && <BencanaView />}
-                  {activeTab === 'sivik' && <SivikView />}
+                  {activeTab === 'dashboard' && <DashboardView />}
                   {activeTab === 'bantuan' && <BantuanView />}
                 </motion.div>
               </div>

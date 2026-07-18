@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
-import { checkRateLimit } from '@/src/lib/rate-limiter';
+import { checkRateLimit } from '@/src/lib/rateLimit';
 
 
 export async function GET() {
@@ -31,12 +31,17 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-        const { allowed, retryAfter } = checkRateLimit(ip);
+        const { allowed, retryAfterSeconds, message } = checkRateLimit(ip, {
+            maxRequests: 5,
+            windowSeconds: 60,
+            blockDurationSeconds: 120,
+            bucketName: 'community-post',
+        });
 
         if (!allowed) {
             return NextResponse.json({
                 success: false,
-                error: `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfter} saat.`
+                error: message || `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfterSeconds} saat.`
             }, { status: 429 });
         }
 
@@ -53,7 +58,8 @@ export async function POST(request: Request) {
             author: author || 'Anonymous Warga',
             type: type || 'general',
             upvotes: 0,
-            comments: 0
+            comments: 0,
+            user_id: user.id,
         };
 
         const { data, error } = await supabase

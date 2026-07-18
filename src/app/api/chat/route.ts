@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { checkRateLimit } from '@/src/lib/rate-limiter';
+import { checkRateLimit } from '@/src/lib/rateLimit';
 
 export async function POST(request: Request) {
     try {
         const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-        const { allowed, retryAfter } = checkRateLimit(ip);
+        const { allowed, retryAfterSeconds, message: limitMessage } = checkRateLimit(ip, {
+            maxRequests: 10,
+            windowSeconds: 60,
+            blockDurationSeconds: 120,
+            bucketName: 'chatbot-conversation'
+        });
 
         if (!allowed) {
             return NextResponse.json({ 
                 success: false, 
-                reply: `Sistem sedang berehat kerana terlalu banyak mesej. Sila cuba lagi dalam ${retryAfter} saat.` 
+                reply: limitMessage || `Sistem sedang berehat kerana terlalu banyak mesej. Sila cuba lagi dalam ${retryAfterSeconds} saat.` 
             }, { status: 429 });
         }
 

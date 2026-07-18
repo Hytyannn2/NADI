@@ -60,7 +60,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -168,7 +168,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
                 required
-                className="input-base pl-11"
+                className="input-base !pl-11"
               />
             </div>
 
@@ -183,7 +183,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   placeholder={mode === 'register' ? 'Create a strong password' : 'Your password'}
                   required
                   minLength={6}
-                  className="input-base pl-11 pr-12"
+                  className="input-base !pl-11 !pr-12"
                 />
                 <button
                   type="button"

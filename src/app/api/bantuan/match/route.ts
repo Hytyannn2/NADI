@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import Groq from 'groq-sdk';
-import { checkRateLimit } from '@/src/lib/rate-limiter';
+import { checkRateLimit } from '@/src/lib/rateLimit';
 
 const getMatchedPrograms = unstable_cache(
     async (profileStr: string, programsStr: string) => {
@@ -63,12 +63,17 @@ Return a JSON object with a single key "matches" containing the array of results
 export async function POST(request: Request) {
     try {
         const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-        const { allowed, retryAfter } = checkRateLimit(ip);
+        const { allowed, retryAfterSeconds, message } = checkRateLimit(ip, {
+            maxRequests: 5,
+            windowSeconds: 60,
+            blockDurationSeconds: 120,
+            bucketName: 'bantuan-match'
+        });
 
         if (!allowed) {
             return NextResponse.json({ 
                 success: false, 
-                error: `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfter} saat.` 
+                error: message || `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfterSeconds} saat.` 
             }, { status: 429 });
         }
 

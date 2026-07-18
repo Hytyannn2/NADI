@@ -35,7 +35,7 @@ export async function POST(request: Request) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
             const { data, error } = await supabase
                 .from('nadi_bencana_jobs')
-                .update({ status: 'accepted' })
+                .update({ status: 'accepted', accepted_by: user.id })
                 .eq('id', jobId)
                 .select()
                 .single();
@@ -61,22 +61,21 @@ export async function POST(request: Request) {
             if (!name || !req) return NextResponse.json({ success: false, error: 'Name and request are required.' }, { status: 400 });
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-            let fullReq = req;
-            if (phone) fullReq += ` | Phone: ${phone}`;
-            if (tools) fullReq += ` | Tools: ${tools}`;
-            if (pax) fullReq += ` | Pax: ${pax}`;
-
             let priority = userPriority || 'Medium';
             let bounty = 30; // Default
 
             const newJob = {
                 name,
                 dist: dist || 'Unknown',
-                req: fullReq,
+                req,
                 status: 'open',
                 bounty,
                 area: area || 'Unknown',
                 priority,
+                posted_by: user.id,
+                phone: phone || null,
+                tools_needed: tools || null,
+                pax_needed: pax ? parseInt(pax, 10) : null,
             };
 
             // Instantly save to DB and return to user (0ms wait for AI)
@@ -91,6 +90,7 @@ export async function POST(request: Request) {
             // Background Task (Queueing Theory) - Runs after response is sent
             after(async () => {
                 try {
+                    const fullReq = `${req}${phone ? ` | Phone: ${phone}` : ''}${tools ? ` | Tools: ${tools}` : ''}${pax ? ` | Pax: ${pax}` : ''}`;
                     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
                     const result = await groq.chat.completions.create({
                         messages: [{

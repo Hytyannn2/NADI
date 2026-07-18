@@ -6,7 +6,7 @@ import { useLanguage } from '@/src/context/LanguageContext';
 const STEPS = [
     { id: 'bantuan', target: '#tour-bantuan', titleKey: 'tour.bantuan_title', descKey: 'tour.bantuan_desc', placement: 'right' },
     { id: 'bencana', target: '#tour-bencana', titleKey: 'tour.bencana_title', descKey: 'tour.bencana_desc', placement: 'right' },
-    { id: 'sivik', target: '#tour-sivik', titleKey: 'tour.sivik_title', descKey: 'tour.sivik_desc', placement: 'right' },
+    { id: 'dashboard', target: '#tab-dashboard', titleKey: 'tour.dashboard_title', descKey: 'tour.dashboard_desc', placement: 'right' },
     { id: 'infra', target: '#tour-infra', titleKey: 'tour.infra_title', descKey: 'tour.infra_desc', placement: 'right' },
     { id: 'suara', target: '#tour-suara', titleKey: 'tour.suara_title', descKey: 'tour.suara_desc', placement: 'right' },
     { id: 'heatmap', target: '#tour-heatmap', titleKey: 'tour.heatmap_title', descKey: 'tour.heatmap_desc', placement: 'bottom-left' },
