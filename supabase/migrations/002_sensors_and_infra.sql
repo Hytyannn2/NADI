@@ -14,7 +14,10 @@ CREATE TABLE IF NOT EXISTS public.nadi_bencana_sensors (
 );
 
 ALTER TABLE public.nadi_bencana_sensors ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read bencana sensors" ON public.nadi_bencana_sensors;
 CREATE POLICY "Public read bencana sensors" ON public.nadi_bencana_sensors FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Auth users update sensors" ON public.nadi_bencana_sensors;
 CREATE POLICY "Auth users update sensors" ON public.nadi_bencana_sensors FOR ALL USING (auth.role() = 'authenticated');
 
 -- Insert a default sensor for the simulation
@@ -38,8 +41,13 @@ CREATE TABLE IF NOT EXISTS public.nadi_infra_reports (
 );
 
 ALTER TABLE public.nadi_infra_reports ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read infra reports" ON public.nadi_infra_reports;
 CREATE POLICY "Public read infra reports" ON public.nadi_infra_reports FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Auth users insert infra reports" ON public.nadi_infra_reports;
 CREATE POLICY "Auth users insert infra reports" ON public.nadi_infra_reports FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Auth users update infra reports" ON public.nadi_infra_reports;
 CREATE POLICY "Auth users update infra reports" ON public.nadi_infra_reports FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- Enable realtime for both tables safely and idempotently
