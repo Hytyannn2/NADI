@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// POST /api/bencana/sensors — update sensor status (admin/simulation only)
+// POST /api/bencana/sensors — update sensor status (simulation + admin)
 // Uses service role key to bypass RLS since sensor writes are now restricted
 export async function POST(request: Request) {
     try {
-        const { name, status } = await request.json();
+        const body = await request.json();
+        const { name, status, water_level, battery_pct } = body;
 
         if (!name || !status) {
             return NextResponse.json({ success: false, error: 'Name and status are required.' }, { status: 400 });
@@ -22,14 +23,33 @@ export async function POST(request: Request) {
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
 
+        // Build update payload — always update status + last_reading, optionally water_level + battery
+        const updatePayload: Record<string, unknown> = {
+            status,
+            last_reading: new Date().toISOString(),
+        };
+        if (water_level !== undefined) updatePayload.water_level = water_level;
+        if (battery_pct !== undefined) updatePayload.battery_pct = battery_pct;
+
         const { data, error } = await supabase
             .from('nadi_bencana_sensors')
-            .update({ status, last_reading: new Date().toISOString() })
+            .update(updatePayload)
             .eq('name', name)
             .select()
             .single();
 
         if (error) throw error;
+
+        // Also insert a reading into history if water_level was provided
+        if (water_level !== undefined && data) {
+            await supabase
+                .from('nadi_bencana_sensor_readings')
+                .insert({
+                    sensor_id: data.id,
+                    water_level,
+                    battery_pct: battery_pct ?? null,
+                });
+        }
 
         return NextResponse.json({ success: true, sensor: data });
     } catch (err) {

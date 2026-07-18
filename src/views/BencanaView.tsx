@@ -1,5 +1,5 @@
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -47,8 +47,19 @@ export default function BencanaView() {
 
     const { weather, isWeatherLoading, locationLabel, userLat, userLng } = useWeather();
 
-    // LoRaWAN sensor status
-    const [sensorStatus, setSensorStatus] = useState<'safe' | 'warning' | 'danger'>('safe');
+    // LoRaWAN sensor data — full telemetry from hardware
+    interface SensorData {
+        status: 'safe' | 'warning' | 'danger';
+        water_level: number;
+        battery_pct: number | null;
+        rssi_dbm: number | null;
+        last_reading: string | null;
+        is_online: boolean;
+    }
+    const [sensorData, setSensorData] = useState<SensorData>({
+        status: 'safe', water_level: 0, battery_pct: null, rssi_dbm: null, last_reading: null, is_online: false,
+    });
+    const sensorStatus = sensorData.status;
     const sensorLabels = {
         safe: { text: t('bencana.sensor_safe'), style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
         warning: { text: t('bencana.sensor_warning'), style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
@@ -56,19 +67,46 @@ export default function BencanaView() {
     };
     const currentSensor = sensorLabels[sensorStatus];
 
+    // Helper: format "last seen" as relative time
+    const formatLastSeen = (iso: string | null) => {
+        if (!iso) return 'Never';
+        const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+        if (diff < 60) return `${diff}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+    };
+
     // Real-time Supabase Subscription for LoRaWAN
     useEffect(() => {
-        // Fetch initial status
+        // Fetch initial sensor data
         supabase.from('nadi_bencana_sensors').select('*').eq('name', 'Sungai Kelantan Node A').single()
             .then(({ data }) => {
-                if (data && data.status) setSensorStatus(data.status);
+                if (data) {
+                    setSensorData({
+                        status: data.status || 'safe',
+                        water_level: data.water_level ?? 0,
+                        battery_pct: data.battery_pct ?? null,
+                        rssi_dbm: data.rssi_dbm ?? null,
+                        last_reading: data.last_reading ?? null,
+                        is_online: data.is_online ?? false,
+                    });
+                }
             });
 
-        // Subscribe to real-time changes
+        // Subscribe to real-time changes — capture full telemetry
         const channel = supabase.channel('sensor_changes')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_bencana_sensors' }, (payload) => {
-                if (payload.new && payload.new.status) {
-                    setSensorStatus(payload.new.status as any);
+                if (payload.new) {
+                    const d = payload.new;
+                    setSensorData({
+                        status: d.status || 'safe',
+                        water_level: d.water_level ?? 0,
+                        battery_pct: d.battery_pct ?? null,
+                        rssi_dbm: d.rssi_dbm ?? null,
+                        last_reading: d.last_reading ?? null,
+                        is_online: d.is_online ?? false,
+                    });
                 }
             })
             .subscribe();
@@ -222,18 +260,25 @@ export default function BencanaView() {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className={`text-[9px] font-bold px-3 py-1.5 rounded-full tracking-widest uppercase shadow-sm transition-colors ${currentSensor.style}`}>
-                            {sensorStatus === 'danger' ? 'Water Level: 4.8m (CRITICAL)' : currentSensor.text}
+                            {sensorStatus === 'danger'
+                                ? `Water Level: ${(sensorData.water_level / 100).toFixed(1)}m (CRITICAL)`
+                                : sensorData.water_level > 0
+                                    ? `${sensorData.water_level} cm · ${currentSensor.text}`
+                                    : currentSensor.text}
                         </span>
                         
                         <button 
                             onClick={async () => {
-                                const newStatus = sensorStatus === 'safe' ? 'danger' : 'safe';
-                                setSensorStatus(newStatus); // Optimistic UI update
+                                const isDanger = sensorStatus === 'danger';
+                                const newStatus = isDanger ? 'safe' : 'danger';
+                                const newWaterLevel = isDanger ? 2.1 : 148;
+                                const newBattery = isDanger ? null : 73;
+                                setSensorData(prev => ({ ...prev, status: newStatus, water_level: newWaterLevel, battery_pct: newBattery, last_reading: new Date().toISOString(), is_online: true }));
                                 await fetch('/api/bencana/sensors', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ name: 'Sungai Kelantan Node A', status: newStatus }),
-                                                });
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ name: 'Sungai Kelantan Node A', status: newStatus, water_level: newWaterLevel, battery_pct: newBattery }),
+                                });
                             }} 
                             className={`text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-colors border ${sensorStatus === 'danger' ? 'bg-red-500 text-white border-red-600 animate-pulse' : 'text-gray-500 border-gray-600 hover:text-white'}`}
                         >
@@ -250,14 +295,70 @@ export default function BencanaView() {
                     {showDashboard && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                             <div className="mt-4 pt-4 space-y-3" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                <div className="text-center py-6 border border-dashed rounded-2xl" style={{ borderColor: 'var(--border-default)' }}>
-                                    <Radio className={`w-6 h-6 mx-auto mb-2 ${sensorStatus === 'danger' ? 'text-red-500 animate-bounce' : ''}`} style={sensorStatus !== 'danger' ? { color: 'var(--text-muted)' } : {}} />
-                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${sensorStatus === 'danger' ? 'text-red-500' : ''}`} style={sensorStatus !== 'danger' ? { color: 'var(--text-muted)' } : {}}>
-                                        {sensorStatus === 'danger' ? 'CRITICAL WATER LEVEL DETECTED' : 'Awaiting Sensor Connection'}
-                                    </p>
-                                    <p className={`text-[9px] mt-1 max-w-[200px] mx-auto ${sensorStatus === 'danger' ? 'text-red-400' : ''}`} style={sensorStatus !== 'danger' ? { color: 'var(--text-muted)' } : {}}>
-                                        {sensorStatus === 'danger' ? 'River Sg. Kelantan has breached the 4.5m danger threshold. Evacuation protocols initiated.' : 'Water level, battery, and uptime data will appear once LoRaWAN sensors are paired along Sungai Kelantan'}
-                                    </p>
+
+                                {/* Water Level Gauge */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="md:col-span-2 rounded-2xl p-5 relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        {sensorStatus === 'danger' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
+                                        <div className="flex items-end justify-between relative z-10">
+                                            <div>
+                                                <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+                                                    <Droplets className="w-3 h-3 inline mr-1" />Water Level
+                                                </p>
+                                                <p className={`text-4xl font-bold tracking-tight leading-none ${sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'}`}>
+                                                    {sensorData.water_level > 0 ? sensorData.water_level : '—'}
+                                                    <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-muted)' }}>cm</span>
+                                                </p>
+                                                <p className="text-[9px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                                                    {sensorStatus === 'danger' ? '🔴 Above danger threshold (120cm)'
+                                                        : sensorStatus === 'warning' ? '🟠 Approaching warning level (80cm)'
+                                                        : sensorData.water_level > 0 ? '🟢 Normal range' : 'No reading yet'}
+                                                </p>
+                                            </div>
+                                            {/* Visual gauge bar */}
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className="w-6 h-24 rounded-full relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                                    <motion.div
+                                                        className={`absolute bottom-0 left-0 right-0 rounded-full ${sensorStatus === 'danger' ? 'bg-red-500' : sensorStatus === 'warning' ? 'bg-orange-400' : 'bg-emerald-400'}`}
+                                                        initial={{ height: '0%' }}
+                                                        animate={{ height: `${Math.min(100, Math.max(2, (sensorData.water_level / 200) * 100))}%` }}
+                                                        transition={{ duration: 1, ease: 'easeOut' }}
+                                                    />
+                                                    {/* Danger threshold line at 120/200 = 60% */}
+                                                    <div className="absolute left-0 right-0 border-t border-dashed border-red-500/50" style={{ bottom: '60%' }} />
+                                                </div>
+                                                <span className="text-[8px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Max 200</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Device Health */}
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex-1 rounded-2xl p-3.5 flex flex-col justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            <Battery className={`w-4 h-4 mb-1.5 ${sensorData.battery_pct !== null && sensorData.battery_pct < 20 ? 'text-red-500' : 'text-emerald-400'}`} />
+                                            <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                                                {sensorData.battery_pct !== null ? `${sensorData.battery_pct}%` : '—'}
+                                            </p>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Battery</p>
+                                        </div>
+                                        <div className="flex-1 rounded-2xl p-3.5 flex flex-col justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            <Clock className="w-4 h-4 mb-1.5" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }} />
+                                            <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                                                {formatLastSeen(sensorData.last_reading)}
+                                            </p>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                                                {sensorData.is_online ? '🟢 Online' : '⚫ Offline'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Thresholds Reference */}
+                                <div className="flex items-center gap-4 text-[9px] font-medium px-1" style={{ color: 'var(--text-muted)' }}>
+                                    <span>🟢 Safe: &lt;80cm</span>
+                                    <span>🟠 Warning: 80-119cm</span>
+                                    <span>🔴 Danger: ≥120cm</span>
+                                    <span className="ml-auto">Sensor: Sungai Kelantan Node A</span>
                                 </div>
                             </div>
                         </motion.div>
