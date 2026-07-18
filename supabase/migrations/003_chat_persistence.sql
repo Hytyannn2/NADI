@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS public.nadi_bencana_chat (
 );
 
 ALTER TABLE public.nadi_bencana_chat ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read bencana chat" ON public.nadi_bencana_chat;
 CREATE POLICY "Public read bencana chat" ON public.nadi_bencana_chat FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Auth users insert chat" ON public.nadi_bencana_chat;
 CREATE POLICY "Auth users insert chat" ON public.nadi_bencana_chat FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- Enable realtime for chat table safely and idempotently
