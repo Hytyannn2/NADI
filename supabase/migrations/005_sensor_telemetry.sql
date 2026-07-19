@@ -2,6 +2,7 @@
 -- NADI Migration 005: Sensor Telemetry
 -- Adds telemetry columns to sensors table
 -- Creates time-series readings history table
+-- Includes BME280 environmental data support
 -- ============================================
 
 -- ==========================================
@@ -12,13 +13,27 @@
 ALTER TABLE public.nadi_bencana_sensors
   ADD COLUMN IF NOT EXISTS dev_eui TEXT UNIQUE;
 
--- Telemetry columns the webhook will populate on every uplink
+-- Core telemetry columns the webhook will populate on every uplink
 ALTER TABLE public.nadi_bencana_sensors
   ADD COLUMN IF NOT EXISTS battery_pct SMALLINT,
   ADD COLUMN IF NOT EXISTS rssi_dbm SMALLINT,
   ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT TRUE;
+
+-- BME280 environmental columns (temperature, humidity, barometric pressure)
+ALTER TABLE public.nadi_bencana_sensors
+  ADD COLUMN IF NOT EXISTS temperature_c REAL,
+  ADD COLUMN IF NOT EXISTS humidity_pct SMALLINT,
+  ADD COLUMN IF NOT EXISTS pressure_hpa REAL;
+
+-- Rise rate tracking — calculated server-side from last N readings
+ALTER TABLE public.nadi_bencana_sensors
+  ADD COLUMN IF NOT EXISTS rise_rate_cm_hr REAL DEFAULT 0;
+
+-- Sensor classification for future expansion (ultrasonic, pressure, radar)
+ALTER TABLE public.nadi_bencana_sensors
+  ADD COLUMN IF NOT EXISTS sensor_type TEXT DEFAULT 'ultrasonic';
 
 -- ==========================================
 -- 2. CREATE SENSOR READINGS HISTORY TABLE
@@ -32,6 +47,9 @@ CREATE TABLE IF NOT EXISTS public.nadi_bencana_sensor_readings (
   water_level REAL NOT NULL,
   battery_pct SMALLINT,
   rssi_dbm SMALLINT,
+  temperature_c REAL,
+  humidity_pct SMALLINT,
+  pressure_hpa REAL,
   flags SMALLINT DEFAULT 0,
   recorded_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -1,5 +1,5 @@
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -13,6 +13,15 @@ const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
         <div className="w-full h-full flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Loading Satellite Map...</p>
+        </div>
+    )
+});
+
+const SensorTrendChart = dynamic(() => import('@/src/components/SensorTrendChart'), {
+    ssr: false,
+    loading: () => (
+        <div className="h-44 rounded-2xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--accent)' }} />
         </div>
     )
 });
@@ -38,7 +47,7 @@ export interface EvacCenter {
 
 export default function BencanaView() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState<'map' | 'zones'>('map');
+    const [activeTab, setActiveTab] = useState<'map' | 'sensors' | 'zones'>('map');
     const [showDashboard, setShowDashboard] = useState(false);
 
     const { completeQuest } = useGame();
@@ -47,17 +56,24 @@ export default function BencanaView() {
 
     const { weather, isWeatherLoading, locationLabel, userLat, userLng } = useWeather();
 
-    // LoRaWAN sensor data — full telemetry from hardware
+    // LoRaWAN sensor data — full telemetry from hardware + BME280
     interface SensorData {
+        id: string | null;
         status: 'safe' | 'warning' | 'danger';
         water_level: number;
         battery_pct: number | null;
         rssi_dbm: number | null;
+        temperature_c: number | null;
+        humidity_pct: number | null;
+        pressure_hpa: number | null;
+        rise_rate_cm_hr: number;
         last_reading: string | null;
         is_online: boolean;
     }
     const [sensorData, setSensorData] = useState<SensorData>({
-        status: 'safe', water_level: 0, battery_pct: null, rssi_dbm: null, last_reading: null, is_online: false,
+        id: null, status: 'safe', water_level: 0, battery_pct: null, rssi_dbm: null,
+        temperature_c: null, humidity_pct: null, pressure_hpa: null,
+        rise_rate_cm_hr: 0, last_reading: null, is_online: false,
     });
     const sensorStatus = sensorData.status;
     const sensorLabels = {
@@ -77,6 +93,16 @@ export default function BencanaView() {
         return `${Math.floor(diff / 86400)}d ago`;
     };
 
+    // RSSI signal bars (0-4 bars based on dBm)
+    const getSignalBars = (rssi: number | null): number => {
+        if (rssi === null) return 0;
+        if (rssi >= -50) return 4;
+        if (rssi >= -70) return 3;
+        if (rssi >= -90) return 2;
+        if (rssi >= -110) return 1;
+        return 0;
+    };
+
     // Real-time Supabase Subscription for LoRaWAN
     useEffect(() => {
         // Fetch initial sensor data
@@ -84,10 +110,15 @@ export default function BencanaView() {
             .then(({ data }) => {
                 if (data) {
                     setSensorData({
+                        id: data.id ?? null,
                         status: data.status || 'safe',
                         water_level: data.water_level ?? 0,
                         battery_pct: data.battery_pct ?? null,
                         rssi_dbm: data.rssi_dbm ?? null,
+                        temperature_c: data.temperature_c ?? null,
+                        humidity_pct: data.humidity_pct ?? null,
+                        pressure_hpa: data.pressure_hpa ?? null,
+                        rise_rate_cm_hr: data.rise_rate_cm_hr ?? 0,
                         last_reading: data.last_reading ?? null,
                         is_online: data.is_online ?? false,
                     });
@@ -100,10 +131,15 @@ export default function BencanaView() {
                 if (payload.new) {
                     const d = payload.new;
                     setSensorData({
+                        id: d.id ?? null,
                         status: d.status || 'safe',
                         water_level: d.water_level ?? 0,
                         battery_pct: d.battery_pct ?? null,
                         rssi_dbm: d.rssi_dbm ?? null,
+                        temperature_c: d.temperature_c ?? null,
+                        humidity_pct: d.humidity_pct ?? null,
+                        pressure_hpa: d.pressure_hpa ?? null,
+                        rise_rate_cm_hr: d.rise_rate_cm_hr ?? 0,
                         last_reading: d.last_reading ?? null,
                         is_online: d.is_online ?? false,
                     });
@@ -150,6 +186,28 @@ export default function BencanaView() {
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Signal bars component
+    const SignalBars = ({ rssi }: { rssi: number | null }) => {
+        const bars = getSignalBars(rssi);
+        return (
+            <div className="flex items-end gap-[2px] h-3.5">
+                {[1, 2, 3, 4].map(i => (
+                    <div
+                        key={i}
+                        className="rounded-sm transition-colors"
+                        style={{
+                            width: 3,
+                            height: `${25 + i * 18}%`,
+                            background: i <= bars
+                                ? bars >= 3 ? '#10B981' : bars >= 2 ? '#F59E0B' : '#EF4444'
+                                : 'rgba(255,255,255,0.1)',
+                        }}
+                    />
+                ))}
+            </div>
+        );
+    };
 
     return (
         <div className="p-6 h-full flex flex-col relative z-0" style={{ color: 'var(--text-primary)' }}>
@@ -273,11 +331,36 @@ export default function BencanaView() {
                                 const newStatus = isDanger ? 'safe' : 'danger';
                                 const newWaterLevel = isDanger ? 2.1 : 148;
                                 const newBattery = isDanger ? null : 73;
-                                setSensorData(prev => ({ ...prev, status: newStatus, water_level: newWaterLevel, battery_pct: newBattery, last_reading: new Date().toISOString(), is_online: true }));
+                                const newTemp = isDanger ? null : 31.2;
+                                const newHumidity = isDanger ? null : 89;
+                                const newPressure = isDanger ? null : 1008.3;
+                                const newRiseRate = isDanger ? 0 : 8.2;
+                                setSensorData(prev => ({
+                                    ...prev,
+                                    status: newStatus,
+                                    water_level: newWaterLevel,
+                                    battery_pct: newBattery,
+                                    temperature_c: newTemp,
+                                    humidity_pct: newHumidity,
+                                    pressure_hpa: newPressure,
+                                    rise_rate_cm_hr: newRiseRate,
+                                    rssi_dbm: isDanger ? null : -67,
+                                    last_reading: new Date().toISOString(),
+                                    is_online: true,
+                                }));
                                 await fetch('/api/bencana/sensors', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ name: 'Sungai Kelantan Node A', status: newStatus, water_level: newWaterLevel, battery_pct: newBattery }),
+                                    body: JSON.stringify({
+                                        name: 'Sungai Kelantan Node A',
+                                        status: newStatus,
+                                        water_level: newWaterLevel,
+                                        battery_pct: newBattery,
+                                        temperature_c: newTemp,
+                                        humidity_pct: newHumidity,
+                                        pressure_hpa: newPressure,
+                                        rise_rate_cm_hr: newRiseRate,
+                                    }),
                                 });
                             }} 
                             className={`text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-colors border ${sensorStatus === 'danger' ? 'bg-red-500 text-white border-red-600 animate-pulse' : 'text-gray-500 border-gray-600 hover:text-white'}`}
@@ -296,7 +379,7 @@ export default function BencanaView() {
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                             <div className="mt-4 pt-4 space-y-3" style={{ borderTop: '1px solid var(--border-default)' }}>
 
-                                {/* Water Level Gauge */}
+                                {/* Water Level Gauge + Device Health */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div className="md:col-span-2 rounded-2xl p-5 relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                         {sensorStatus === 'danger' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
@@ -309,11 +392,23 @@ export default function BencanaView() {
                                                     {sensorData.water_level > 0 ? sensorData.water_level : '—'}
                                                     <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-muted)' }}>cm</span>
                                                 </p>
-                                                <p className="text-[9px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                                                    {sensorStatus === 'danger' ? '🔴 Above danger threshold (120cm)'
-                                                        : sensorStatus === 'warning' ? '🟠 Approaching warning level (80cm)'
-                                                        : sensorData.water_level > 0 ? '🟢 Normal range' : 'No reading yet'}
-                                                </p>
+                                                {/* Rise rate indicator */}
+                                                <div className="flex items-center gap-2 mt-1.5">
+                                                    <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                                                        {sensorStatus === 'danger' ? '🔴 Above danger threshold (120cm)'
+                                                            : sensorStatus === 'warning' ? '🟠 Approaching warning level (80cm)'
+                                                            : sensorData.water_level > 0 ? '🟢 Normal range' : 'No reading yet'}
+                                                    </p>
+                                                    {sensorData.rise_rate_cm_hr !== 0 && (
+                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                                            sensorData.rise_rate_cm_hr > 5 ? 'bg-red-500/15 text-red-400'
+                                                            : sensorData.rise_rate_cm_hr > 0 ? 'bg-orange-500/15 text-orange-400'
+                                                            : 'bg-blue-500/15 text-blue-400'
+                                                        }`}>
+                                                            {sensorData.rise_rate_cm_hr > 0 ? '↑' : '↓'} {Math.abs(sensorData.rise_rate_cm_hr)} cm/hr
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             {/* Visual gauge bar */}
                                             <div className="flex flex-col items-center gap-1">
@@ -342,15 +437,73 @@ export default function BencanaView() {
                                             <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Battery</p>
                                         </div>
                                         <div className="flex-1 rounded-2xl p-3.5 flex flex-col justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                            <Clock className="w-4 h-4 mb-1.5" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }} />
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <Signal className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                                                <SignalBars rssi={sensorData.rssi_dbm} />
+                                            </div>
                                             <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                                                {formatLastSeen(sensorData.last_reading)}
+                                                {sensorData.rssi_dbm !== null ? `${sensorData.rssi_dbm} dBm` : '—'}
                                             </p>
-                                            <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                                                {sensorData.is_online ? '🟢 Online' : '⚫ Offline'}
-                                            </p>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Signal</p>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Environmental Cards (from BME280 sensor data) */}
+                                {(sensorData.temperature_c !== null || sensorData.humidity_pct !== null || sensorData.pressure_hpa !== null) && (
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            <Thermometer className="w-4 h-4 text-orange-400 mb-1.5" />
+                                            <span className="text-sm font-bold text-white">
+                                                {sensorData.temperature_c !== null ? sensorData.temperature_c.toFixed(1) : '—'}
+                                                <span className="text-[10px] text-zinc-400 ml-0.5">°C</span>
+                                            </span>
+                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Sensor Temp</span>
+                                        </div>
+                                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            <Droplets className="w-4 h-4 text-blue-400 mb-1.5" />
+                                            <span className="text-sm font-bold text-white">
+                                                {sensorData.humidity_pct !== null ? sensorData.humidity_pct : '—'}
+                                                <span className="text-[10px] text-zinc-400 ml-0.5">%</span>
+                                            </span>
+                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Humidity</span>
+                                        </div>
+                                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            {/* Pressure drop glow if below 1009 hPa (storm indicator) */}
+                                            {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 && (
+                                                <div className="absolute inset-0 bg-orange-500/5 animate-pulse" />
+                                            )}
+                                            <Gauge className="w-4 h-4 text-purple-400 mb-1.5 relative z-10" />
+                                            <span className={`text-sm font-bold relative z-10 ${sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? 'text-orange-400' : 'text-white'}`}>
+                                                {sensorData.pressure_hpa !== null ? sensorData.pressure_hpa.toFixed(1) : '—'}
+                                                <span className="text-[10px] text-zinc-400 ml-0.5">hPa</span>
+                                            </span>
+                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1 relative z-10">
+                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? '⚠️ Low Pressure' : 'Pressure'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 24-Hour Trend Chart */}
+                                <SensorTrendChart
+                                    sensorId={sensorData.id}
+                                    currentWaterLevel={sensorData.water_level}
+                                    riseRate={sensorData.rise_rate_cm_hr}
+                                />
+
+                                {/* Online status + last seen */}
+                                <div className="flex items-center gap-2 rounded-xl p-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                    <Clock className="w-3.5 h-3.5" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }} />
+                                    <span className="text-[9px] font-bold" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }}>
+                                        {sensorData.is_online ? '🟢 Online' : '⚫ Offline'}
+                                    </span>
+                                    <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                                        · Last seen: {formatLastSeen(sensorData.last_reading)}
+                                    </span>
+                                    <span className="ml-auto text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                                        Sensor: Sungai Kelantan Node A
+                                    </span>
                                 </div>
 
                                 {/* Thresholds Reference */}
@@ -358,7 +511,6 @@ export default function BencanaView() {
                                     <span>🟢 Safe: &lt;80cm</span>
                                     <span>🟠 Warning: 80-119cm</span>
                                     <span>🔴 Danger: ≥120cm</span>
-                                    <span className="ml-auto">Sensor: Sungai Kelantan Node A</span>
                                 </div>
                             </div>
                         </motion.div>
@@ -379,20 +531,24 @@ export default function BencanaView() {
                 <span className="ml-auto text-[10px] font-medium px-2.5 py-1 rounded-lg" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>{t('bencana.standby')}</span>
             </motion.div>
 
-            {/* Tab Toggle: Map / Flood Zones */}
+            {/* Tab Toggle: Map / Sensors / Flood Zones */}
             <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
                 className="flex p-1 rounded-2xl mb-5"
                 style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
             >
-                {(['map', 'zones'] as const).map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)}
+                {([
+                    { key: 'map' as const, label: '📍 Map' },
+                    { key: 'sensors' as const, label: '📡 Sensors' },
+                    { key: 'zones' as const, label: '🌊 Flood Zones' },
+                ]).map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                         className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
-                        style={activeTab === tab
+                        style={activeTab === tab.key
                             ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }
                             : { color: 'var(--text-muted)' }
                         }
-                    >{tab === 'map' ? '📍 Map' : '🌊 Flood Zones'}</button>
+                    >{tab.label}</button>
                 ))}
             </motion.div>
 
@@ -482,6 +638,154 @@ export default function BencanaView() {
                                             </div>
                                         </motion.div>
                                     ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* === SENSORS TAB === */}
+                    {activeTab === 'sensors' && (
+                        <motion.div
+                            key="sensors"
+                            initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}
+                            className="space-y-4"
+                        >
+                            {/* Sensor Card Header */}
+                            <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                {sensorStatus === 'danger' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
+
+                                {/* Early Warning Banner */}
+                                {sensorData.rise_rate_cm_hr > 5 && (
+                                    <div className="mb-4 p-3 rounded-xl flex items-center gap-3 animate-pulse relative z-10" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                        <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                                        <div>
+                                            <p className="text-xs font-bold text-red-400">⚠️ EARLY WARNING: Rapid Rise Detected</p>
+                                            <p className="text-[10px] text-red-400/80 mt-0.5">
+                                                Water rising {sensorData.rise_rate_cm_hr} cm/hr — estimated {Math.max(1, Math.round((120 - sensorData.water_level) / sensorData.rise_rate_cm_hr))} hours to danger level
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                            sensorStatus === 'danger' ? 'bg-red-500/20' : sensorStatus === 'warning' ? 'bg-orange-500/20' : 'bg-emerald-500/20'
+                                        }`}>
+                                            <Radio className={`w-5 h-5 ${
+                                                sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'
+                                            }`} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Sungai Kelantan Node A</h3>
+                                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Kota Bharu · Ultrasonic · LoRaWAN</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <SignalBars rssi={sensorData.rssi_dbm} />
+                                        <span className={`text-[9px] font-bold px-3 py-1.5 rounded-full tracking-widest uppercase ${currentSensor.style}`}>
+                                            {currentSensor.text}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Water Level + Stats Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10">
+                                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        <Droplets className={`w-4 h-4 mb-1 ${sensorStatus === 'danger' ? 'text-red-500' : 'text-blue-400'}`} />
+                                        <p className={`text-xl font-bold ${sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'}`}>
+                                            {sensorData.water_level > 0 ? sensorData.water_level : '—'}
+                                        </p>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Water (cm)</p>
+                                    </div>
+                                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        <Battery className={`w-4 h-4 mb-1 ${sensorData.battery_pct !== null && sensorData.battery_pct < 20 ? 'text-red-500' : 'text-emerald-400'}`} />
+                                        <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                                            {sensorData.battery_pct !== null ? `${sensorData.battery_pct}%` : '—'}
+                                        </p>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Battery</p>
+                                    </div>
+                                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        <Signal className="w-4 h-4 mb-1" style={{ color: 'var(--text-muted)' }} />
+                                        <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                                            {sensorData.rssi_dbm !== null ? sensorData.rssi_dbm : '—'}
+                                        </p>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>RSSI (dBm)</p>
+                                    </div>
+                                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                        <Clock className="w-4 h-4 mb-1" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }} />
+                                        <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                                            {formatLastSeen(sensorData.last_reading)}
+                                        </p>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                                            {sensorData.is_online ? '🟢 Online' : '⚫ Offline'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Environmental Data (from BME280) */}
+                            {(sensorData.temperature_c !== null || sensorData.humidity_pct !== null || sensorData.pressure_hpa !== null) && (
+                                <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                    <p className="text-[9px] font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                                        <Thermometer className="w-3 h-3" /> On-Site Environmental (BME280)
+                                    </p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            <Thermometer className="w-5 h-5 text-orange-400 mb-1.5" />
+                                            <span className="text-lg font-bold text-white">
+                                                {sensorData.temperature_c !== null ? sensorData.temperature_c.toFixed(1) : '—'}°
+                                            </span>
+                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-0.5">Temperature</span>
+                                        </div>
+                                        <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            <Droplets className="w-5 h-5 text-blue-400 mb-1.5" />
+                                            <span className="text-lg font-bold text-white">
+                                                {sensorData.humidity_pct !== null ? sensorData.humidity_pct : '—'}%
+                                            </span>
+                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-0.5">Humidity</span>
+                                        </div>
+                                        <div className="rounded-xl p-3 flex flex-col items-center text-center relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                                            {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 && (
+                                                <div className="absolute inset-0 bg-orange-500/8 animate-pulse" />
+                                            )}
+                                            <Gauge className="w-5 h-5 text-purple-400 mb-1.5 relative z-10" />
+                                            <span className={`text-lg font-bold relative z-10 ${sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? 'text-orange-400' : 'text-white'}`}>
+                                                {sensorData.pressure_hpa !== null ? sensorData.pressure_hpa.toFixed(0) : '—'}
+                                            </span>
+                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-0.5 relative z-10">
+                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? '⚠️ Storm Signal' : 'Pressure (hPa)'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 24-Hour Trend Chart */}
+                            <SensorTrendChart
+                                sensorId={sensorData.id}
+                                currentWaterLevel={sensorData.water_level}
+                                riseRate={sensorData.rise_rate_cm_hr}
+                            />
+
+                            {/* Thresholds + Info */}
+                            <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                <p className="text-[9px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                                    <BarChart3 className="w-3 h-3" /> Threshold Reference
+                                </p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                                        <p className="text-[10px] font-bold text-emerald-400">SAFE</p>
+                                        <p className="text-[8px] text-emerald-400/60">&lt; 80 cm</p>
+                                    </div>
+                                    <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249, 115, 22, 0.15)' }}>
+                                        <p className="text-[10px] font-bold text-orange-400">WARNING</p>
+                                        <p className="text-[8px] text-orange-400/60">80 — 119 cm</p>
+                                    </div>
+                                    <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                                        <p className="text-[10px] font-bold text-red-500">DANGER</p>
+                                        <p className="text-[8px] text-red-500/60">≥ 120 cm</p>
+                                    </div>
                                 </div>
                             </div>
                         </motion.div>

@@ -8,9 +8,10 @@ import { createClient } from '@supabase/supabase-js';
  * This is the bridge between the physical LoRaWAN sensors and NADI.
  *
  * TTN sends a POST here on every sensor transmission. We:
- * 1. Extract the decoded payload (water level, battery, etc.)
+ * 1. Extract the decoded payload (water level, battery, BME280 env data, etc.)
  * 2. Upsert the sensor's current state in nadi_bencana_sensors
  * 3. Insert a row into nadi_bencana_sensor_readings (history)
+ * 4. Calculate rise rate from recent readings for early warning
  *
  * Uses service role key — no user auth needed (machine-to-machine).
  *
@@ -57,7 +58,11 @@ export async function POST(request: Request) {
         // These field names match the TTN decoder function in the sensor spec
         const waterLevel = decoded.water_level_cm ?? decoded.water_level ?? null;
         const batteryPct = decoded.battery_pct ?? null;
+        const temperatureC = decoded.temperature_c ?? null;
+        const humidityPct = decoded.humidity_pct ?? null;
+        const pressureHpa = decoded.pressure_hpa ?? null;
         const danger = decoded.danger ?? false;
+        const rapidRise = decoded.rapid_rise ?? false;
         const rssiDbm = uplink.rx_metadata?.[0]?.rssi ?? null;
 
         // Determine sensor status from the data
@@ -71,7 +76,7 @@ export async function POST(request: Request) {
         // Service role client — bypasses RLS
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
         );
 
         // Step 1: Find or identify the sensor by dev_eui
@@ -83,19 +88,25 @@ export async function POST(request: Request) {
 
         let sensorId: string;
 
+        // Build the update/insert payload with all telemetry fields
+        const sensorPayload: Record<string, unknown> = {
+            water_level: waterLevel,
+            status,
+            battery_pct: batteryPct,
+            rssi_dbm: rssiDbm,
+            temperature_c: temperatureC,
+            humidity_pct: humidityPct,
+            pressure_hpa: pressureHpa,
+            is_online: true,
+            last_reading: new Date().toISOString(),
+        };
+
         if (existingSensor) {
             // Update existing sensor with latest reading
             sensorId = existingSensor.id;
             await supabase
                 .from('nadi_bencana_sensors')
-                .update({
-                    water_level: waterLevel,
-                    status,
-                    battery_pct: batteryPct,
-                    rssi_dbm: rssiDbm,
-                    is_online: true,
-                    last_reading: new Date().toISOString(),
-                })
+                .update(sensorPayload)
                 .eq('id', sensorId);
         } else {
             // First uplink from this device — auto-register it
@@ -106,19 +117,14 @@ export async function POST(request: Request) {
                     name: deviceId || `Sensor ${devEui.slice(-4)}`,
                     location: 'Unregistered — update location',
                     dev_eui: devEui,
-                    water_level: waterLevel ?? 0,
-                    status,
-                    battery_pct: batteryPct,
-                    rssi_dbm: rssiDbm,
-                    is_online: true,
-                    last_reading: new Date().toISOString(),
+                    ...sensorPayload,
                 })
                 .select('id')
                 .single();
 
             if (insertError) {
                 console.error('[Webhook] Failed to auto-register sensor:', insertError);
-                return NextResponse.json({ success: false, error: 'Failed to register new sensor' }, { status: 500 });
+                return NextResponse.json({ success: false, error: 'Failed to register new sensor', debug: insertError.message, code: insertError.code }, { status: 500 });
             }
 
             sensorId = newSensor!.id;
@@ -129,7 +135,7 @@ export async function POST(request: Request) {
         if (waterLevel !== null) {
             const flags =
                 (danger ? 0x01 : 0) |
-                (decoded.rapid_rise ? 0x02 : 0) |
+                (rapidRise ? 0x02 : 0) |
                 (decoded.battery_low ? 0x04 : 0) |
                 (decoded.sensor_fault ? 0x08 : 0);
 
@@ -140,8 +146,39 @@ export async function POST(request: Request) {
                     water_level: waterLevel,
                     battery_pct: batteryPct,
                     rssi_dbm: rssiDbm,
+                    temperature_c: temperatureC,
+                    humidity_pct: humidityPct,
+                    pressure_hpa: pressureHpa,
                     flags,
                 });
+        }
+
+        // Step 3: Calculate rise rate from last 6 readings (~60 min at 10min intervals)
+        let riseRate = 0;
+        try {
+            const { data: recentReadings } = await supabase
+                .from('nadi_bencana_sensor_readings')
+                .select('water_level, recorded_at')
+                .eq('sensor_id', sensorId)
+                .order('recorded_at', { ascending: false })
+                .limit(6);
+
+            if (recentReadings && recentReadings.length >= 2) {
+                const newest = recentReadings[0];
+                const oldest = recentReadings[recentReadings.length - 1];
+                const timeDiffHours = (new Date(newest.recorded_at).getTime() - new Date(oldest.recorded_at).getTime()) / (1000 * 60 * 60);
+                if (timeDiffHours > 0) {
+                    riseRate = Math.round(((newest.water_level - oldest.water_level) / timeDiffHours) * 10) / 10;
+                }
+            }
+
+            // Update rise rate on the sensor record
+            await supabase
+                .from('nadi_bencana_sensors')
+                .update({ rise_rate_cm_hr: riseRate })
+                .eq('id', sensorId);
+        } catch (rateErr) {
+            console.warn('[Webhook] Rise rate calculation failed (non-fatal):', rateErr);
         }
 
         return NextResponse.json({
@@ -149,6 +186,7 @@ export async function POST(request: Request) {
             sensor_id: sensorId,
             water_level: waterLevel,
             status,
+            rise_rate_cm_hr: riseRate,
         });
     } catch (err: any) {
         console.error('[Webhook] Error processing TTN uplink:', err);

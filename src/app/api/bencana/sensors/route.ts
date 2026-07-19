@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, status, water_level, battery_pct } = body;
+        const { name, status, water_level, battery_pct, temperature_c, humidity_pct, pressure_hpa, rise_rate_cm_hr } = body;
 
         if (!name || !status) {
             return NextResponse.json({ success: false, error: 'Name and status are required.' }, { status: 400 });
@@ -20,16 +20,21 @@ export async function POST(request: Request) {
         // Use service role to bypass RLS (sensors are now admin-write only)
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
         );
 
-        // Build update payload — always update status + last_reading, optionally water_level + battery
+        // Build update payload — always update status + last_reading, optionally telemetry fields
         const updatePayload: Record<string, unknown> = {
             status,
             last_reading: new Date().toISOString(),
+            is_online: true,
         };
         if (water_level !== undefined) updatePayload.water_level = water_level;
         if (battery_pct !== undefined) updatePayload.battery_pct = battery_pct;
+        if (temperature_c !== undefined) updatePayload.temperature_c = temperature_c;
+        if (humidity_pct !== undefined) updatePayload.humidity_pct = humidity_pct;
+        if (pressure_hpa !== undefined) updatePayload.pressure_hpa = pressure_hpa;
+        if (rise_rate_cm_hr !== undefined) updatePayload.rise_rate_cm_hr = rise_rate_cm_hr;
 
         const { data, error } = await supabase
             .from('nadi_bencana_sensors')
@@ -48,6 +53,9 @@ export async function POST(request: Request) {
                     sensor_id: data.id,
                     water_level,
                     battery_pct: battery_pct ?? null,
+                    temperature_c: temperature_c ?? null,
+                    humidity_pct: humidity_pct ?? null,
+                    pressure_hpa: pressure_hpa ?? null,
                 });
         }
 
