@@ -8,8 +8,11 @@ import { FamilyProvider } from "@/src/context/FamilyContext";
 import { GamificationProvider } from "@/src/components/Gamification";
 
 export const metadata: Metadata = {
-  title: "NADI - Civic OS",
+  title: "NADI",
   description: "Next Generation Civic Operations System for Malaysia",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -20,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { checkRateLimit } from '@/src/lib/rateLimit';
-
+import { evaluateBotRisk } from '@/src/lib/botDetection';
 
 export async function GET() {
     try {
@@ -53,6 +53,15 @@ export async function POST(request: Request) {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
+        // SECURITY & BOT DETECTION: Evaluate bot risk score and ban bot accounts
+        const botCheck = evaluateBotRisk(content, user.id, ip);
+        if (botCheck.isBanned) {
+            return NextResponse.json({ success: false, error: botCheck.reason }, { status: 403 });
+        }
+        if (botCheck.isBot) {
+            return NextResponse.json({ success: false, error: botCheck.reason }, { status: 400 });
+        }
 
         const newPost = {
             content,

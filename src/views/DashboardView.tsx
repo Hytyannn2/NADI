@@ -10,7 +10,8 @@ import { useWeather } from '@/src/hooks/useWeather';
 import {
     CloudRain, AlertTriangle, ShieldAlert, Heart, Activity, Mic,
     Trophy, Target, Award, Zap, ChevronRight, Loader2, Thermometer,
-    Wind, Droplets, CheckCircle2, Lock, Flame, Users, TrendingUp
+    Wind, Droplets, CheckCircle2, Lock, Flame, Users, TrendingUp,
+    Send, ThumbsUp, MessageSquare, Plus
 } from 'lucide-react';
 import { RANK_DATA } from '@/src/constants/ranks';
 
@@ -18,7 +19,7 @@ export default function DashboardView() {
     const { user } = useAuth();
     const { t } = useLanguage();
     const { quests, badges, crs, crsLabel, leaderboard, stats } = useGame();
-    const { xp, level, xpToNext } = useXP();
+    const { xp, level, xpToNext, addXp } = useXP();
     const { weather, isWeatherLoading, locationLabel } = useWeather();
 
     const [recentPosts, setRecentPosts] = useState<any[]>([]);
@@ -40,13 +41,61 @@ export default function DashboardView() {
     const hour = new Date().getHours();
     const greetingKey = hour < 12 ? 'Selamat Pagi' : hour < 18 ? 'Selamat Petang' : 'Selamat Malam';
 
+    const [newPostContent, setNewPostContent] = useState('');
+    const [newPostType, setNewPostType] = useState('general');
+    const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+    const [postError, setPostError] = useState<string | null>(null);
+    const { incrementStat, completeQuest } = useGame();
+
     useEffect(() => {
         fetch('/api/community')
             .then(r => r.json())
-            .then(d => { if (d.success) setRecentPosts(d.posts.slice(0, 3)); })
+            .then(d => { if (d.success) setRecentPosts(d.posts); })
             .catch(() => {})
             .finally(() => setIsLoadingPosts(false));
     }, []);
+
+    const handleCreatePost = async () => {
+        if (!newPostContent.trim() || isSubmittingPost) return;
+        setIsSubmittingPost(true);
+        setPostError(null);
+        try {
+            const authorName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
+            const res = await fetch('/api/community', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newPostContent, type: newPostType, author: authorName })
+            });
+            const d = await res.json();
+            if (d.success) {
+                setRecentPosts(prev => [d.post, ...prev]);
+                setNewPostContent('');
+                setPostError(null);
+                incrementStat('communityPosts');
+            } else {
+                setPostError(d.error || 'Gagal menghantar mesej.');
+            }
+        } catch (err) {
+            console.error('Failed to post:', err);
+            setPostError('Ralat rangkaian. Sila cuba lagi.');
+        } finally {
+            setIsSubmittingPost(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter') {
+            const isMobile = typeof window !== 'undefined' && (
+                window.innerWidth < 768 ||
+                /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            );
+            if (isMobile || e.shiftKey || e.ctrlKey) return;
+            e.preventDefault();
+            if (newPostContent.trim() && !isSubmittingPost) {
+                handleCreatePost();
+            }
+        }
+    };
 
     const switchToTab = (tabId: string) => {
         const btn = document.getElementById(`tab-${tabId}`);
@@ -343,20 +392,64 @@ export default function DashboardView() {
                 </div>
             </motion.div>
 
-            {/* ═══════ 7. COMMUNITY FEED ═══════ */}
+            {/* ═══════ 7. COMMUNITY HUB (UTAMA) ═══════ */}
             <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
                 className="mb-6"
             >
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Community</h3>
-                    <button onClick={openCommunityFeed} className="text-[10px] font-bold hover:underline flex items-center gap-1" style={{ color: 'var(--accent)' }}>
-                        View All <ChevronRight className="w-3 h-3" />
-                    </button>
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-emerald-400" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-primary)' }}>
+                            Suara Warga (Live Community Feed)
+                        </h3>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {recentPosts.length} Mesej
+                    </span>
                 </div>
 
+                {/* Inline Post Composer */}
+                <div className="rounded-2xl border p-4 mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+                    <div className="flex gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-1" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                            {userName.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                            <textarea
+                                value={newPostContent}
+                                onChange={(e) => { setNewPostContent(e.target.value); setPostError(null); }}
+                                onKeyDown={handleKeyDown}
+                                placeholder="Apa perkembangan atau pesanan untuk warga tempatan?"
+                                rows={2}
+                                className="w-full text-xs rounded-xl p-3 resize-none outline-none transition-all"
+                                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                            />
+
+                            {postError && (
+                                <p className="text-[10px] font-bold text-red-400 mt-1.5 flex items-center gap-1">
+                                    ⚠️ {postError}
+                                </p>
+                            )}
+
+                            <div className="flex items-center justify-end mt-2">
+                                <button
+                                    onClick={handleCreatePost}
+                                    disabled={!newPostContent.trim() || isSubmittingPost}
+                                    className="text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 text-white transition-all disabled:opacity-50"
+                                    style={{ background: 'var(--accent)' }}
+                                >
+                                    {isSubmittingPost ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                    Hantar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Live Community Feed List */}
                 <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
                     {isLoadingPosts ? (
                         <div className="p-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
@@ -364,32 +457,31 @@ export default function DashboardView() {
                         <div className="divide-y" style={{ borderColor: 'var(--border-default)' }}>
                             {recentPosts.map((post: any, i: number) => (
                                 <motion.div
-                                    key={post.id}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: 0.45 + i * 0.05 }}
-                                    className="p-3 hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-                                    onClick={openCommunityFeed}
+                                    key={post.id || i}
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 * i }}
+                                    className="p-4 hover:bg-[var(--bg-subtle)] transition-colors"
                                 >
-                                    <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                {(post.author || 'A').charAt(0)}
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                                                {(post.author || 'Warga').charAt(0)}
                                             </div>
-                                            <span className="text-[10px] font-bold" style={{ color: 'var(--text-primary)' }}>{post.author}</span>
+                                            <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{post.author || 'Warga NADI'}</span>
                                         </div>
                                         <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                            {new Date(post.timestamp).toLocaleDateString()}
+                                            {new Date(post.timestamp || Date.now()).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
-                                    <p className="text-xs line-clamp-2 pl-7" style={{ color: 'var(--text-secondary)' }}>{post.content}</p>
+                                    <p className="text-xs leading-relaxed pl-8" style={{ color: 'var(--text-secondary)' }}>{post.content}</p>
                                 </motion.div>
                             ))}
                         </div>
                     ) : (
                         <div className="p-8 text-center">
                             <Users className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
-                            <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>No community posts yet. Be the first!</p>
+                            <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Belum ada mesej komuniti. Jadilah yang pertama!</p>
                         </div>
                     )}
                 </div>

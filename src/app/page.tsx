@@ -33,6 +33,17 @@ import BottomNav from '../components/BottomNav';
 import RankPanel from '../components/RankPanel';
 import LoadingScreen from '../components/LoadingScreen';
 
+// === WhistleIcon Component ===
+function WhistleIcon({ className = "w-5 h-5", style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 3a8 8 0 1 0 8 8h3a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-3a8 8 0 0 0-8-3Z" />
+      <circle cx="11" cy="11" r="2.5" />
+      <path d="M14 6.5L18 2.5" />
+    </svg>
+  );
+}
+
 // ===== TAB TYPE =====
 type TabId = 'suara' | 'infra' | 'bencana' | 'dashboard' | 'bantuan';
 
@@ -56,6 +67,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showQuestPanel, setShowQuestPanel] = useState(false);
   const [showCommunity, setShowCommunity] = useState(false);
+  const [communityTab, setCommunityTab] = useState<'feed' | 'whistle'>('whistle');
   const fabX = useMotionValue(0);
   const fabY = useMotionValue(0);
   const isDragging = useRef(false);
@@ -131,7 +143,7 @@ export default function App() {
 
       {/* === Overlays === */}
       {showOnboarding && <OnboardingWalkthrough onComplete={() => { setShowOnboarding(false); }} />}
-      <AnimatePresence>{showCommunity && <CommunityFeed onClose={() => setShowCommunity(false)} />}</AnimatePresence>
+      <AnimatePresence>{showCommunity && <CommunityFeed initialTab={communityTab} onClose={() => setShowCommunity(false)} />}</AnimatePresence>
       <AnimatePresence>{showHeatMap && <CivicHeatMap onClose={() => setShowHeatMap(false)} />}</AnimatePresence>
 
       {/* === Floating Elements === */}
@@ -185,8 +197,8 @@ export default function App() {
                   <button id="tour-heatmap" aria-label="View Civic Heatmap" onClick={() => setShowHeatMap(true)} className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}>
                     <Map className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                   </button>
-                  <button id="tour-community" aria-label="View Community Feed" onClick={() => setShowCommunity(true)} className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}>
-                    <Users className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                  <button id="tour-whistleblower" aria-label="Lapor Sulit (Whistleblower)" onClick={() => { setCommunityTab('whistle'); setShowCommunity(true); }} className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Lapor Sulit (Whistleblower)">
+                    <WhistleIcon className="w-5 h-5 text-red-400" />
                   </button>
                   <button id="notif-btn" aria-label="View Notifications" onClick={() => { setShowNotif(!showNotif); setShowUserMenu(false); setShowLangPicker(false); }}
                     className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}

@@ -8,8 +8,8 @@ import { useXP } from '@/src/hooks/useXP';
 
 interface Post { id: string; content: string; author: string; type: string; timestamp: number; upvotes: number; }
 
-export default function CommunityFeed({ onClose }: { onClose: () => void }) {
-    const [tab, setTab] = useState<'feed' | 'whistle'>('feed');
+export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClose: () => void; initialTab?: 'feed' | 'whistle' }) {
+    const [tab, setTab] = useState<'feed' | 'whistle'>(initialTab);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCompose, setShowCompose] = useState(false);
@@ -43,11 +43,22 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
                 setContent(''); 
                 setShowCompose(false); 
                 incrementStat('communityPosts');
-                completeQuest('community').then(xp => {
-                    if (xp > 0) addXp(xp);
-                });
             }
         } catch {} finally { setPosting(false); }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter') {
+            const isMobile = typeof window !== 'undefined' && (
+                window.innerWidth < 768 ||
+                /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            );
+            if (isMobile || e.shiftKey || e.ctrlKey) return;
+            e.preventDefault();
+            if (content.trim() && !posting) {
+                handlePost();
+            }
+        }
     };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,7 +149,7 @@ export default function CommunityFeed({ onClose }: { onClose: () => void }) {
                                 {showCompose && (
                                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-4">
                                         <div className="bg-[#121214] border border-zinc-800 rounded-2xl p-4">
-                                            <textarea value={content} onChange={e => setContent(e.target.value)} rows={3} placeholder="What's happening in your community?"
+                                            <textarea value={content} onChange={e => setContent(e.target.value)} onKeyDown={handleKeyDown} rows={3} placeholder="What's happening in your community?"
                                                 className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 outline-none resize-none mb-3" />
                                             <button onClick={handlePost} disabled={posting || !content.trim()}
                                                 className="bg-gradient-to-r from-[#C5A367] to-[#B8860B] text-[#0A0A0C] px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-40 flex items-center gap-1.5"
