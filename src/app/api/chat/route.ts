@@ -4,7 +4,11 @@ import { checkRateLimit } from '@/src/lib/rateLimit';
 
 export async function POST(request: Request) {
     try {
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+        // Extract client IP — use first value from x-forwarded-for (set by reverse proxy)
+        // On Vercel, this is reliable since Vercel always sets it. In other environments,
+        // the first IP is the most trustworthy (client → proxy chain).
+        const forwardedFor = request.headers.get('x-forwarded-for');
+        const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'anonymous';
         const { allowed, retryAfterSeconds, message: limitMessage } = checkRateLimit(ip, {
             maxRequests: 10,
             windowSeconds: 60,

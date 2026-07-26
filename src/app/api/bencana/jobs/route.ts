@@ -44,15 +44,31 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true, job: data });
         }
 
-        // Cancel a job
+        // Cancel a job — only the owner can cancel
         if (action === 'cancel' && jobId) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
+            // Verify ownership before deletion
+            const { data: job, error: fetchError } = await supabase
+                .from('nadi_bencana_jobs')
+                .select('id, posted_by')
+                .eq('id', jobId)
+                .single();
+
+            if (fetchError || !job) {
+                return NextResponse.json({ success: false, error: 'Job not found.' }, { status: 404 });
+            }
+
+            if (job.posted_by !== user.id) {
+                return NextResponse.json({ success: false, error: 'Forbidden. You can only cancel your own jobs.' }, { status: 403 });
+            }
+
             const { error } = await supabase
                 .from('nadi_bencana_jobs')
                 .delete()
                 .eq('id', jobId);
 
-            if (error) return NextResponse.json({ success: false, error: 'Job not found.' }, { status: 404 });
+            if (error) return NextResponse.json({ success: false, error: 'Failed to cancel job.' }, { status: 500 });
             return NextResponse.json({ success: true });
         }
 

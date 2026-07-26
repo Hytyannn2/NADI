@@ -8,9 +8,13 @@ export async function GET() {
         const supabase = createClient(await cookies());
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Security Check: Only allow logged in users for now (Admin check)
+        // Security: Verify user is authenticated AND is an admin
         if (!user) {
-            return NextResponse.json({ success: false, error: 'Unauthorized. Admin access required.' }, { status: 401 });
+            return NextResponse.json({ success: false, error: 'Unauthorized. Login required.' }, { status: 401 });
+        }
+        const isAdmin = user.app_metadata?.role === 'admin' || user.email === process.env.ADMIN_EMAIL;
+        if (!isAdmin) {
+            return NextResponse.json({ success: false, error: 'Forbidden. Admin access required.' }, { status: 403 });
         }
 
         // Return the in-memory reports

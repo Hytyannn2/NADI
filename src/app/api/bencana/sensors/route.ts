@@ -2,9 +2,19 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // POST /api/bencana/sensors — update sensor status (simulation + admin)
-// Uses service role key to bypass RLS since sensor writes are now restricted
+// SECURITY: Requires ADMIN_API_KEY in production to prevent unauthorized sensor data manipulation
 export async function POST(request: Request) {
     try {
+        // Auth: require API key in production, allow unauthenticated in dev for simulation
+        const isProduction = process.env.NODE_ENV === 'production';
+        const adminKey = process.env.ADMIN_API_KEY;
+        if (isProduction || adminKey) {
+            const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
+            if (!adminKey || providedKey !== adminKey) {
+                return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
+            }
+        }
+
         const body = await request.json();
         const { name, status, water_level, battery_pct, temperature_c, humidity_pct, pressure_hpa, rise_rate_cm_hr } = body;
 
@@ -17,10 +27,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` }, { status: 400 });
         }
 
-        // Use service role to bypass RLS (sensors are now admin-write only)
+        // Use service role to bypass RLS — fail fast if not configured
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            return NextResponse.json({ success: false, error: 'Server misconfiguration: service role key not set' }, { status: 500 });
+        }
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+            process.env.SUPABASE_SERVICE_ROLE_KEY
         );
 
         // Build update payload — always update status + last_reading, optionally telemetry fields

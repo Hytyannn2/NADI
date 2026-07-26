@@ -22,9 +22,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ success: false, error: 'sensor_id is required' }, { status: 400 });
         }
 
+        // Public read endpoint — use publishable key (RLS allows SELECT for all)
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+            process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
         );
 
         // Calculate the cutoff time

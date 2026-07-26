@@ -43,6 +43,21 @@ export interface EvacCenter {
     district: string;
     capacity: number;
     type: string;
+    lat?: number;
+    lng?: number;
+}
+
+// Calculate Haversine distance in km between two GPS points
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10;
 }
 
 export default function BencanaView() {
@@ -166,18 +181,41 @@ export default function BencanaView() {
                 historicLevel: z.historic_level,
                 population: z.population
             })) : [],
-            centers: centers ? centers.map((c: any) => ({
+            centers: centers && centers.length > 0 ? centers.map((c: any) => ({
                 name: c.name,
                 district: c.district,
                 capacity: c.capacity,
-                type: c.type
-            })) : []
+                type: c.type,
+                lat: c.lat,
+                lng: c.lng
+            })) : [
+                { name: 'SK Kubang Kerian', district: 'Kota Bharu', capacity: 500, type: 'Sekolah', lat: 6.092444, lng: 102.274583 },
+                { name: 'Masjid Muhammadi', district: 'Kota Bharu', capacity: 800, type: 'Masjid', lat: 6.132155, lng: 102.236688 },
+                { name: 'SK Kuala Krai', district: 'Kuala Krai', capacity: 400, type: 'Sekolah', lat: 5.534744, lng: 102.197519 },
+                { name: 'SK Gua Musang', district: 'Gua Musang', capacity: 350, type: 'Sekolah', lat: 4.882100, lng: 101.964500 },
+                { name: 'Dewan Sultan Tanah Merah', district: 'Tanah Merah', capacity: 300, type: 'Dewan', lat: 5.808300, lng: 102.148100 }
+            ]
         };
     };
 
     const { data: bencanaData } = useSWR('bencana_data', fetchBencanaData, { revalidateOnFocus: false });
     const floodZones: FloodZone[] = bencanaData?.zones || [];
-    const evacCenters: EvacCenter[] = bencanaData?.centers || [];
+    const rawEvacCenters: EvacCenter[] = bencanaData?.centers || [
+        { name: 'SK Kubang Kerian', district: 'Kota Bharu', capacity: 500, type: 'Sekolah', lat: 6.092444, lng: 102.274583 },
+        { name: 'Masjid Muhammadi', district: 'Kota Bharu', capacity: 800, type: 'Masjid', lat: 6.132155, lng: 102.236688 },
+        { name: 'SK Kuala Krai', district: 'Kuala Krai', capacity: 400, type: 'Sekolah', lat: 5.534744, lng: 102.197519 },
+        { name: 'SK Gua Musang', district: 'Gua Musang', capacity: 350, type: 'Sekolah', lat: 4.882100, lng: 101.964500 },
+        { name: 'Dewan Sultan Tanah Merah', district: 'Tanah Merah', capacity: 300, type: 'Dewan', lat: 5.808300, lng: 102.148100 }
+    ];
+
+    // Calculate distance and sort by nearest center first
+    const currentLat = userLat || 6.1251; // Kota Bharu fallback
+    const currentLng = userLng || 102.2345;
+
+    const evacCenters = rawEvacCenters.map(center => {
+        const dist = (center.lat && center.lng) ? getDistanceKm(currentLat, currentLng, center.lat, center.lng) : null;
+        return { ...center, distanceKm: dist };
+    }).sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
 
     // Real-time geolocation tracking
     useEffect(() => {
@@ -629,7 +667,14 @@ export default function BencanaView() {
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{center.name}</p>
-                                                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{center.district} · {center.type}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{center.district} · {center.type}</span>
+                                                        {center.distanceKm !== null && (
+                                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                                📍 {center.distanceKm} km
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="text-right shrink-0 ml-2">

@@ -23,8 +23,14 @@ import { sendTelegramAlert } from '@/src/lib/telegram';
  */
 export async function POST(request: Request) {
     try {
-        // Optional: Verify webhook secret if configured
+        // SECURITY: Webhook authentication
+        // In production, TTN_WEBHOOK_SECRET MUST be set — fail closed
         const webhookSecret = process.env.TTN_WEBHOOK_SECRET;
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (isProduction && !webhookSecret) {
+            console.error('[Webhook] FATAL: TTN_WEBHOOK_SECRET not set in production. Rejecting all requests.');
+            return NextResponse.json({ success: false, error: 'Webhook not configured' }, { status: 503 });
+        }
         if (webhookSecret) {
             const providedSecret = request.headers.get('x-webhook-secret') || request.headers.get('x-downlink-apikey');
             if (providedSecret !== webhookSecret) {
@@ -35,7 +41,6 @@ export async function POST(request: Request) {
         const body = await request.json();
 
         // TTN v3 uplink message format
-        // https://www.thethingsindustries.com/docs/the-things-stack/concepts/data-formats/#uplink-messages
         const deviceIds = body.end_device_ids;
         const uplink = body.uplink_message;
 
@@ -44,19 +49,15 @@ export async function POST(request: Request) {
         }
 
         const devEui = deviceIds.dev_eui;
-        const deviceId = deviceIds.device_id; // human-readable name like "sungai-kelantan-node-a"
+        const deviceId = deviceIds.device_id;
 
-        // The decoded payload comes from the TTN payload formatter (JavaScript decoder)
         const decoded = uplink.decoded_payload;
         if (!decoded) {
-            // Raw bytes received but no decoder configured in TTN
-            // Log it but don't fail — the data is still in TTN console
             console.warn(`[Webhook] Received raw uplink from ${devEui} but no decoded_payload. Configure a payload formatter in TTN.`);
             return NextResponse.json({ success: true, warning: 'No decoded payload — configure TTN payload formatter' });
         }
 
-        // Extract fields from the decoded payload
-        // These field names match the TTN decoder function in the sensor spec
+        // Extract and VALIDATE fields from the decoded payload
         const waterLevel = decoded.water_level_cm ?? decoded.water_level ?? null;
         const batteryPct = decoded.battery_pct ?? null;
         const temperatureC = decoded.temperature_c ?? null;
@@ -66,6 +67,14 @@ export async function POST(request: Request) {
         const rapidRise = decoded.rapid_rise ?? false;
         const rssiDbm = uplink.rx_metadata?.[0]?.rssi ?? null;
 
+        // Input validation — reject nonsensical values
+        if (waterLevel !== null && (typeof waterLevel !== 'number' || waterLevel < 0 || waterLevel > 1000)) {
+            return NextResponse.json({ success: false, error: 'Invalid water_level_cm: must be 0-1000' }, { status: 400 });
+        }
+        if (batteryPct !== null && (typeof batteryPct !== 'number' || batteryPct < 0 || batteryPct > 100)) {
+            return NextResponse.json({ success: false, error: 'Invalid battery_pct: must be 0-100' }, { status: 400 });
+        }
+
         // Determine sensor status from the data
         let status: 'safe' | 'warning' | 'danger' = 'safe';
         if (danger || (waterLevel !== null && waterLevel >= 120)) {
@@ -74,10 +83,13 @@ export async function POST(request: Request) {
             status = 'warning';
         }
 
-        // Service role client — bypasses RLS
+        // Service role client — bypasses RLS (fail fast if not configured)
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            return NextResponse.json({ success: false, error: 'Server misconfiguration: service role key not set' }, { status: 500 });
+        }
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+            process.env.SUPABASE_SERVICE_ROLE_KEY
         );
 
         // Step 1: Find or identify the sensor by dev_eui

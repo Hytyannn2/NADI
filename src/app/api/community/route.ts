@@ -30,7 +30,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+        const forwardedFor = request.headers.get('x-forwarded-for');
+        const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'anonymous';
         const { allowed, retryAfterSeconds, message } = checkRateLimit(ip, {
             maxRequests: 5,
             windowSeconds: 60,
