@@ -1,9 +1,11 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Activity, Car, Check, Radar, AlertCircle, Camera, Cloud, Droplets, X, Loader2, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGame } from '../context/GameContext';
 import { useXP } from '../hooks/useXP';
+import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDetector';
+import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 
 interface AiAnalysis {
@@ -20,6 +22,14 @@ interface AiAnalysis {
     recommendedAction: string;
 }
 
+interface ClusterInfo {
+    clusterId: string;
+    uniqueDevices: number;
+    threshold: number;
+    isUrban: boolean;
+    isVerified: boolean;
+}
+
 interface Anomaly {
     id: string;
     lat: number;
@@ -32,15 +42,26 @@ interface Anomaly {
     isAnalyzing?: boolean;
     photoBase64?: string;
     expanded?: boolean;
+    confidenceScore?: number;
+    speedKmh?: number;
+    cluster?: ClusterInfo | null;
+    snapshotBase64?: string;
+}
+
+// Device fingerprint (persistent per browser)
+function getDeviceFingerprint(): string {
+    const key = 'nadi_device_fp';
+    let fp = localStorage.getItem(key);
+    if (!fp) {
+        fp = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem(key, fp);
+    }
+    return fp;
 }
 
 export default function InfraView() {
-    const [isDriving, setIsDriving] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-    const [userLat, setUserLat] = useState(0);
-    const [userLng, setUserLng] = useState(0);
-    const [motionError, setMotionError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
 
@@ -48,26 +69,27 @@ export default function InfraView() {
     const { addXp } = useXP();
     const supabase = createClient();
 
+    // === NEW: Sensor Fusion Hook ===
+    const detector = usePotholeDetector();
+
+    // === NEW: Dashcam Hook ===
+    const dashcam = useDashcam();
+
     const filteredAnomalies = anomalies.filter(a => filter === 'all' || a.status === filter);
     const totalDetected = anomalies.length;
     const totalVerified = anomalies.filter(a => a.status === 'verified').length;
+    const avgConfidence = anomalies.length > 0
+        ? Math.round(anomalies.reduce((sum, a) => sum + (a.confidenceScore || 0), 0) / anomalies.length)
+        : 0;
 
-    // Get user's real GPS and fetch real weather
+    // === AUTO-START: Detection runs always-on like Life360 ===
     useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    setUserLat(pos.coords.latitude);
-                    setUserLng(pos.coords.longitude);
-                },
-                () => {
-                    // Fallback to default coords if user denies location
-                },
-                { enableHighAccuracy: true }
-            );
-        }
+        detector.startDriving();
+        return () => { detector.stopDriving(); };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-        // Fetch existing anomalies
+    // Fetch existing anomalies on mount
+    useEffect(() => {
         supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(50)
             .then(({ data }) => {
                 if (data) {
@@ -80,7 +102,10 @@ export default function InfraView() {
                         status: d.status,
                         time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         aiAnalysis: d.ai_analysis,
-                        photoBase64: d.photo_url
+                        photoBase64: d.photo_url,
+                        confidenceScore: d.confidence_score || 0,
+                        speedKmh: d.speed_kmh || 0,
+                        snapshotBase64: d.snapshot_base64,
                     }));
                     setAnomalies(mapped);
                 }
@@ -102,9 +127,23 @@ export default function InfraView() {
                             status: d.status,
                             time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                             aiAnalysis: d.ai_analysis,
-                            photoBase64: d.photo_url
+                            photoBase64: d.photo_url,
+                            confidenceScore: d.confidence_score || 0,
+                            speedKmh: d.speed_kmh || 0,
+                            snapshotBase64: d.snapshot_base64,
                         }, ...prev];
                     });
+                }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_infra_reports' }, (payload) => {
+                if (payload.new) {
+                    const d = payload.new as any;
+                    setAnomalies(prev => prev.map(a => a.id === d.id ? {
+                        ...a,
+                        status: d.status,
+                        verifications: d.verifications,
+                        aiAnalysis: d.ai_analysis || a.aiAnalysis,
+                    } : a));
                 }
             })
             .subscribe();
@@ -112,81 +151,86 @@ export default function InfraView() {
         return () => { supabase.removeChannel(channel); };
     }, [supabase]);
 
-    // Real DeviceMotion detection while driving
+    // === Handle new detections from usePotholeDetector ===
     useEffect(() => {
-        if (!isDriving) return;
+        if (!detector.lastDetection) return;
 
-        let lastGoodLat = userLat;
-        let lastGoodLng = userLng;
+        const det = detector.lastDetection;
+        const tempId = det.id;
 
-        // Keep GPS position live while driving
-        let watchId: number | null = null;
-        if (navigator.geolocation) {
-            watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    lastGoodLat = parseFloat(pos.coords.latitude.toFixed(4));
-                    lastGoodLng = parseFloat(pos.coords.longitude.toFixed(4));
-                },
-                () => {}
-            );
+        // Capture dashcam frame if active
+        let snapshot: string | null = null;
+        if (dashcam.isDashcamEnabled && dashcam.isStreaming) {
+            snapshot = dashcam.captureFrame();
         }
 
-        const handleMotion = (event: DeviceMotionEvent) => {
-            const z = event.accelerationIncludingGravity?.z ?? null;
-            if (z === null) return;
-            // Pothole threshold: sudden Z-drop > 3g from gravity baseline
-            const zDrop = z - 9.8;
-            if (zDrop < -3.0) {
-                const tempId = Date.now().toString();
-                const newAnomaly: Anomaly = {
-                    id: tempId,
-                    lat: lastGoodLat,
-                    lng: lastGoodLng,
-                    zDropped: parseFloat(zDrop.toFixed(2)),
-                    verifications: 1,
-                    status: 'pending',
-                    time: 'Just now'
-                };
-                setAnomalies(prev => [newAnomaly, ...prev]);
+        const newAnomaly: Anomaly = {
+            id: tempId,
+            lat: det.lat,
+            lng: det.lng,
+            zDropped: det.zDrop,
+            verifications: 1,
+            status: 'pending',
+            time: 'Just now',
+            confidenceScore: det.confidenceScore,
+            speedKmh: det.speedKmh,
+            snapshotBase64: snapshot || undefined,
+        };
+        setAnomalies(prev => [newAnomaly, ...prev]);
 
-                // Persist to DB
-                supabase.from('nadi_infra_reports').insert({
-                    lat: lastGoodLat,
-                    lng: lastGoodLng,
-                    z_dropped: parseFloat(zDrop.toFixed(2)),
-                    status: 'pending'
-                }).select().single().then(({ data }) => {
-                    if (data) {
-                        setAnomalies(prev => prev.map(a => a.id === tempId ? { ...a, id: data.id } : a));
+        // Persist to DB with sensor fusion data
+        const deviceFp = getDeviceFingerprint();
+        supabase.from('nadi_infra_reports').insert({
+            lat: String(det.lat),
+            lng: String(det.lng),
+            z_dropped: det.zDrop,
+            speed_kmh: det.speedKmh,
+            gyro_max_rotation: det.gyroMaxRotation,
+            waveform_duration_ms: det.waveformDurationMs,
+            confidence_score: det.confidenceScore,
+            device_fingerprint: deviceFp,
+            snapshot_base64: snapshot?.split(',')[1] || null, // Remove data:image/jpeg;base64, prefix
+            status: 'pending'
+        }).select().single().then(async ({ data }) => {
+            if (data) {
+                // Update temp ID with real DB ID
+                setAnomalies(prev => prev.map(a => a.id === tempId ? { ...a, id: data.id } : a));
+
+                // Trigger clustering
+                try {
+                    const clusterRes = await fetch('/api/infra/cluster', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            reportId: data.id,
+                            lat: det.lat,
+                            lng: det.lng,
+                            deviceFingerprint: deviceFp,
+                        }),
+                    });
+                    const clusterData = await clusterRes.json();
+                    if (clusterData.success) {
+                        setAnomalies(prev => prev.map(a => a.id === data.id ? {
+                            ...a,
+                            cluster: clusterData.cluster,
+                            status: clusterData.cluster.isVerified ? 'verified' : a.status,
+                        } : a));
                     }
-                });
+                } catch {
+                    // Clustering failed silently — report is still saved
+                }
             }
-        };
+        });
+    }, [detector.lastDetection]);
 
-        // Request iOS 13+ motion permission if needed
-        const startListening = () => {
-            window.addEventListener('devicemotion', handleMotion);
-            setMotionError(null);
-        };
-
-        if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-            (DeviceMotionEvent as any).requestPermission()
-                .then((state: string) => {
-                    if (state === 'granted') startListening();
-                    else setMotionError('Motion permission denied. Grant access in iOS Settings.');
-                })
-                .catch(() => setMotionError('Motion permission request failed.'));
-        } else if (window.DeviceMotionEvent) {
-            startListening();
+    // Handle dashcam toggle (only manual control remaining)
+    const handleToggleDashcam = async () => {
+        if (dashcam.isDashcamEnabled) {
+            dashcam.disableDashcam();
         } else {
-            setMotionError('DeviceMotion not supported on this device/browser.');
+            await dashcam.enableDashcam();
         }
-
-        return () => {
-            window.removeEventListener('devicemotion', handleMotion);
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        };
-    }, [isDriving]);
+    };
 
     const analyzeAnomaly = async (id: string) => {
         const anomaly = anomalies.find(a => a.id === id);
@@ -198,7 +242,15 @@ export default function InfraView() {
             const res = await fetch('/api/infra/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: anomaly.lat, lng: anomaly.lng, zDropped: anomaly.zDropped, verifications: anomaly.verifications }),
+                body: JSON.stringify({
+                    lat: anomaly.lat,
+                    lng: anomaly.lng,
+                    zDropped: anomaly.zDropped,
+                    verifications: anomaly.verifications,
+                    confidenceScore: anomaly.confidenceScore,
+                    speedKmh: anomaly.speedKmh,
+                    clusterSize: anomaly.cluster?.uniqueDevices || 1,
+                }),
             });
             const data = await res.json();
             if (data.success) {
@@ -266,16 +318,26 @@ export default function InfraView() {
         return 'text-[#C5A367] bg-[#C5A367]/10 border-[#C5A367]/20';
     };
 
-    const floodColor = (risk: string) => {
-        if (risk === 'High') return 'text-red-400 bg-red-500/15 border-red-500/30';
-        if (risk === 'Moderate') return 'text-orange-400 bg-orange-500/15 border-orange-500/30';
-        return 'text-[#10B981] bg-[#10B981]/15 border-[#10B981]/30';
+    const confidenceColor = (score: number) => {
+        if (score >= 80) return { text: 'text-[#10B981]', bg: 'bg-[#10B981]/10', border: 'border-[#10B981]/20', label: 'HIGH' };
+        if (score >= 60) return { text: 'text-[#C5A367]', bg: 'bg-[#C5A367]/10', border: 'border-[#C5A367]/20', label: 'MED' };
+        return { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'LOW' };
     };
 
     return (
         <div className="p-5 h-full flex flex-col relative z-0">
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
+            
+            {/* Hidden video element for dashcam stream */}
+            <video
+                ref={dashcam.videoRef}
+                className="hidden"
+                playsInline
+                muted
+                autoPlay
+            />
 
+            {/* === HEADER === */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="mb-6 flex justify-between items-end"
@@ -283,67 +345,116 @@ export default function InfraView() {
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>NADI Infra</h2>
                     <p className="text-xs font-medium mt-1 relative inline-block" style={{ color: 'var(--text-muted)' }}>
-                        Road sensor & AI detection
-                        {isDriving && <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
+                        {detector.isCalibrating ? (
+                            <span className="flex items-center gap-2">
+                                <Gauge className="w-3 h-3 text-[#C5A367] animate-pulse" />
+                                Calibrating sensors...
+                            </span>
+                        ) : (
+                            <>
+                                Smart pothole detection
+                                <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
+                            </>
+                        )}
                     </p>
-                    {isDriving && (
-                        <p className="text-xs font-mono mt-1" style={{ color: 'var(--text-muted)' }}>{userLat.toFixed(4)}°N {userLng.toFixed(4)}°E</p>
-                    )}
                 </div>
-                <button
-                    onClick={() => setIsDriving(!isDriving)}
-                    className={`shrink-0 px-4 py-3 flex items-center justify-center gap-2 rounded-xl transition-all text-xs font-bold border focus:outline-none active:scale-95 ${isDriving ? 'bg-red-50 text-red-600 border-red-200' : ''}`}
-                    style={!isDriving ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
-                >
-                    <Car className={`w-4 h-4 ${isDriving ? 'animate-bounce text-red-500' : ''}`} style={!isDriving ? { color: 'var(--text-muted)' } : {}} />
-                    {isDriving ? 'Active' : 'Start Drive'}
-                </button>
+                {/* Dashcam Toggle — only show when moving */}
+                {detector.currentSpeed > 0 && (
+                    <button
+                        onClick={handleToggleDashcam}
+                        className={`shrink-0 px-3 py-3 flex items-center justify-center gap-1.5 rounded-xl transition-all text-xs font-bold border focus:outline-none active:scale-95 ${dashcam.isDashcamEnabled ? 'bg-red-50 text-red-600 border-red-200' : ''}`}
+                        style={!dashcam.isDashcamEnabled ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
+                    >
+                        {dashcam.isDashcamEnabled ? <Video className="w-4 h-4 text-red-500" /> : <VideoOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />}
+                        {dashcam.isDashcamEnabled ? '📸' : 'Cam'}
+                    </button>
+                )}
             </motion.div>
-            {motionError && (
+
+            {/* === DRIVING HUD — only visible when actually moving === */}
+            <AnimatePresence>
+                {detector.currentSpeed > 0 && !detector.isCalibrating && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="mb-6 bg-gradient-to-r from-[#0A0A0C] to-[#0f1a14] border border-zinc-800 rounded-2xl p-4 shadow-xl"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                {/* Speed */}
+                                <div className="text-center">
+                                    <div className="text-2xl font-light text-white font-mono tracking-tight">{detector.currentSpeed}</div>
+                                    <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">km/h</div>
+                                </div>
+                                <div className="w-px h-8 bg-zinc-800"></div>
+                                {/* Detections */}
+                                <div className="text-center">
+                                    <div className="text-2xl font-light text-[#C5A367] font-mono tracking-tight">{detector.detectionCount}</div>
+                                    <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Hits</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {/* Dashcam Status */}
+                                {dashcam.isDashcamEnabled && (
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                        <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">REC</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Motion Error */}
+            {detector.motionError && (
                 <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
-                    ⚠ {motionError}
+                    ⚠ {detector.motionError}
                 </div>
             )}
 
-            {/* Stats */}
+            {/* Dashcam Error */}
+            {dashcam.error && (
+                <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                    📷 {dashcam.error}
+                </div>
+            )}
+
+            {/* === STATS === */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-                className="grid grid-cols-2 gap-4 mb-6"
+                className="grid grid-cols-3 gap-3 mb-6"
             >
-                <div className="bg-[#0f1a14] text-white p-5 rounded-3xl relative overflow-hidden shadow-xl border border-[#10B981]/20">
+                <div className="bg-[#0f1a14] text-white p-4 rounded-2xl relative overflow-hidden shadow-xl border border-[#10B981]/20">
                     <div className="absolute -inset-4 bg-gradient-to-br from-[#10B981]/10 to-transparent blur-2xl"></div>
-                    <Activity className="w-5 h-5 text-[#C5A367] mb-3 opacity-90 relative z-10" />
-                    <div className="text-4xl font-light mb-1 text-[#FAFAFA] relative z-10 tracking-tight">{totalDetected}</div>
-                    <div className="text-xs text-[#10B981]/70 font-bold uppercase tracking-widest relative z-10">Detected</div>
+                    <Activity className="w-4 h-4 text-[#C5A367] mb-2 opacity-90 relative z-10" />
+                    <div className="text-3xl font-light mb-0.5 text-[#FAFAFA] relative z-10 tracking-tight">{totalDetected}</div>
+                    <div className="text-[9px] text-[#10B981]/70 font-bold uppercase tracking-widest relative z-10">Detected</div>
                 </div>
-                <div className="bg-gradient-to-br from-[#1A1C16] to-[#0A0A0C] border border-[#C5A367]/20 text-white p-5 rounded-3xl relative overflow-hidden shadow-xl">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A367]/10 rounded-full blur-2xl -translate-y-10 translate-x-10"></div>
-                    <Check className="w-5 h-5 text-[#C5A367] mb-3 relative z-10" />
-                    <div className="text-4xl font-light mb-1 text-white relative z-10 tracking-tight">{totalVerified}</div>
-                    <div className="text-xs text-[#C5A367]/80 font-bold uppercase tracking-widest relative z-10">Verified</div>
+                <div className="bg-gradient-to-br from-[#1A1C16] to-[#0A0A0C] border border-[#C5A367]/20 text-white p-4 rounded-2xl relative overflow-hidden shadow-xl">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#C5A367]/10 rounded-full blur-2xl -translate-y-8 translate-x-8"></div>
+                    <Check className="w-4 h-4 text-[#C5A367] mb-2 relative z-10" />
+                    <div className="text-3xl font-light mb-0.5 text-white relative z-10 tracking-tight">{totalVerified}</div>
+                    <div className="text-[9px] text-[#C5A367]/80 font-bold uppercase tracking-widest relative z-10">Verified</div>
+                </div>
+                <div className="bg-[#0A0A0C] border border-zinc-800 text-white p-4 rounded-2xl relative overflow-hidden shadow-xl">
+                    <Shield className="w-4 h-4 text-blue-400 mb-2 relative z-10" />
+                    <div className="text-3xl font-light mb-0.5 text-white relative z-10 tracking-tight">{avgConfidence}<span className="text-lg text-zinc-500">%</span></div>
+                    <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest relative z-10">Confidence</div>
                 </div>
             </motion.div>
 
-            {/* Info Banner */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="bg-[#0A0A0C] border border-zinc-800/80 rounded-2xl p-4 mb-6 flex items-start gap-4 shadow-lg"
-            >
-                <div className="bg-[#10B981]/10 p-2 rounded-xl border border-[#10B981]/20 shrink-0">
-                    <Radar className="w-5 h-5 text-[#10B981]" />
-                </div>
-                <p className="text-xs font-medium leading-relaxed mt-0.5 text-zinc-300">
-                    <span className="text-zinc-100 font-bold">AI-Powered:</span> Tap <Zap className="w-3 h-3 inline text-[#C5A367]" /> to classify any anomaly with Gemini. Tap <Camera className="w-3 h-3 inline text-blue-400" /> to add photo evidence for vision analysis.
-                </p>
-            </motion.div>
 
-            {/* Anomaly List */}
+
+            {/* === ANOMALY LIST === */}
             <div className="flex-1 pb-10">
                 <motion.h3
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                     className="text-xs uppercase font-bold tracking-widest text-zinc-400 mb-6 flex items-center justify-between px-1"
                 >
-                    <span>Live Deviations</span>
+                    <span>Pothole Reports</span>
                     <div className="flex gap-2">
                         {(['all', 'pending', 'verified'] as const).map((f) => (
                             <button key={f} onClick={() => setFilter(f)}
@@ -351,14 +462,13 @@ export default function InfraView() {
                             >{f.toUpperCase()}</button>
                         ))}
                     </div>
-                    <span className="flex items-center gap-1.5 opacity-60">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span> Live
-                    </span>
                 </motion.h3>
 
                 <div className="space-y-4">
                     <AnimatePresence>
-                        {filteredAnomalies.map((a, i) => (
+                        {filteredAnomalies.map((a, i) => {
+                            const conf = confidenceColor(a.confidenceScore || 0);
+                            return (
                             <motion.div
                                 key={a.id}
                                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -379,13 +489,68 @@ export default function InfraView() {
                                             </span>
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{a.time}</span>
                                         </div>
-                                        <h4 className="font-serif text-lg text-white mb-3 mt-2">{typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, {typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°</h4>
+                                        <h4 className="font-serif text-lg text-white mb-2 mt-2">{typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, {typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°</h4>
+                                        
+                                        {/* === Sensor Fusion Badges === */}
+                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                            {/* Confidence Score */}
+                                            {a.confidenceScore != null && a.confidenceScore > 0 && (
+                                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border ${conf.text} ${conf.bg} ${conf.border}`}>
+                                                    <Shield className="w-3 h-3 inline mr-1" />{conf.label} {a.confidenceScore}%
+                                                </span>
+                                            )}
+                                            {/* Speed */}
+                                            {a.speedKmh != null && a.speedKmh > 0 && (
+                                                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border bg-blue-500/10 border-blue-500/20 text-blue-400">
+                                                    <Gauge className="w-3 h-3 inline mr-1" />{a.speedKmh} km/h
+                                                </span>
+                                            )}
+                                            {/* Dashcam indicator */}
+                                            {a.snapshotBase64 && (
+                                                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
+                                                    📸 Frame
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Cluster Verification Progress */}
+                                        {a.cluster && (
+                                            <div className="mb-3 bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1">
+                                                        <Users className="w-3 h-3" /> Crowdsource Cluster
+                                                    </span>
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${a.cluster.isVerified ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                        {a.cluster.isVerified ? '✓ Verified' : `${a.cluster.isUrban ? 'Urban' : 'Rural'}`}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all ${a.cluster.isVerified ? 'bg-[#10B981]' : 'bg-[#C5A367]'}`}
+                                                            style={{ width: `${Math.min(100, (a.cluster.uniqueDevices / a.cluster.threshold) * 100)}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-[10px] font-mono text-zinc-400">
+                                                        {a.cluster.uniqueDevices}/{a.cluster.threshold}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest border-t border-zinc-800/50 pt-3">
                                             <span className="text-red-400 bg-[#1a0505] border border-red-900/30 px-3 py-1.5 rounded-md">Z: {a.zDropped.toFixed(1)}g</span>
                                             <span className={a.verifications >= 15 ? 'text-[#C5A367]' : 'text-zinc-400'}>
                                                 {a.verifications}/15 VERIFICATIONS
                                             </span>
                                         </div>
+
+                                        {/* Dashcam Snapshot Preview */}
+                                        {a.snapshotBase64 && (
+                                            <div className="mt-3 rounded-2xl overflow-hidden border border-zinc-800 h-28">
+                                                <img src={a.snapshotBase64.startsWith('data:') ? a.snapshotBase64 : `data:image/jpeg;base64,${a.snapshotBase64}`} alt="Dashcam capture" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
 
                                         {/* Action Buttons */}
                                         <div className="flex gap-2 mt-4">
@@ -462,11 +627,12 @@ export default function InfraView() {
                                     )}
                                 </AnimatePresence>
                             </motion.div>
-                        ))}
+                        );
+                        })}
                     </AnimatePresence>
                     {anomalies.length === 0 && (
                         <div className="text-center py-12 text-zinc-400 border border-dashed border-zinc-800 rounded-3xl text-sm font-bold uppercase tracking-widest">
-                            AWAITING TELEMETRY...
+                            No potholes detected yet
                         </div>
                     )}
                 </div>

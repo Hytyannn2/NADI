@@ -13,16 +13,24 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { lat, lng, zDropped, verifications } = body;
+        const { lat, lng, zDropped, verifications, confidenceScore, speedKmh, clusterSize } = body;
 
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
+        // Enhanced prompt with sensor fusion data
+        const sensorFusionContext = confidenceScore != null
+            ? `\n- Sensor Fusion Confidence Score: ${confidenceScore}/100 (from 5-layer filter: Speed Gate, Waveform Signature, Gyroscope Stability, Debounce, Magnitude)
+- Vehicle speed at detection: ${speedKmh || 'unknown'} km/h
+- Crowdsource cluster size: ${clusterSize || 1} unique device(s) reported this location
+- Note: Higher confidence scores indicate stronger evidence of a real pothole. Scores below 60 are filtered out before reaching this API.`
+            : '';
+
         const prompt = `You are an infrastructure analysis AI for a Malaysian civic OS called NADI.
-Analyze this pothole/road anomaly data detected by a phone's accelerometer:
+Analyze this pothole/road anomaly data detected by a phone's accelerometer with sensor fusion:
 
 - GPS Coordinates: ${lat}°N, ${lng}°E
-- Z-axis drop magnitude: ${Math.abs(zDropped).toFixed(1)}g (gravitational units)
-- Independent verifications: ${verifications}/15 passes
+- Z-axis drop magnitude: ${Math.abs(zDropped).toFixed(1)}g (gravitational units, baseline-calibrated)
+- Independent verifications: ${verifications}/15 passes${sensorFusionContext}
 - Country context: Malaysia (tropical, heavy monsoon rain, laterite soil)
 
 Based on this data, provide your analysis strictly in this JSON format:
