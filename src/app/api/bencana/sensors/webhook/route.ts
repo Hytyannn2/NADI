@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendTelegramAlert } from '@/src/lib/telegram';
 
 /**
  * POST /api/bencana/sensors/webhook
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
         // Step 1: Find or identify the sensor by dev_eui
         const { data: existingSensor } = await supabase
             .from('nadi_bencana_sensors')
-            .select('id')
+            .select('id, name, location')
             .eq('dev_eui', devEui)
             .maybeSingle();
 
@@ -181,12 +182,35 @@ export async function POST(request: Request) {
             console.warn('[Webhook] Rise rate calculation failed (non-fatal):', rateErr);
         }
 
+        // Step 4: Send Telegram alert if danger or warning
+        let telegramSent = false;
+        if ((status === 'danger' || status === 'warning') && waterLevel !== null) {
+            // Get sensor name/location for the alert message
+            const { data: sensorInfo } = await supabase
+                .from('nadi_bencana_sensors')
+                .select('name, location')
+                .eq('id', sensorId)
+                .single();
+
+            telegramSent = await sendTelegramAlert({
+                sensorName: sensorInfo?.name || deviceId || `Sensor ${devEui.slice(-4)}`,
+                location: sensorInfo?.location || 'Unknown',
+                waterLevel,
+                status,
+                riseRate,
+                batteryPct,
+                temperatureC,
+                rssiDbm: rssiDbm,
+            });
+        }
+
         return NextResponse.json({
             success: true,
             sensor_id: sensorId,
             water_level: waterLevel,
             status,
             rise_rate_cm_hr: riseRate,
+            telegram_sent: telegramSent,
         });
     } catch (err: any) {
         console.error('[Webhook] Error processing TTN uplink:', err);

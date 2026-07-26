@@ -100,7 +100,11 @@ $dangerPayload = @{
 
 $result3 = Invoke-RestMethod -Uri $baseUrl -Method POST -Body $dangerPayload -ContentType "application/json"
 $result3 | ConvertTo-Json
-Write-Host "DANGER reading sent - check dashboard!" -ForegroundColor Red
+if ($result3.telegram_sent) {
+    Write-Host "DANGER reading sent + Telegram alert fired!" -ForegroundColor Red
+} else {
+    Write-Host "DANGER reading sent (Telegram not configured - see .env.local)" -ForegroundColor Yellow
+}
 
 # --- Test 5: Verify readings API ---
 Write-Host "`n=== Test 5: Fetch Readings History ===" -ForegroundColor Cyan
@@ -115,6 +119,16 @@ if ($sensorId) {
 }
 else {
     Write-Host "No sensor_id returned - check if migration was applied" -ForegroundColor Yellow
+}
+
+# --- Test 6: Telegram connectivity test ---
+Write-Host "`n=== Test 6: Telegram Bot Test ===" -ForegroundColor Cyan
+$telegramUrl = $baseUrl.Replace('/sensors/webhook', '/telegram/test')
+try {
+    $telegramResult = Invoke-RestMethod -Uri $telegramUrl -Method GET
+    Write-Host "Telegram connected: $($telegramResult.message)" -ForegroundColor Green
+} catch {
+    Write-Host "Telegram not configured (optional - add TELEGRAM_BOT_TOKEN to .env.local)" -ForegroundColor Yellow
 }
 
 Write-Host "`n=== All tests complete! ===" -ForegroundColor Green
