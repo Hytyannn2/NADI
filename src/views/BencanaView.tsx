@@ -208,12 +208,25 @@ export default function BencanaView() {
         { name: 'Dewan Sultan Tanah Merah', district: 'Tanah Merah', capacity: 300, type: 'Dewan', lat: 5.808300, lng: 102.148100 }
     ];
 
-    // Calculate distance and sort by nearest center first ONLY when real user GPS is available
+    // Fallback coordinates lookup for evacuation shelters
+    const SHELTER_COORDS: Record<string, { lat: number, lng: number }> = {
+        'SK Kubang Kerian': { lat: 6.092444, lng: 102.274583 },
+        'Masjid Muhammadi': { lat: 6.132155, lng: 102.236688 },
+        'SK Kuala Krai': { lat: 5.534744, lng: 102.197519 },
+        'Dewan MPKB': { lat: 6.126400, lng: 102.238100 },
+        'SK Pasir Mas': { lat: 6.042500, lng: 102.141200 },
+        'SK Gua Musang': { lat: 4.882100, lng: 101.964500 },
+        'Dewan Sultan Tanah Merah': { lat: 5.808300, lng: 102.148100 }
+    };
+
+    // Calculate distance and sort by nearest center first
     const evacCenters = rawEvacCenters.map(center => {
-        const dist = (userLat !== null && userLng !== null && center.lat && center.lng)
-            ? getDistanceKm(userLat, userLng, center.lat, center.lng)
+        const lat = center.lat || SHELTER_COORDS[center.name]?.lat;
+        const lng = center.lng || SHELTER_COORDS[center.name]?.lng;
+        const dist = (userLat !== null && userLng !== null && lat !== undefined && lng !== undefined)
+            ? getDistanceKm(userLat, userLng, lat, lng)
             : null;
-        return { ...center, distanceKm: dist };
+        return { ...center, lat, lng, distanceKm: dist };
     });
 
     if (userLat !== null && userLng !== null) {
