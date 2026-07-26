@@ -500,6 +500,23 @@ export default function DashboardView() {
                 </motion.div>
             )}
 
+            {/* ═══════ 9. SYSTEM FOOTER ═══════ */}
+            <footer className="mt-6 pt-6 pb-2 border-t text-center" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-xs font-bold tracking-widest uppercase mb-1" style={{ color: 'var(--text-primary)' }}>
+                    NADI
+                </p>
+                <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    Platform Digital Komuniti & Respon Warga
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] mt-3 font-medium" style={{ color: 'var(--text-muted)' }}>
+                    <span>v2.5.0</span>
+                    <span>•</span>
+                    <span>Hak Cipta Terpelihara © {new Date().getFullYear()} NADI</span>
+                    <span>•</span>
+                    <span>Pusat Khidmat & Maklumat Digital</span>
+                </div>
+            </footer>
+
         </div>
     );
 }

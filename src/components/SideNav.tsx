@@ -107,10 +107,15 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
         })}
       </div>
       
-      <div className="mt-auto p-4 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-         <p className="text-xs text-center font-semibold" style={{ color: 'var(--text-muted)' }}>
-            NADI Platform<br/>{t('nav.madani') || 'Malaysia MADANI'}
-         </p>
+      {/* ===== PROFESSIONAL FOOTER ===== */}
+      <div className="mt-auto p-3.5 rounded-2xl border transition-all" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>NADI</span>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>v2.5.0</span>
+        </div>
+        <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          Platform Digital Komuniti & Respon Warga
+        </p>
       </div>
     </nav>
   );
