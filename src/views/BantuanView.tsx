@@ -75,14 +75,12 @@ export default function BantuanView() {
             if (xp > 0) addXp(xp);
         });
 
-        if (navigator.geolocation) {
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                () => setUserLoc({ lat: 6.125, lng: 102.238 }),
+                (err) => console.log('Geolocation unavailable/denied:', err),
                 { enableHighAccuracy: true }
             );
-        } else {
-            setUserLoc({ lat: 6.125, lng: 102.238 });
         }
     }, []);
 

@@ -208,14 +208,17 @@ export default function BencanaView() {
         { name: 'Dewan Sultan Tanah Merah', district: 'Tanah Merah', capacity: 300, type: 'Dewan', lat: 5.808300, lng: 102.148100 }
     ];
 
-    // Calculate distance and sort by nearest center first
-    const currentLat = userLat || 6.1251; // Kota Bharu fallback
-    const currentLng = userLng || 102.2345;
-
+    // Calculate distance and sort by nearest center first ONLY when real user GPS is available
     const evacCenters = rawEvacCenters.map(center => {
-        const dist = (center.lat && center.lng) ? getDistanceKm(currentLat, currentLng, center.lat, center.lng) : null;
+        const dist = (userLat !== null && userLng !== null && center.lat && center.lng)
+            ? getDistanceKm(userLat, userLng, center.lat, center.lng)
+            : null;
         return { ...center, distanceKm: dist };
-    }).sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+    });
+
+    if (userLat !== null && userLng !== null) {
+        evacCenters.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+    }
 
     // Real-time geolocation tracking
     useEffect(() => {
