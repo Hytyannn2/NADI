@@ -11,7 +11,7 @@ import {
     CloudRain, AlertTriangle, ShieldAlert, Heart, Activity, Mic,
     Trophy, Target, Award, Zap, ChevronRight, Loader2, Thermometer,
     Wind, Droplets, CheckCircle2, Lock, Flame, Users, TrendingUp,
-    Send, ThumbsUp, MessageSquare, Plus
+    Send, ThumbsUp, MessageSquare, Plus, Trash2
 } from 'lucide-react';
 import { RANK_DATA } from '@/src/constants/ranks';
 
@@ -94,6 +94,36 @@ export default function DashboardView() {
             if (newPostContent.trim() && !isSubmittingPost) {
                 handleCreatePost();
             }
+        }
+    };
+
+    const handleDeletePost = async (postId: string) => {
+        try {
+            const res = await fetch(`/api/community?id=${postId}`, { method: 'DELETE' });
+            const d = await res.json();
+            if (d.success) {
+                setRecentPosts(prev => prev.filter(p => p.id !== postId));
+            } else {
+                setPostError(d.error || 'Gagal memadam mesej.');
+            }
+        } catch {
+            setPostError('Ralat rangkaian semasa memadam.');
+        }
+    };
+
+    const handleDeleteAllMyPosts = async () => {
+        if (!confirm('Adakah anda pasti mahu memadam SEMUA mesej anda?')) return;
+        try {
+            const res = await fetch('/api/community?all=true', { method: 'DELETE' });
+            const d = await res.json();
+            if (d.success) {
+                const authorName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
+                setRecentPosts(prev => prev.filter(p => p.user_id !== user?.id && p.author !== authorName));
+            } else {
+                setPostError(d.error || 'Gagal memadam semua mesej.');
+            }
+        } catch {
+            setPostError('Ralat rangkaian semasa memadam.');
         }
     };
 
@@ -307,7 +337,7 @@ export default function DashboardView() {
                 </div>
 
                 {/* Flood alert */}
-                {weather?.rainMm && weather.rainMm > 5 && (
+                {Boolean(weather?.rainMm && weather.rainMm > 5) && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -324,73 +354,7 @@ export default function DashboardView() {
                 )}
             </motion.div>
 
-            {/* ═══════ 5. BADGES SHOWCASE ═══════ */}
-            <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="mb-5"
-            >
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Badges</h3>
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                    {badges.map((b) => (
-                        <div
-                            key={b.id}
-                            className="flex flex-col items-center shrink-0 w-16 rounded-xl p-2 transition-all"
-                            style={{
-                                background: b.unlocked ? 'var(--bg-card)' : 'var(--bg-subtle)',
-                                border: `1px solid ${b.unlocked ? 'var(--accent)' : 'var(--border-default)'}`,
-                                opacity: b.unlocked ? 1 : 0.45,
-                            }}
-                        >
-                            <span className="text-xl mb-0.5">{b.unlocked ? b.icon : '🔒'}</span>
-                            <span className="text-[8px] font-bold text-center leading-tight truncate w-full" style={{ color: b.unlocked ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                                {b.name}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            </motion.div>
 
-            {/* ═══════ 6. QUICK ACTIONS ═══════ */}
-            <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="mb-5"
-            >
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => switchToTab('suara')} className="flex items-center gap-3 p-3.5 rounded-xl transition-all hover:scale-[0.98] active:scale-95 text-left" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
-                        <Mic className="w-5 h-5 shrink-0" />
-                        <div>
-                            <span className="block text-[11px] font-bold">Voice Report</span>
-                            <span className="block text-[9px] opacity-80">Report via dialect</span>
-                        </div>
-                    </button>
-                    <button onClick={() => switchToTab('infra')} className="flex items-center gap-3 p-3.5 rounded-xl transition-all hover:scale-[0.98] active:scale-95 text-left border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-                        <Activity className="w-5 h-5 shrink-0" style={{ color: 'var(--warning)' }} />
-                        <div>
-                            <span className="block text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>Infra Issue</span>
-                            <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>Potholes & roads</span>
-                        </div>
-                    </button>
-                    <button onClick={() => switchToTab('bencana')} className="flex items-center gap-3 p-3.5 rounded-xl transition-all hover:scale-[0.98] active:scale-95 text-left border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-                        <ShieldAlert className="w-5 h-5 shrink-0" style={{ color: 'var(--danger)' }} />
-                        <div>
-                            <span className="block text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>Flood Map</span>
-                            <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>Check risk zones</span>
-                        </div>
-                    </button>
-                    <button onClick={() => switchToTab('bantuan')} className="flex items-center gap-3 p-3.5 rounded-xl transition-all hover:scale-[0.98] active:scale-95 text-left border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-                        <Heart className="w-5 h-5 shrink-0" style={{ color: 'var(--success)' }} />
-                        <div>
-                            <span className="block text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>Find Aid</span>
-                            <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>Bantuan & jobs</span>
-                        </div>
-                    </button>
-                </div>
-            </motion.div>
 
             {/* ═══════ 7. COMMUNITY HUB (UTAMA) ═══════ */}
             <motion.div
@@ -406,9 +370,21 @@ export default function DashboardView() {
                             Suara Warga (Live Community Feed)
                         </h3>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {recentPosts.length} Mesej
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {recentPosts.length} Mesej
+                        </span>
+                        {recentPosts.some(p => p.user_id === user?.id || p.author === userName) && (
+                            <button
+                                onClick={handleDeleteAllMyPosts}
+                                className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all flex items-center gap-1"
+                                title="Padam semua mesej yang saya hantar"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                                Padam Mesej Saya
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Inline Post Composer */}
@@ -470,9 +446,20 @@ export default function DashboardView() {
                                             </div>
                                             <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{post.author || 'Warga NADI'}</span>
                                         </div>
-                                        <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                            {new Date(post.timestamp || Date.now()).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                                                {new Date(post.timestamp || Date.now()).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            {(post.user_id === user?.id || post.author === userName) && (
+                                                <button
+                                                    onClick={() => handleDeletePost(post.id)}
+                                                    title="Padam mesej ini"
+                                                    className="p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                     <p className="text-xs leading-relaxed pl-8" style={{ color: 'var(--text-secondary)' }}>{post.content}</p>
                                 </motion.div>

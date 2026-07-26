@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
-import { checkRateLimit } from '@/src/lib/rateLimit';
-import { evaluateBotRisk } from '@/src/lib/botDetection';
+import { checkPostCooldown } from '@/src/lib/botDetection';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export async function GET() {
     try {
@@ -32,35 +32,21 @@ export async function POST(request: Request) {
     try {
         const forwardedFor = request.headers.get('x-forwarded-for');
         const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'anonymous';
-        const { allowed, retryAfterSeconds, message } = checkRateLimit(ip, {
-            maxRequests: 5,
-            windowSeconds: 60,
-            blockDurationSeconds: 120,
-            bucketName: 'community-post',
-        });
-
-        if (!allowed) {
-            return NextResponse.json({
-                success: false,
-                error: message || `Sistem sedang berehat. Sila cuba lagi dalam ${retryAfterSeconds} saat.`
-            }, { status: 429 });
-        }
 
         const { content, author, type } = await request.json();
-        if (!content) return NextResponse.json({ success: false, error: 'Content required.' }, { status: 400 });
+        if (!content || !content.trim()) {
+            return NextResponse.json({ success: false, error: 'Teks mesej diperlukan.' }, { status: 400 });
+        }
 
         const supabase = createClient(await cookies());
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-        // SECURITY & BOT DETECTION: Evaluate bot risk score and ban bot accounts
-        const botCheck = evaluateBotRisk(content, user.id, ip);
-        if (botCheck.isBanned) {
-            return NextResponse.json({ success: false, error: botCheck.reason }, { status: 403 });
-        }
-        if (botCheck.isBot) {
-            return NextResponse.json({ success: false, error: botCheck.reason }, { status: 400 });
+        // Friendly Cooldown Check (3 seconds between posts)
+        const cooldown = checkPostCooldown(user.id, ip);
+        if (!cooldown.allowed) {
+            return NextResponse.json({ success: false, error: cooldown.reason }, { status: 429 });
         }
 
         const newPost = {
@@ -87,5 +73,51 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('Community POST error:', error);
         return NextResponse.json({ success: false, error: 'Failed to post.' }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const supabase = createClient(await cookies());
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return NextResponse.json({ success: false, error: 'Sila log masuk.' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const postId = searchParams.get('id');
+        const deleteAll = searchParams.get('all') === 'true';
+
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const adminSupabase = createSupabaseClient(supabaseUrl, serviceKey);
+
+        const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Warga';
+
+        if (deleteAll) {
+            // Delete all posts for this user (by user_id OR author name OR legacy NULL user_id)
+            const { error } = await adminSupabase
+                .from('nadi_community_posts')
+                .delete()
+                .or(`user_id.eq.${user.id},author.eq.${userName},user_id.is.null`);
+            
+            if (error) throw error;
+        } else if (postId) {
+            // Delete specific post by ID
+            const { error } = await adminSupabase
+                .from('nadi_community_posts')
+                .delete()
+                .eq('id', postId);
+            
+            if (error) throw error;
+        } else {
+            return NextResponse.json({ success: false, error: 'Tiada ID mesej.' }, { status: 400 });
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (err) {
+        console.error('Community DELETE error:', err);
+        return NextResponse.json({ success: false, error: 'Gagal memadam mesej.' }, { status: 500 });
     }
 }

@@ -21,7 +21,6 @@ import DashboardView from '../views/DashboardView';
 import BantuanView from '../views/BantuanView';
 
 // === Components ===
-import AIChatbot from '../components/AIChatbot';
 import OnboardingWalkthrough from '../components/OnboardingWalkthrough';
 import CommunityFeed from '../components/CommunityFeed';
 import SettingsModal from '@/src/components/SettingsModal';
@@ -147,7 +146,6 @@ export default function App() {
       <AnimatePresence>{showHeatMap && <CivicHeatMap onClose={() => setShowHeatMap(false)} />}</AnimatePresence>
 
       {/* === Floating Elements === */}
-      <AIChatbot activeTab={activeTab} />
       <LevelUpToast visible={showLevelUp} level={level} rank={rank} />
 
       {/* === Main App Shell === */}

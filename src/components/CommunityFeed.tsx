@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Send, ThumbsUp, Plus, X, Loader2, MessageSquare, Shield, AlertTriangle, Users } from 'lucide-react';
+import { Send, ThumbsUp, Plus, X, Loader2, MessageSquare, Shield, AlertTriangle, Users, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useGame } from '@/src/context/GameContext';
 import { useXP } from '@/src/hooks/useXP';
 
-interface Post { id: string; content: string; author: string; type: string; timestamp: number; upvotes: number; }
+interface Post { id: string; content: string; author: string; type: string; timestamp: number; upvotes: number; user_id?: string; }
 
 export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClose: () => void; initialTab?: 'feed' | 'whistle' }) {
     const [tab, setTab] = useState<'feed' | 'whistle'>(initialTab);
@@ -30,6 +30,16 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
     useEffect(() => {
         fetch('/api/community').then(r => r.json()).then(d => { if (d.success) setPosts(d.posts); }).catch(() => {}).finally(() => setLoading(false));
     }, []);
+
+    const handleDeletePost = async (postId: string) => {
+        try {
+            const res = await fetch(`/api/community?id=${postId}`, { method: 'DELETE' });
+            const d = await res.json();
+            if (d.success) {
+                setPosts(prev => prev.filter(p => p.id !== postId));
+            }
+        } catch {}
+    };
 
     const handlePost = async () => {
         if (!content.trim() || posting) return;
@@ -173,7 +183,14 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                                         >
                                             <div className="flex items-center justify-between mb-2">
                                                 <span className="text-xs font-bold text-zinc-300">{p.author}</span>
-                                                <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-600">{timeAgo(p.timestamp)}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-600">{timeAgo(p.timestamp)}</span>
+                                                    {(p.user_id === user?.id || p.author === (user?.user_metadata?.full_name || user?.email?.split('@')[0])) && (
+                                                        <button onClick={() => handleDeletePost(p.id)} title="Delete post" className="text-zinc-600 hover:text-red-400 p-1">
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                             <p className="text-sm text-zinc-400 mb-3 leading-relaxed">{p.content}</p>
                                             <button className="flex items-center gap-1.5 text-zinc-600 hover:text-[#C5A367] transition-colors text-[9px] font-bold">
