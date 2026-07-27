@@ -58,29 +58,23 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
-        // SECURITY: Derive IP from reliable proxy headers or fallback
-        const clientIp = request.headers.get('cf-connecting-ip') || 
-                         request.headers.get('x-real-ip') || 
-                         request.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 
-                         '127.0.0.1';
-
         // Fulfill action — requires secret token authorization + rate limiting
         if (body.action === 'fulfill' && body.requestId) {
             const reqId = typeof body.requestId === 'string' ? body.requestId.trim().slice(0, 100) : '';
             const providedToken = typeof body.secretToken === 'string' ? body.secretToken.trim() : '';
 
-            // Rate limiting by IP — clean up old entries if map grows
+            // SECURITY: Rate limiting keyed on request ID (prevents automated brute-force without spoofable IP headers)
             if (fulfillRateLimit.size > 500) {
                 const now = Date.now();
-                for (const [ip, ts] of fulfillRateLimit) {
-                    if (now - ts > FULFILL_COOLDOWN_MS * 2) fulfillRateLimit.delete(ip);
+                for (const [id, ts] of fulfillRateLimit) {
+                    if (now - ts > FULFILL_COOLDOWN_MS * 2) fulfillRateLimit.delete(id);
                 }
             }
-            const lastAttempt = fulfillRateLimit.get(clientIp) || 0;
+            const lastAttempt = fulfillRateLimit.get(reqId) || 0;
             if (Date.now() - lastAttempt < FULFILL_COOLDOWN_MS) {
-                return NextResponse.json({ success: false, error: 'Too many requests. Please wait.' }, { status: 429 });
+                return NextResponse.json({ success: false, error: 'Too many requests for this item. Please wait.' }, { status: 429 });
             }
-            fulfillRateLimit.set(clientIp, Date.now());
+            fulfillRateLimit.set(reqId, Date.now());
 
             const req = requestsStore.find(r => r.id === reqId);
             if (!req) {

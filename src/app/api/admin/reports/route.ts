@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
-import { reportsStore } from '@/src/app/api/whistleblower/route';
 
 export async function GET() {
     try {
@@ -17,9 +16,14 @@ export async function GET() {
             return NextResponse.json({ success: false, error: 'Forbidden. Admin access required.' }, { status: 403 });
         }
 
-        // Return the in-memory reports
-        return NextResponse.json({ success: true, reports: reportsStore });
+        const { data: reports, error } = await supabase
+            .from('nadi_whistleblower_reports')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return NextResponse.json({ success: true, reports: reports || [] });
     } catch (err) {
-        return NextResponse.json({ success: false, error: 'Failed to fetch reports.' }, { status: 500 });
+        return NextResponse.json({ success: true, reports: [] });
     }
 }

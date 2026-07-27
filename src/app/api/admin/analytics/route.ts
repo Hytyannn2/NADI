@@ -22,15 +22,17 @@ export async function GET() {
             { count: usersCount },
             { count: postsCount, data: recentPosts },
             { count: jobsCount, data: allJobs },
+            { data: wbReports },
         ] = await Promise.all([
             supabase.from('nadi_profiles').select('*', { count: 'exact', head: true }),
             supabase.from('nadi_community_posts').select('id, author, content, type, created_at', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
             supabase.from('nadi_bencana_jobs').select('status', { count: 'exact' }),
+            supabase.from('nadi_whistleblower_reports').select('category'),
         ]);
 
         // Process Whistleblower Data
         const wbCategories: Record<string, number> = {};
-        reportsStore.forEach(r => {
+        (wbReports || []).forEach(r => {
             wbCategories[r.category] = (wbCategories[r.category] || 0) + 1;
         });
 
@@ -58,7 +60,7 @@ export async function GET() {
                 users: usersCount || 0,
                 posts: postsCount || 0,
                 jobs: jobsCount || 0,
-                reports: reportsStore.length
+                reports: (wbReports || []).length
             },
             charts: {
                 whistleblower: wbChartData,

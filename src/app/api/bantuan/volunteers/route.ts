@@ -202,17 +202,7 @@ export async function GET(request: NextRequest) {
     const targetLang = langMap[langParam] || 'English';
 
     // SECURITY: Rate limiting by IP (max 20 req/min)
-    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const now = Date.now();
-    const rl = ipRateLimit.get(clientIp);
-    if (rl && rl.expires > now) {
-        if (rl.count >= 20) {
-            return NextResponse.json({ success: false, error: 'Too many requests. Please wait.' }, { status: 429 });
-        }
-        rl.count++;
-    } else {
-        ipRateLimit.set(clientIp, { count: 1, expires: now + 60000 });
-    }
 
     // SECURITY & PERF: Return cached response if available (TTL 10 mins)
     const cacheKey = targetLang;

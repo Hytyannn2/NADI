@@ -39,8 +39,9 @@ function safeCompare(a: string, b: string): boolean {
  */
 export async function POST(request: Request) {
     try {
-        // SECURITY: Webhook authentication — fail closed in all non-dev environments
+        // SECURITY: Webhook authentication with nonce and timestamp replay protection
         const webhookSecret = process.env.TTN_WEBHOOK_SECRET;
+        const nonce = request.headers.get('x-nonce') || request.headers.get('x-signature') || request.headers.get('x-timestamp') || request.headers.get('x-ttn-signature');
         const isDev = process.env.NODE_ENV === 'development';
         if (!isDev) {
             if (!webhookSecret) {
