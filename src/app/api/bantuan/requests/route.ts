@@ -3,6 +3,20 @@ import { NextResponse } from 'next/server';
 // In-memory store for mutual aid requests (MVP — replace with Supabase in production)
 const requestsStore: any[] = [];
 
+// Simple in-memory rate limiter for fulfill actions
+const fulfillRateLimit = new Map<string, number>();
+const FULFILL_COOLDOWN_MS = 5000; // 5 seconds between fulfill attempts per IP
+
+// Generate a cryptographically random ID to prevent enumeration
+function generateSecureId(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = 'req-';
+    for (let i = 0; i < 24; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
 // GET /api/bantuan/requests — fetch all mutual aid requests
 export async function GET() {
     const sorted = [...requestsStore].sort((a, b) => b.submittedAt - a.submittedAt);
@@ -18,8 +32,24 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
-        // Fulfill action
+        // Fulfill action — rate-limited to prevent abuse
         if (body.action === 'fulfill' && body.requestId) {
+            // Rate limiting by IP
+            const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+            const lastAttempt = fulfillRateLimit.get(clientIp) || 0;
+            if (Date.now() - lastAttempt < FULFILL_COOLDOWN_MS) {
+                return NextResponse.json({ success: false, error: 'Too many requests. Please wait.' }, { status: 429 });
+            }
+            fulfillRateLimit.set(clientIp, Date.now());
+
+            // Clean up old rate limit entries periodically
+            if (fulfillRateLimit.size > 1000) {
+                const now = Date.now();
+                for (const [ip, ts] of fulfillRateLimit) {
+                    if (now - ts > 60000) fulfillRateLimit.delete(ip);
+                }
+            }
+
             const req = requestsStore.find(r => r.id === body.requestId);
             if (req) {
                 req.fulfilled = true;
@@ -35,7 +65,7 @@ export async function POST(request: Request) {
         }
 
         const newRequest = {
-            id: `bantuan-${Date.now()}`,
+            id: generateSecureId(),
             poster: 'Anonymous Warga',
             type: type || 'need',
             title,

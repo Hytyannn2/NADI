@@ -24,7 +24,17 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState<'overview' | 'reports'>('overview');
 
     useEffect(() => {
-        if (!loading && !user) router.push('/');
+        if (!loading && !user) {
+            router.push('/');
+            return;
+        }
+        // SECURITY: Client-side admin role check (defense-in-depth — server APIs also enforce this)
+        if (!loading && user) {
+            const isAdmin = (user as any).app_metadata?.role === 'admin' || user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+            if (!isAdmin) {
+                router.push('/');
+            }
+        }
     }, [user, loading, router]);
 
     const loadData = async () => {

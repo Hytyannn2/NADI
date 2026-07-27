@@ -5,9 +5,28 @@ import { sendTelegramTest, sendTelegramAlert } from '@/src/lib/telegram';
  * GET /api/bencana/telegram/test
  *
  * Sends a test message to verify Telegram bot is configured.
- * Use this to confirm your TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are correct.
+ * SECURITY: Only available in development. Requires ADMIN_API_KEY in staging/preview.
  */
-export async function GET() {
+export async function GET(request: Request) {
+    // SECURITY: Block in production, require API key in non-dev environments
+    const isDev = process.env.NODE_ENV === 'development';
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+        return NextResponse.json({ success: false, error: 'Test endpoint disabled in production.' }, { status: 404 });
+    }
+
+    if (!isDev) {
+        const adminKey = process.env.ADMIN_API_KEY;
+        if (!adminKey) {
+            return NextResponse.json({ success: false, error: 'Server misconfiguration: API key not set.' }, { status: 503 });
+        }
+        const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
+        if (providedKey !== adminKey) {
+            return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
+        }
+    }
+
     const result = await sendTelegramTest();
 
     if (result.success) {
@@ -28,9 +47,29 @@ export async function GET() {
  * POST /api/bencana/telegram/test
  *
  * Sends a simulated danger alert to test the full alert format.
+ * SECURITY: Only available in development. Requires ADMIN_API_KEY in staging/preview.
  * Body (optional): { "level": 125, "status": "danger" }
  */
 export async function POST(request: Request) {
+    // SECURITY: Block in production, require API key in non-dev environments
+    const isDev = process.env.NODE_ENV === 'development';
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+        return NextResponse.json({ success: false, error: 'Test endpoint disabled in production.' }, { status: 404 });
+    }
+
+    if (!isDev) {
+        const adminKey = process.env.ADMIN_API_KEY;
+        if (!adminKey) {
+            return NextResponse.json({ success: false, error: 'Server misconfiguration: API key not set.' }, { status: 503 });
+        }
+        const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
+        if (providedKey !== adminKey) {
+            return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
+        }
+    }
+
     let level = 125;
     let status: 'warning' | 'danger' = 'danger';
 

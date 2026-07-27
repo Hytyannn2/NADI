@@ -23,15 +23,14 @@ import { sendTelegramAlert } from '@/src/lib/telegram';
  */
 export async function POST(request: Request) {
     try {
-        // SECURITY: Webhook authentication
-        // In production, TTN_WEBHOOK_SECRET MUST be set — fail closed
+        // SECURITY: Webhook authentication — fail closed in all non-dev environments
         const webhookSecret = process.env.TTN_WEBHOOK_SECRET;
-        const isProduction = process.env.NODE_ENV === 'production';
-        if (isProduction && !webhookSecret) {
-            console.error('[Webhook] FATAL: TTN_WEBHOOK_SECRET not set in production. Rejecting all requests.');
-            return NextResponse.json({ success: false, error: 'Webhook not configured' }, { status: 503 });
-        }
-        if (webhookSecret) {
+        const isDev = process.env.NODE_ENV === 'development';
+        if (!isDev) {
+            if (!webhookSecret) {
+                console.error('[Webhook] FATAL: TTN_WEBHOOK_SECRET not set in non-dev environment. Rejecting all requests.');
+                return NextResponse.json({ success: false, error: 'Webhook not configured' }, { status: 503 });
+            }
             const providedSecret = request.headers.get('x-webhook-secret') || request.headers.get('x-downlink-apikey');
             if (providedSecret !== webhookSecret) {
                 return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

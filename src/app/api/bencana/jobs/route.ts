@@ -24,6 +24,17 @@ export async function GET() {
 // POST /api/bencana/jobs — submit, accept, or cancel a volunteer job
 export async function POST(request: Request) {
     try {
+        // SECURITY: CSRF defense-in-depth — validate Origin/Referer for state-changing requests
+        const origin = request.headers.get('origin');
+        const referer = request.headers.get('referer');
+        const host = request.headers.get('host');
+        if (origin && host && !origin.includes(host)) {
+            return NextResponse.json({ success: false, error: 'Forbidden: Cross-origin request detected.' }, { status: 403 });
+        }
+        if (!origin && referer && host && !referer.includes(host)) {
+            return NextResponse.json({ success: false, error: 'Forbidden: Cross-origin request detected.' }, { status: 403 });
+        }
+
         const body = await request.json();
         const { action, jobId, name, req, dist, area, phone, tools, pax, priority: userPriority } = body;
 

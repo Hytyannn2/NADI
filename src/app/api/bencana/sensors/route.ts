@@ -5,12 +5,17 @@ import { createClient } from '@supabase/supabase-js';
 // SECURITY: Requires ADMIN_API_KEY in production to prevent unauthorized sensor data manipulation
 export async function POST(request: Request) {
     try {
-        // Auth: require API key in production, allow unauthenticated in dev for simulation
-        const isProduction = process.env.NODE_ENV === 'production';
+        // Auth: require API key in ALL non-development environments (fail closed)
+        // Only skip auth in local development (NODE_ENV === 'development')
+        const isDev = process.env.NODE_ENV === 'development';
         const adminKey = process.env.ADMIN_API_KEY;
-        if (isProduction || adminKey) {
+        if (!isDev) {
+            if (!adminKey) {
+                console.error('[Sensors] FATAL: ADMIN_API_KEY not set in non-dev environment. Rejecting request.');
+                return NextResponse.json({ success: false, error: 'Server misconfiguration: API key not set.' }, { status: 503 });
+            }
             const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-            if (!adminKey || providedKey !== adminKey) {
+            if (providedKey !== adminKey) {
                 return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
             }
         }
