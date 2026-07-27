@@ -22,11 +22,10 @@ function safeCompare(a: string, b: string): boolean {
 // SECURITY: Requires ADMIN_API_KEY in production to prevent unauthorized sensor data manipulation
 export async function POST(request: Request) {
     try {
-        // Auth: require API key in ALL non-development environments (fail closed)
-        // Only skip auth in local development (NODE_ENV === 'development')
-        const isDev = process.env.NODE_ENV === 'development';
+        // Auth: require API key in all environments unless explicitly enabled for dev simulation via ALLOW_DEV_SIMULATION
+        const isDevSimulation = process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_SIMULATION === 'true';
         const adminKey = process.env.ADMIN_API_KEY;
-        if (!isDev) {
+        if (!isDevSimulation) {
             if (!adminKey) {
                 console.error('[Sensors] FATAL: ADMIN_API_KEY not set in non-dev environment. Rejecting request.');
                 return NextResponse.json({ success: false, error: 'Server misconfiguration: API key not set.' }, { status: 503 });

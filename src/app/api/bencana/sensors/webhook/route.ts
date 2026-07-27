@@ -241,7 +241,7 @@ export async function POST(request: Request) {
         });
     } catch (err: any) {
         console.error('[Webhook] Error processing TTN uplink:', err);
-        return NextResponse.json({ success: false, error: 'Webhook processing failed', debug: err?.message || String(err) }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Webhook processing failed' }, { status: 500 });
     }
 }
 

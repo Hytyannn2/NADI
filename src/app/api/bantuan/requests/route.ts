@@ -1,5 +1,20 @@
 import { NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'crypto';
+
+// SECURITY: Constant-time string comparison to prevent timing attacks
+function safeCompare(a: string, b: string): boolean {
+    try {
+        const bufA = Buffer.from(a);
+        const bufB = Buffer.from(b);
+        if (bufA.length !== bufB.length) {
+            timingSafeEqual(bufA, bufA);
+            return false;
+        }
+        return timingSafeEqual(bufA, bufB);
+    } catch {
+        return false;
+    }
+}
 
 // In-memory store for mutual aid requests (MVP — replace with Supabase in production)
 const requestsStore: any[] = [];
@@ -66,8 +81,8 @@ export async function POST(request: Request) {
                 return NextResponse.json({ success: false, error: 'Request not found.' }, { status: 404 });
             }
 
-            // SECURITY: Require authorization secret token matching the created request
-            if (!providedToken || (req.secretToken && req.secretToken !== providedToken)) {
+            // SECURITY: Require authorization secret token matching the created request (constant-time check)
+            if (!providedToken || !req.secretToken || !safeCompare(providedToken, req.secretToken)) {
                 return NextResponse.json({ success: false, error: 'Unauthorized: Valid token required to fulfill request.' }, { status: 401 });
             }
 
