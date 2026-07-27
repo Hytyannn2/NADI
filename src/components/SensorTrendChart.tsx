@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Play, Square } from 'lucide-react';
+import { useTheme } from '@/src/context/ThemeContext';
 
 interface Reading {
     water_level: number;
@@ -65,7 +66,7 @@ function generateDemoData(hours: number): ChartDataPoint[] {
 
         points.push({
             time: date.toISOString(),
-            timeLabel: date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false }),
+            timeLabel: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             water_level: waterLevel,
             temperature_c: 28 + Math.random() * 4,
             pressure_hpa: 1010 + Math.random() * 8 - 4,
@@ -76,6 +77,7 @@ function generateDemoData(hours: number): ChartDataPoint[] {
 }
 
 export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate }: SensorTrendChartProps) {
+    const { formatTime } = useTheme();
     const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [timeRange, setTimeRange] = useState<number>(24);
@@ -96,7 +98,7 @@ export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate
                     const date = new Date(r.recorded_at);
                     return {
                         time: date.toISOString(),
-                        timeLabel: date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        timeLabel: formatTime(date),
                         water_level: r.water_level,
                         temperature_c: r.temperature_c,
                         pressure_hpa: r.pressure_hpa,
@@ -110,12 +112,13 @@ export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate
                     setChartData([]);
                 }
             }
-        } catch (err) {
-            console.error('Failed to fetch readings:', err);
+        } catch {
+            setHasRealData(false);
+            if (!isLiveDemo) setChartData([]);
         } finally {
             setIsLoading(false);
         }
-    }, [sensorId, timeRange, isLiveDemo]);
+    }, [sensorId, timeRange, isLiveDemo, formatTime]);
 
     // Fetch real data on mount and when time range changes
     useEffect(() => {
@@ -129,7 +132,7 @@ export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate
     // Live Demo mode — generates initial data and appends new points every 3s
     const startLiveDemo = useCallback(() => {
         // Generate initial historical data for the selected time range
-        const initial = generateDemoData(timeRange);
+        const initial = generateDemoData(timeRange).map(p => ({ ...p, timeLabel: formatTime(new Date(p.time)) }));
         demoDataRef.current = initial;
         setChartData(initial);
         setIsLiveDemo(true);
@@ -147,7 +150,7 @@ export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate
 
             const newPoint: ChartDataPoint = {
                 time: now.toISOString(),
-                timeLabel: now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                timeLabel: formatTime(now),
                 water_level: newLevel,
                 temperature_c: 28 + Math.random() * 4,
                 pressure_hpa: 1008 + Math.random() * 8,

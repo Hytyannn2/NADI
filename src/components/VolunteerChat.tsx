@@ -4,12 +4,14 @@ import { Send, X, Camera } from 'lucide-react';
 import { motion } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
 import { useAuth } from '@/src/context/AuthContext';
+import { useTheme } from '@/src/context/ThemeContext';
 
 interface ChatMsg { id: string; text: string; sender: 'me' | 'them'; time: string; }
 
 export default function VolunteerChat({ jobName, onClose }: { jobName: string; onClose: () => void }) {
     const supabase = createClient();
     const { user } = useAuth();
+    const { formatTime } = useTheme();
     const [messages, setMessages] = useState<ChatMsg[]>([
         { id: '0', text: `Terima kasih kerana menerima permintaan bantuan kami. Sila hubungi kami apabila sampai.`, sender: 'them', time: 'Now' },
     ]);
@@ -27,7 +29,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
                         id: m.id,
                         text: m.text,
                         sender: (m.user_id === user?.id ? 'me' : 'them') as 'me' | 'them',
-                        time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        time: formatTime(m.created_at)
                     }));
                     setMessages(prev => [...prev.filter(p => p.id === '0'), ...mapped]);
                 }
@@ -41,7 +43,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
                         id: payload.new.id,
                         text: payload.new.text,
                         sender: 'them',
-                        time: new Date(payload.new.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        time: formatTime(payload.new.created_at)
                     }]);
                 }
             })

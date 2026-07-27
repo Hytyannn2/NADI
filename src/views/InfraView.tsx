@@ -5,6 +5,7 @@ import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, Chevro
 import { motion, AnimatePresence } from 'motion/react';
 import { useGame } from '../context/GameContext';
 import { useXP } from '../hooks/useXP';
+import { useTheme } from '../context/ThemeContext';
 import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDetector';
 import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
@@ -61,6 +62,7 @@ function getDeviceFingerprint(): string {
 }
 
 export default function InfraView() {
+    const { formatTime } = useTheme();
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +103,7 @@ export default function InfraView() {
                         zDropped: d.z_dropped,
                         verifications: d.verifications,
                         status: d.status,
-                        time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        time: formatTime(d.created_at),
                         aiAnalysis: d.ai_analysis,
                         photoBase64: d.photo_url,
                         confidenceScore: d.confidence_score || 0,
@@ -126,7 +128,7 @@ export default function InfraView() {
                             zDropped: d.z_dropped,
                             verifications: d.verifications,
                             status: d.status,
-                            time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            time: formatTime(d.created_at),
                             aiAnalysis: d.ai_analysis,
                             photoBase64: d.photo_url,
                             confidenceScore: d.confidence_score || 0,

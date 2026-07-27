@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
+import { useTheme } from '@/src/context/ThemeContext';
 import pkg from '@/package.json';
 import { useGame } from '@/src/context/GameContext';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -19,6 +20,7 @@ import { RANK_DATA } from '@/src/constants/ranks';
 export default function DashboardView() {
     const { user } = useAuth();
     const { t } = useLanguage();
+    const { formatTime } = useTheme();
     const { quests, badges, crs, crsLabel, leaderboard, stats } = useGame();
     const { xp, level, xpToNext, addXp } = useXP();
     const { weather, isWeatherLoading, locationLabel } = useWeather();
@@ -449,7 +451,7 @@ export default function DashboardView() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                                {new Date(post.timestamp || Date.now()).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                {formatTime(post.timestamp || Date.now())}
                                             </span>
                                             {(post.user_id === user?.id || post.author === userName) && (
                                                 <button

@@ -132,10 +132,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const formatTime = (dateInput?: Date | string | number): string => {
     const d = dateInput ? new Date(dateInput) : new Date();
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString([], {
+    if (clockFormat === '24h') {
+      return d.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    }
+    return d.toLocaleTimeString('ms-MY', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: clockFormat === '12h'
+      hour12: true
     });
   };
 

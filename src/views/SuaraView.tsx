@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAntiSpam } from '../hooks/useAntiSpam';
 import { useGame } from '../context/GameContext';
 import { useXP } from '../hooks/useXP';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SuaraView() {
+    const { formatTime } = useTheme();
     const [inputText, setInputText] = useState('');
     const [reports, setReports] = useState<any[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -392,7 +394,7 @@ export default function SuaraView() {
                                                 </div>
                                             </div>
                                             <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                                                {report.timestamp ? new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                                                {report.timestamp ? formatTime(report.timestamp) : 'Just now'}
                                             </p>
                                         </div>
                                     </div>
