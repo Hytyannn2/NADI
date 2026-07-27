@@ -418,16 +418,29 @@ export default function BantuanView() {
                                     style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
                                 />
                             </div>
-                            <div className="flex gap-2 flex-wrap mb-2">
-                                {(['all', 'government', 'ngo', 'zakat'] as const).map(f => (
-                                    <button key={f} onClick={() => setFilterType(f)}
-                                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
-                                        style={filterType === f
-                                            ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
-                                            : { color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
-                                        }
-                                    >{f}</button>
-                                ))}
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3 pb-1">
+                                {[
+                                    { id: 'all', label: 'Semua Program', icon: '🌐' },
+                                    { id: 'government', label: 'Kerajaan', icon: '🏛️' },
+                                    { id: 'ngo', label: 'NGO Bantuan', icon: '🤝' },
+                                    { id: 'zakat', label: 'Zakat & Baitulmal', icon: '🕌' }
+                                ].map(cat => {
+                                    const isActive = filterType === cat.id;
+                                    return (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => setFilterType(cat.id as any)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border"
+                                            style={isActive
+                                                ? { background: 'var(--accent-muted)', color: 'var(--accent)', borderColor: 'var(--accent)', boxShadow: '0 2px 8px rgba(197, 163, 103, 0.15)' }
+                                                : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                            }
+                                        >
+                                            <span className="text-sm">{cat.icon}</span>
+                                            <span>{cat.label}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
 
                             {programsLoading ? (
@@ -491,21 +504,49 @@ export default function BantuanView() {
                                                         </div>
                                                         <button type="submit" disabled={isMatching} className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mt-2" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
                                                             {isMatching ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyemak...</> : '⚡ Semak Kelayakan Serta-Merta'}
-                                                        </button>
-                                                    </form>
+                                            </form>
                                                 </div>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
 
-                                    {/* Clear Results */}
+                                    {/* Active Match Status Banner */}
                                     {Object.keys(matchResults).length > 0 && !showAIMatcher && (
-                                        <div className="flex justify-between items-center mb-4 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2 rounded-xl">
-                                            <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                                                <span>⚡ Keputusan Kelayakan Aktif</span>
-                                            </p>
-                                            <button onClick={() => setMatchResults({})} className="text-[10px] font-bold text-red-400 hover:text-red-500 transition-colors uppercase tracking-widest">Padam Keputusan</button>
-                                        </div>
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -4 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="mb-5 p-3.5 rounded-2xl flex items-center justify-between gap-3 border shadow-sm"
+                                            style={{
+                                                background: 'var(--bg-card)',
+                                                borderColor: 'var(--accent)',
+                                                boxShadow: '0 4px 16px rgba(197, 163, 103, 0.08)'
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-muted)' }}>
+                                                    <CheckCircle className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Keputusan Kelayakan Aktif</span>
+                                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                                                            {Object.values(matchResults).filter((m: any) => m.isEligible).length} Layak
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                                        Berdasarkan profil: RM{profile.income || 0}/bln · Umur {profile.age || '-'} · {profile.status}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => setMatchResults({})}
+                                                className="px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all border shrink-0 hover:bg-red-500/10"
+                                                style={{ color: 'var(--danger)', borderColor: 'var(--danger-muted)' }}
+                                            >
+                                                Padam Keputusan
+                                            </button>
+                                        </motion.div>
                                     )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
