@@ -152,7 +152,7 @@ export async function POST(request: Request) {
 
             if (insertError) {
                 console.error('[Webhook] Failed to auto-register sensor:', insertError);
-                return NextResponse.json({ success: false, error: 'Failed to register new sensor', debug: insertError.message, code: insertError.code }, { status: 500 });
+                return NextResponse.json({ success: false, error: 'Failed to register new sensor' }, { status: 500 });
             }
 
             sensorId = newSensor!.id;

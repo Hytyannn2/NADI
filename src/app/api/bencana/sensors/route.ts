@@ -87,17 +87,17 @@ export async function POST(request: Request) {
 
         if (error) throw error;
 
-        // Also insert a reading into history if water_level was provided
-        if (water_level !== undefined && data) {
+        // Also insert a reading into history if validated water_level was provided
+        if (updatePayload.water_level !== undefined && data) {
             await supabase
                 .from('nadi_bencana_sensor_readings')
                 .insert({
                     sensor_id: data.id,
-                    water_level,
-                    battery_pct: battery_pct ?? null,
-                    temperature_c: temperature_c ?? null,
-                    humidity_pct: humidity_pct ?? null,
-                    pressure_hpa: pressure_hpa ?? null,
+                    water_level: updatePayload.water_level,
+                    battery_pct: updatePayload.battery_pct ?? null,
+                    temperature_c: updatePayload.temperature_c ?? null,
+                    humidity_pct: updatePayload.humidity_pct ?? null,
+                    pressure_hpa: updatePayload.pressure_hpa ?? null,
                 });
         }
 

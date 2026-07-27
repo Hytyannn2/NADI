@@ -8,9 +8,10 @@ import Groq from 'groq-sdk';
 export async function GET() {
     try {
         const supabase = createClient(await cookies());
+        // SECURITY: Select explicit public fields only — exclude phone number PII from unauthenticated GET queries
         const { data, error } = await supabase
             .from('nadi_bencana_jobs')
-            .select('*')
+            .select('id, name, req, dist, area, priority, tools, pax, status, bounty, created_at, posted_by, accepted_by')
             .neq('status', 'banned') // Filter out inappropriate requests
             .order('created_at', { ascending: false });
 

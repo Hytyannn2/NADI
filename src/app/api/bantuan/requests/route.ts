@@ -17,29 +17,25 @@ function generateSecureId(): string {
     return result;
 }
 
-// SECURITY: Sanitize string input to prevent stored XSS and enforce length limits
+// SECURITY: Robust HTML entity encoding to prevent stored XSS entirely
 function sanitizeString(val: unknown, maxLen = 500): string {
     if (typeof val !== 'string') return '';
     return val
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&#x27;/g, "'")
-        .replace(/&#x2F;/g, '/')
-        .replace(/&nbsp;/g, ' ')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;')
+        .replace(/\//g, '&#x2F;')
+        .replace(/`/g, '&#x60;')
         .trim()
         .slice(0, maxLen);
 }
 
-// GET /api/bantuan/requests — fetch all mutual aid requests
+// GET /api/bantuan/requests — fetch all mutual aid requests (exclude secret tokens)
 export async function GET() {
     const sorted = [...requestsStore].sort((a, b) => b.submittedAt - a.submittedAt);
-    const formatted = sorted.map(r => ({
+    const formatted = sorted.map(({ secretToken, ...r }) => ({
         ...r,
         time: formatTime(r.submittedAt),
     }));
@@ -51,37 +47,42 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
-        // Fulfill action — rate-limited to prevent abuse
+        // SECURITY: Derive IP from reliable proxy headers or fallback
+        const clientIp = request.headers.get('cf-connecting-ip') || 
+                         request.headers.get('x-real-ip') || 
+                         request.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 
+                         '127.0.0.1';
+
+        // Fulfill action — requires secret token authorization + rate limiting
         if (body.action === 'fulfill' && body.requestId) {
-            const reqId = sanitizeString(body.requestId, 100);
+            const reqId = typeof body.requestId === 'string' ? body.requestId.trim().slice(0, 100) : '';
+            const providedToken = typeof body.secretToken === 'string' ? body.secretToken.trim() : '';
+
             // Rate limiting by IP
-            const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
             const lastAttempt = fulfillRateLimit.get(clientIp) || 0;
             if (Date.now() - lastAttempt < FULFILL_COOLDOWN_MS) {
                 return NextResponse.json({ success: false, error: 'Too many requests. Please wait.' }, { status: 429 });
             }
             fulfillRateLimit.set(clientIp, Date.now());
 
-            // Clean up old rate limit entries periodically
-            if (fulfillRateLimit.size > 1000) {
-                const now = Date.now();
-                for (const [ip, ts] of fulfillRateLimit) {
-                    if (now - ts > 60000) fulfillRateLimit.delete(ip);
-                }
+            const req = requestsStore.find(r => r.id === reqId);
+            if (!req) {
+                return NextResponse.json({ success: false, error: 'Request not found.' }, { status: 404 });
             }
 
-            const req = requestsStore.find(r => r.id === reqId);
-            if (req) {
-                req.fulfilled = true;
-                return NextResponse.json({ success: true });
+            // SECURITY: Require authorization secret token matching the created request
+            if (!providedToken || (req.secretToken && req.secretToken !== providedToken)) {
+                return NextResponse.json({ success: false, error: 'Unauthorized: Valid token required to fulfill request.' }, { status: 401 });
             }
-            return NextResponse.json({ success: false, error: 'Request not found.' }, { status: 404 });
+
+            req.fulfilled = true;
+            return NextResponse.json({ success: true });
         }
 
         // Submit new request
         const { title, description, location, category, type, contact } = body;
         
-        // SECURITY: Type enforcement, length limits, and HTML sanitization
+        // SECURITY: Type enforcement, length limits, and strict HTML entity encoding
         const cleanTitle = sanitizeString(title, 150);
         const cleanDescription = sanitizeString(description, 1000);
         const cleanLocation = sanitizeString(location, 150);
@@ -93,8 +94,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Missing or invalid required fields.' }, { status: 400 });
         }
 
+        const secretToken = generateSecureId();
         const newRequest = {
             id: generateSecureId(),
+            secretToken,
             poster: 'Anonymous Warga',
             type: cleanType,
             title: cleanTitle,
@@ -110,6 +113,7 @@ export async function POST(request: Request) {
         requestsStore.unshift(newRequest);
         if (requestsStore.length > 100) requestsStore.splice(100);
 
+        // Return request with secretToken only to the author upon creation
         return NextResponse.json({ success: true, request: newRequest });
     } catch (error) {
         console.error('Bantuan request error:', error);

@@ -102,7 +102,7 @@ async function scrapeMysukarelawan(targetLang: string): Promise<VolunteerOpp[]> 
                     location: translate('Malaysia', 'Malaysia', '马来西亚', 'மலேசியா', 'ماليزيا'),
                     commitment: translate('See details', 'Lihat butiran', '查看详情', 'விவரங்களைக் காண்க', 'انظر التفاصيل'),
                     spots: 0,
-                    url: linkMatch ? `https://mysukarelawan.gov.my${linkMatch[1]}` : 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti',
+                    url: sanitizeUrl(linkMatch ? `https://mysukarelawan.gov.my${linkMatch[1]}` : '', 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti'),
                     urgency: 'medium',
                     startDate: '2026',
                 });

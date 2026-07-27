@@ -32,13 +32,31 @@ export default function AdminDashboard() {
                 fetch('/api/admin/reports'),
                 fetch('/api/admin/analytics')
             ]);
+            
+            if (reportsRes.status === 401 || reportsRes.status === 403 || analyticsRes.status === 401 || analyticsRes.status === 403) {
+                setAuthorized(false);
+                router.push('/');
+                return;
+            }
+
             const reportsData = await reportsRes.json();
             const analyticsData = await analyticsRes.json();
             
-            if (reportsData.success) setReports(reportsData.reports);
-            if (analyticsData.success) setAnalytics(analyticsData);
-        } catch (e) { console.error(e); } 
-        finally { setFetching(false); }
+            if (!reportsData.success || !analyticsData.success) {
+                setAuthorized(false);
+                router.push('/');
+                return;
+            }
+
+            setReports(reportsData.reports);
+            setAnalytics(analyticsData);
+            setAuthorized(true);
+        } catch (e) { 
+            console.error(e); 
+            router.push('/');
+        } finally { 
+            setFetching(false); 
+        }
     };
 
     useEffect(() => {
@@ -49,14 +67,7 @@ export default function AdminDashboard() {
             return;
         }
 
-        // SECURITY: Verify admin authorization BEFORE fetching any admin data
-        const isAdmin = (user as any).app_metadata?.role === 'admin' || user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-        if (!isAdmin) {
-            router.push('/');
-            return;
-        }
-
-        setAuthorized(true);
+        // SECURITY: Delegate authoritative admin check to server API responses
         loadData();
     }, [user, loading, router]);
 
