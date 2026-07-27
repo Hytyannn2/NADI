@@ -111,7 +111,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
       <div className="mt-auto p-3.5 rounded-2xl border transition-all" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}>
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>NADI</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>v2.7.1</span>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>v2.7.2</span>
         </div>
         <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
           Platform Digital Komuniti & Respon Warga

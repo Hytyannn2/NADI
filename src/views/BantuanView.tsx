@@ -469,8 +469,9 @@ export default function BantuanView() {
                                                                 <input type="number" required placeholder="e.g. 28" value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                             </div>
                                                             <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan (RM)</label>
-                                                                <input type="number" required placeholder="e.g. 2500" value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan Kasar Sebulan (RM)</label>
+                                                                 <input type="number" required placeholder="e.g. 2500 (Gaji Kasar)" value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                 <span className="text-[8px] opacity-75 block mt-0.5" style={{ color: 'var(--text-muted)' }}>*Gaji kasar sebulan sebelum potongan KWSP/cukai</span>
                                                             </div>
                                                             <div>
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.status')}</label>
