@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
-import { reportsStore } from '@/src/app/api/whistleblower/route';
 
 export async function GET() {
     try {
