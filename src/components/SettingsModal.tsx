@@ -159,7 +159,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                             : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'transparent' }
                           }
                         >
-                          <span>{fmt === '12h' ? '12-Hour (AM/PM)' : '24-Hour (13:00)'}</span>
+                          <span>{fmt === '12h' ? '12-Hour' : '24-Hour'}</span>
                           {clockFormat === fmt && <span>✓</span>}
                         </button>
                       ))}

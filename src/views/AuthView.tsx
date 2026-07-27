@@ -1,21 +1,228 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, User, Phone, MapPin, CheckCircle2, ChevronDown, Check } from 'lucide-react';
 
 type Mode = 'login' | 'register' | 'forgot';
+type Lang = 'BM' | 'EN';
+
+const MALAYSIA_STATES = [
+  'Selangor', 'Kuala Lumpur', 'Johor', 'Penang', 'Perak', 'Kedah', 
+  'Kelantan', 'Terengganu', 'Pahang', 'Melaka', 'Negeri Sembilan', 
+  'Sabah', 'Sarawak', 'Perlis', 'Putrajaya', 'Labuan'
+];
+
+/**
+ * 3D Particle Globe Component using HTML5 Canvas 2D Perspective Projection
+ * Smooth, lightweight 60FPS 3D rendering with glowing atmosphere and connecting data arcs
+ */
+function ParticleGlobe() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = canvas.offsetWidth);
+    let height = (canvas.height = canvas.offsetHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = canvas.offsetWidth;
+      height = canvas.height = canvas.offsetHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Generate 3D points on a sphere radius
+    const numPoints = 650;
+    const radius = Math.min(width, height) * 0.38;
+    const points: { x: number; y: number; z: number; baseSize: number; isHotspot?: boolean; label?: string }[] = [];
+
+    // Golden spiral distribution on sphere
+    const phi = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < numPoints; i++) {
+      const y = 1 - (i / (numPoints - 1)) * 2; // y goes from 1 to -1
+      const radiusAtY = Math.sqrt(1 - y * y);
+      const theta = phi * i;
+
+      const x = Math.cos(theta) * radiusAtY;
+      const z = Math.sin(theta) * radiusAtY;
+
+      // Randomly mark some points as key hotspots (Malaysian hubs)
+      const isHotspot = i % 85 === 12;
+      const labels = ['Kuala Lumpur', 'Kota Bharu', 'Penang', 'Johor Bahru', 'Kuching', 'Kota Kinabalu', 'Kuantan'];
+      const label = isHotspot ? labels[(i / 85) | 0 % labels.length] : undefined;
+
+      points.push({
+        x: x * radius,
+        y: y * radius,
+        z: z * radius,
+        baseSize: isHotspot ? 2.5 : Math.random() * 1.2 + 0.6,
+        isHotspot,
+        label,
+      });
+    }
+
+    let angleY = 0;
+    let angleX = 0.25;
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      const centerX = width * 0.58;
+      const centerY = height * 0.5;
+
+      // Draw background ambient glow for the globe
+      const bgGlow = ctx.createRadialGradient(centerX, centerY, radius * 0.2, centerX, centerY, radius * 1.4);
+      bgGlow.addColorStop(0, 'rgba(16, 185, 129, 0.12)'); // Emerald core
+      bgGlow.addColorStop(0.4, 'rgba(6, 182, 212, 0.08)'); // Cyan atmosphere
+      bgGlow.addColorStop(0.8, 'rgba(30, 58, 138, 0.04)'); // Deep blue outer
+      bgGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = bgGlow;
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw outer atmospheric ring
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius * 1.05, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius * 1.12, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 12]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      angleY += 0.003; // Smooth rotation speed
+
+      const cosY = Math.cos(angleY);
+      const sinY = Math.sin(angleY);
+      const cosX = Math.cos(angleX);
+      const sinX = Math.sin(angleX);
+
+      // Project 3D to 2D
+      const projected = points.map((p) => {
+        // Rotate Y
+        let x1 = p.x * cosY - p.z * sinY;
+        let z1 = p.z * cosY + p.x * sinY;
+
+        // Rotate X
+        let y1 = p.y * cosX - z1 * sinX;
+        let z2 = z1 * cosX + p.y * sinX;
+
+        // Perspective scale factor
+        const fov = 600;
+        const scale = fov / (fov + z2);
+        const px = centerX + x1 * scale;
+        const py = centerY + y1 * scale;
+
+        return {
+          px,
+          py,
+          z: z2,
+          scale,
+          baseSize: p.baseSize,
+          isHotspot: p.isHotspot,
+          label: p.label,
+        };
+      });
+
+      // Sort by Z so front dots draw over back dots
+      projected.sort((a, b) => b.z - a.z);
+
+      // Draw connecting lines between close front points
+      const frontPoints = projected.filter((p) => p.z < 80);
+      ctx.lineWidth = 0.6;
+
+      for (let i = 0; i < frontPoints.length; i += 3) {
+        const p1 = frontPoints[i];
+        for (let j = i + 1; j < Math.min(i + 8, frontPoints.length); j++) {
+          const p2 = frontPoints[j];
+          const dx = p1.px - p2.px;
+          const dy = p1.py - p2.py;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq < 4500) {
+            const alpha = (1 - Math.sqrt(distSq) / 67) * 0.25 * (p1.z < 0 ? 1 : 0.4);
+            ctx.beginPath();
+            ctx.moveTo(p1.px, p1.py);
+            ctx.lineTo(p2.px, p2.py);
+            ctx.strokeStyle = p1.isHotspot ? `rgba(16, 185, 129, ${alpha * 1.5})` : `rgba(6, 182, 212, ${alpha})`;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw points
+      projected.forEach((p) => {
+        const opacity = Math.max(0.08, Math.min(1, (p.z < 0 ? 0.9 : 0.25) * p.scale));
+        const size = p.baseSize * p.scale;
+
+        ctx.beginPath();
+        ctx.arc(p.px, p.py, Math.max(0.8, size), 0, Math.PI * 2);
+
+        if (p.isHotspot) {
+          ctx.fillStyle = `rgba(16, 185, 129, ${opacity})`;
+          ctx.fill();
+
+          // Outer pulse ring for hotspot
+          ctx.beginPath();
+          ctx.arc(p.px, p.py, size * 2.5, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(16, 185, 129, ${opacity * 0.4})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Hotspot label
+          if (p.label && p.z < -40) {
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.85})`;
+            ctx.fillText(p.label, p.px + 8, p.py + 3);
+          }
+        } else {
+          ctx.fillStyle = p.z < 0 ? `rgba(6, 182, 212, ${opacity})` : `rgba(148, 163, 184, ${opacity * 0.5})`;
+          ctx.fill();
+        }
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="w-full h-full block" />;
+}
 
 export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
   const [mode, setMode] = useState<Mode>('login');
+  const [lang, setLang] = useState<Lang>('BM');
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [stateRegion, setStateRegion] = useState('Selangor');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+
   const supabase = createClient();
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -30,24 +237,29 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           email,
           password,
           options: {
+            data: {
+              full_name: fullName,
+              phone: phone,
+              state_region: stateRegion,
+            },
             emailRedirectTo: `${window.location.origin}`,
           },
         });
         if (error) throw error;
-        setMessage('Pautan pengesahan telah dihantar ke e-mel anda! 📬');
+        setMessage(lang === 'BM' ? 'Pautan pengesahan telah dihantar ke e-mel anda! 📬' : 'Verification link sent to your email! 📬');
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/reset`,
         });
         if (error) throw error;
-        setMessage('Pautan menetapkan semula kata laluan telah dihantar ke e-mel anda! 🔑');
+        setMessage(lang === 'BM' ? 'Pautan menetapkan semula kata laluan telah dihantar! 🔑' : 'Password reset link sent to your email! 🔑');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         onSuccess?.();
       }
     } catch (err: any) {
-      setError(err.message || 'Ralat berlaku. Sila cuba lagi.');
+      setError(err.message || (lang === 'BM' ? 'Ralat berlaku. Sila cuba lagi.' : 'An error occurred. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -69,309 +281,463 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       });
       if (error) throw error;
     } catch (err: any) {
-      setError(err.message || 'Log masuk Google gagal.');
+      setError(err.message || (lang === 'BM' ? 'Log masuk Google gagal.' : 'Google sign-in failed.'));
       setGoogleLoading(false);
     }
   };
 
-  const modeConfig = {
-    login: { title: 'Selamat Kembali', subtitle: 'Log masuk ke akaun NADI anda', cta: 'Log Masuk' },
-    register: { title: 'Daftar Akaun NADI', subtitle: 'Sertai rangkaian komuniti digital warga', cta: 'Daftar Akaun Baru' },
-    forgot: { title: 'Lupa Kata Laluan', subtitle: 'Kami akan hantar pautan menetapkan semula kata laluan', cta: 'Hantar Pautan Reset' },
-  };
-
-  const cfg = modeConfig[mode];
+  const t = {
+    BM: {
+      loginTitle: 'Log Masuk',
+      loginSub: 'Langkah masuk ke platform pintar sivik dan pengurusan bencana kebangsaan.',
+      regTitle: 'Daftar Akaun Warga',
+      regSub: 'Sertai rangkaian pintar warga digital NADI seluruh Malaysia.',
+      forgotTitle: 'Reset Kata Laluan',
+      forgotSub: 'Masukkan alamat e-mel berdaftar anda untuk menerima pautan reset.',
+      googleBtn: 'Log masuk dengan Google',
+      orEmail: 'atau log masuk dengan e-mel',
+      emailLabel: 'E-Mel',
+      emailPlaceholder: 'nama@contoh.com',
+      passLabel: 'Kata Laluan',
+      passPlaceholder: 'Masukkan kata laluan anda',
+      remember: 'Ingat saya',
+      forgotLink: 'Lupa kata laluan?',
+      submitLogin: 'Log Masuk',
+      submitRegister: 'Daftar Sekarang',
+      submitForgot: 'Hantar Pautan Reset',
+      noAccount: 'Belum mendaftar?',
+      createAccount: 'Daftar akaun baru',
+      hasAccount: 'Sudah mempunyai akaun?',
+      signInLink: 'Log masuk di sini',
+      backToLogin: '← Kembali ke Log Masuk',
+      fullNameLabel: 'Nama Penuh',
+      fullNamePlaceholder: 'Contoh: Ahmad Razak bin Osman',
+      phoneLabel: 'Nombor Telefon (Amaran SOS/Bencana)',
+      phonePlaceholder: 'Contoh: 012-345 6789',
+      stateLabel: 'Kawasan / Negeri Utama',
+    },
+    EN: {
+      loginTitle: 'Login',
+      loginSub: 'Step into the world of smart civic analytics and real-time disaster management.',
+      regTitle: 'Create Account',
+      regSub: 'Join the national network of digital citizens on NADI Malaysia.',
+      forgotTitle: 'Forgot Password',
+      forgotSub: 'Enter your registered email address to receive a password reset link.',
+      googleBtn: 'Sign in with Google',
+      orEmail: 'or sign in with email',
+      emailLabel: 'Email Address',
+      emailPlaceholder: 'name@example.com',
+      passLabel: 'Password',
+      passPlaceholder: 'Enter your password',
+      remember: 'Remember me',
+      forgotLink: 'Forgot password?',
+      submitLogin: 'Login',
+      submitRegister: 'Create Account',
+      submitForgot: 'Send Reset Link',
+      noAccount: 'Not registered yet?',
+      createAccount: 'Create an account',
+      hasAccount: 'Already registered?',
+      signInLink: 'Sign in here',
+      backToLogin: '← Back to Login',
+      fullNameLabel: 'Full Name',
+      fullNamePlaceholder: 'e.g. Ahmad Razak bin Osman',
+      phoneLabel: 'Phone Number (SOS / Emergency Alerts)',
+      phonePlaceholder: 'e.g. 012-345 6789',
+      stateLabel: 'State / Primary Region',
+    },
+  }[lang];
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 select-none" style={{ background: '#050508' }}>
+    <div className="min-h-screen w-full bg-[#050811] text-white flex flex-col justify-between overflow-x-hidden selection:bg-emerald-500/30 select-none">
       
-      {/* Dynamic Animated Glow Orbs & Ambient Mesh Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Dot matrix grid overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] opacity-70" />
+      {/* Grid Container — Left Form Column + Right 3D Particle Canvas */}
+      <div className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-screen">
         
-        {/* Animated Orbs */}
-        <motion.div 
-          animate={{ scale: [1, 1.2, 1], x: [0, 30, 0], y: [0, -20, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-[-15%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[140px] opacity-40 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #C5A367 0%, #B8860B 50%, transparent 80%)' }} 
-        />
-        <motion.div 
-          animate={{ scale: [1, 1.25, 1], x: [0, -40, 0], y: [0, 30, 0] }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          className="absolute bottom-[-15%] right-[-10%] w-[550px] h-[550px] rounded-full blur-[140px] opacity-35 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #0D9488 0%, #064E3B 50%, transparent 80%)' }} 
-        />
-        <motion.div 
-          animate={{ opacity: [0.2, 0.4, 0.2] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-[40%] right-[15%] w-[350px] h-[350px] rounded-full blur-[120px] opacity-25 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #3B82F6 0%, transparent 70%)' }} 
-        />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md relative z-10 my-8"
-      >
-        {/* Brand Header */}
-        <div className="text-center mb-6">
-          {/* Animated Logo Emblem */}
-          <div className="relative inline-flex mb-3">
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-              className="absolute -inset-1.5 rounded-3xl opacity-60 blur-sm bg-gradient-to-r from-[#C5A367] via-emerald-500 to-blue-500"
-            />
-            <div className="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0F0F14] border border-white/10 shadow-2xl backdrop-blur-xl">
-              <span className="text-3xl filter drop-shadow-[0_0_8px_rgba(197,163,103,0.5)]">🇲🇾</span>
-            </div>
-          </div>
-
-          {/* Title Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-[#C5A367] uppercase tracking-widest mb-3 backdrop-blur-md">
-            <Sparkles className="w-3 h-3 text-[#C5A367] animate-pulse" /> NADI · Smart Civic Platform
-          </div>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={mode}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">{cfg.title}</h1>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-1.5 max-w-xs mx-auto leading-relaxed">{cfg.subtitle}</p>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Glassmorphic Auth Card */}
-        <div className="rounded-3xl p-6 sm:p-8 bg-[#0F0F14]/80 border border-white/10 shadow-[0_0_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-3xl relative overflow-hidden">
+        {/* Left Column — Dark Sleek Form Area */}
+        <div className="lg:col-span-5 xl:col-span-4 bg-[#070B14] border-r border-slate-800/60 p-6 sm:p-10 lg:p-12 flex flex-col justify-between relative z-20 shadow-2xl">
           
-          {/* Subtle Accent Glow Line at top */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C5A367] to-transparent opacity-80" />
+          {/* Top Brand Bar + Language Selector */}
+          <div>
+            <div className="flex items-center justify-between mb-8 sm:mb-12">
+              {/* Brand Logo & Name */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#0C1222] border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+                  <span className="text-xl">🇲🇾</span>
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 blur-sm pointer-events-none" />
+                </div>
+                <div>
+                  <span className="text-lg font-black tracking-wider text-white flex items-center gap-1.5">
+                    NADI <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">v2.8</span>
+                  </span>
+                  <p className="text-[10px] text-slate-400 tracking-widest uppercase font-medium">Smart Civic Platform</p>
+                </div>
+              </div>
 
-          {/* Mode Switcher Tabs */}
-          {mode !== 'forgot' && (
-            <div className="flex p-1 mb-6 rounded-2xl bg-[#050508]/80 border border-white/5 relative">
-              <button
-                type="button"
-                id="switch-to-login"
-                onClick={() => { setMode('login'); setError(''); setMessage(''); }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all duration-300 relative z-10 ${
-                  mode === 'login' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {mode === 'login' && (
-                  <motion.div
-                    layoutId="authActiveTab"
-                    className="absolute inset-0 bg-[#1F1F28] border border-white/10 rounded-xl shadow-md"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
+              {/* Language Selector Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowLangDropdown(!showLangDropdown)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all duration-200"
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{lang === 'BM' ? 'Bahasa Melayu' : 'English'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${showLangDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showLangDropdown && (
+                  <div className="absolute right-0 mt-2 w-36 rounded-xl bg-[#0D1424] border border-slate-800 shadow-2xl py-1 z-50 backdrop-blur-xl">
+                    <button
+                      type="button"
+                      onClick={() => { setLang('BM'); setShowLangDropdown(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                        lang === 'BM' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <span>Bahasa Melayu</span>
+                      {lang === 'BM' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLang('EN'); setShowLangDropdown(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                        lang === 'EN' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <span>English</span>
+                      {lang === 'EN' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </button>
+                  </div>
                 )}
-                <span className="relative z-10">Sign In</span>
-              </button>
-              
-              <button
-                type="button"
-                id="switch-to-register"
-                onClick={() => { setMode('register'); setError(''); setMessage(''); }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all duration-300 relative z-10 ${
-                  mode === 'register' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {mode === 'register' && (
-                  <motion.div
-                    layoutId="authActiveTab"
-                    className="absolute inset-0 bg-[#1F1F28] border border-white/10 rounded-xl shadow-md"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
-                )}
-                <span className="relative z-10">Daftar Baru</span>
-              </button>
-            </div>
-          )}
-
-          {/* Google OAuth Button */}
-          {mode !== 'forgot' && (
-            <motion.button
-              id="google-auth-btn"
-              whileHover={{ scale: 1.01, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleGoogleAuth}
-              disabled={googleLoading}
-              className="w-full flex items-center justify-center gap-3 font-semibold py-3.5 px-4 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 text-white transition-all duration-200 text-xs sm:text-sm mb-5 disabled:opacity-60 shadow-sm group"
-            >
-              {googleLoading ? (
-                <div className="w-5 h-5 border-2 rounded-full animate-spin border-white/20 border-t-white" />
-              ) : (
-                <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-              )}
-              <span>Teruskan dengan Google</span>
-            </motion.button>
-          )}
-
-          {/* Divider */}
-          {mode !== 'forgot' && (
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">atau e-mel</span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-            </div>
-          )}
-
-          {/* Email/Password Form */}
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">Alamat E-mel</label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#C5A367] transition-colors" />
-                <input
-                  id="email-input"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@email.com"
-                  required
-                  className="w-full bg-[#050508] border border-white/10 focus:border-[#C5A367] rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-[#C5A367]/20"
-                />
               </div>
             </div>
 
+            {/* Main Auth Header */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="mb-8"
+              >
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-sans">
+                  {mode === 'login' ? t.loginTitle : mode === 'register' ? t.regTitle : t.forgotTitle}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed max-w-sm">
+                  {mode === 'login' ? t.loginSub : mode === 'register' ? t.regSub : t.forgotSub}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Google OAuth Button */}
             {mode !== 'forgot' && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">Kata Laluan</label>
-                  {mode === 'login' && (
-                    <button
-                      type="button"
-                      onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}
-                      className="text-[11px] font-medium text-zinc-400 hover:text-[#C5A367] transition-colors"
-                    >
-                      Lupa kata laluan?
-                    </button>
-                  )}
-                </div>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#C5A367] transition-colors" />
-                  <input
-                    id="password-input"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={mode === 'register' ? 'Cipta kata laluan kukuh' : 'Masukkan kata laluan'}
-                    required
-                    minLength={6}
-                    className="w-full bg-[#050508] border border-white/10 focus:border-[#C5A367] rounded-xl py-3 pl-11 pr-12 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-[#C5A367]/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+              <motion.button
+                id="google-auth-btn"
+                whileHover={{ scale: 1.01, backgroundColor: 'rgba(255, 255, 255, 0.06)' }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleGoogleAuth}
+                disabled={googleLoading}
+                className="w-full flex items-center justify-center gap-3 font-semibold py-3.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-white transition-all duration-200 text-xs sm:text-sm mb-6 disabled:opacity-60 shadow-inner group"
+              >
+                {googleLoading ? (
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                ) : (
+                  <svg className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                  </svg>
+                )}
+                <span>{t.googleBtn}</span>
+              </motion.button>
+            )}
+
+            {/* Divider */}
+            {mode !== 'forgot' && (
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex-1 h-px bg-slate-800/80" />
+                <span className="text-[11px] font-medium text-slate-500 lowercase">{t.orEmail}</span>
+                <div className="flex-1 h-px bg-slate-800/80" />
               </div>
             )}
 
-            {/* Error / Success messages */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="rounded-xl px-4 py-3 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400"
-                >
-                  {error}
+            {/* Main Auth Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              
+              {/* Extended Register Fields */}
+              {mode === 'register' && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
+                  {/* Full Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">{t.fullNameLabel}</label>
+                    <div className="relative group">
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder={t.fullNamePlaceholder}
+                        required={mode === 'register'}
+                        className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-3 pl-10 pr-4 text-xs sm:text-sm text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone Number */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">{t.phoneLabel}</label>
+                    <div className="relative group">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder={t.phonePlaceholder}
+                        required={mode === 'register'}
+                        className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-3 pl-10 pr-4 text-xs sm:text-sm text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* State Region */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">{t.stateLabel}</label>
+                    <div className="relative group">
+                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors pointer-events-none z-10" />
+                      <select
+                        value={stateRegion}
+                        onChange={(e) => setStateRegion(e.target.value)}
+                        className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-3 pl-10 pr-4 text-xs sm:text-sm text-white outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 appearance-none"
+                      >
+                        {MALAYSIA_STATES.map((s) => (
+                          <option key={s} value={s} className="bg-[#0B101E] text-white">{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </motion.div>
               )}
-              {message && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="rounded-xl px-4 py-3 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                >
-                  {message}
-                </motion.div>
-              )}
-            </AnimatePresence>
 
-            {/* Submit Button */}
-            <motion.button
-              id="auth-submit-btn"
-              type="submit"
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={loading}
-              className="w-full mt-2 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#C5A367] via-[#D4AF37] to-[#B8860B] text-[#050508] font-bold text-sm tracking-wide shadow-[0_0_30px_-5px_rgba(197,163,103,0.4)] hover:shadow-[0_0_40px_0px_rgba(197,163,103,0.6)] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>{cfg.cta}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </motion.button>
-          </form>
+              {/* Email Address */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">{t.emailLabel}</label>
+                <div className="relative group">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                  <input
+                    id="email-input"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t.emailPlaceholder}
+                    required
+                    className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-3 pl-10 pr-4 text-xs sm:text-sm text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+              </div>
 
-          {/* Mode switchers */}
-          {mode === 'forgot' && (
-            <div className="mt-5 text-center">
-              <button
-                type="button"
-                onClick={() => { setMode('login'); setError(''); setMessage(''); }}
-                className="text-xs text-zinc-400 hover:text-white transition-colors flex items-center gap-1 mx-auto font-medium"
+              {/* Password */}
+              {mode !== 'forgot' && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">{t.passLabel}</label>
+                  </div>
+                  <div className="relative group">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                    <input
+                      id="password-input"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={t.passPlaceholder}
+                      required
+                      minLength={6}
+                      className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-3 pl-10 pr-11 text-xs sm:text-sm text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Remember Me & Forgot Password Row */}
+              {mode === 'login' && (
+                <div className="flex items-center justify-between py-1">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-800 bg-[#0B101E] text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-0 transition-colors cursor-pointer"
+                    />
+                    <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">{t.remember}</span>
+                  </label>
+                  
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
+                    {t.forgotLink}
+                  </button>
+                </div>
+              )}
+
+              {/* Error / Success Alerts */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="rounded-xl px-4 py-3 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+                {message && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="rounded-xl px-4 py-3 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                  >
+                    {message}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Submit CTA Button */}
+              <motion.button
+                id="auth-submit-btn"
+                type="submit"
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={loading}
+                className="w-full mt-2 py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.35)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                ← Kembali ke log masuk
-              </button>
-            </div>
-          )}
-        </div>
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>{mode === 'login' ? t.submitLogin : mode === 'register' ? t.submitRegister : t.submitForgot}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </motion.button>
+            </form>
 
-        {/* Live Active Community Badge */}
-        <div className="mt-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0F0F14]/90 border border-white/10 text-[11px] font-semibold text-zinc-400 shadow-lg backdrop-blur-xl">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Lebih 12,000+ Warga Aktif Terhubung</span>
+            {/* Bottom Account Mode Switch */}
+            <div className="mt-6 pt-4 border-t border-slate-800/60 text-xs text-slate-400 text-left">
+              {mode === 'login' ? (
+                <span>
+                  {t.noAccount}{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setMode('register'); setError(''); setMessage(''); }}
+                    className="font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-4 ml-1 transition-colors"
+                  >
+                    {t.createAccount}
+                  </button>
+                </span>
+              ) : mode === 'register' ? (
+                <span>
+                  {t.hasAccount}{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setError(''); setMessage(''); }}
+                    className="font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-4 ml-1 transition-colors"
+                  >
+                    {t.signInLink}
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(''); setMessage(''); }}
+                  className="font-semibold text-slate-300 hover:text-white transition-colors"
+                >
+                  {t.backToLogin}
+                </button>
+              )}
+            </div>
+
           </div>
-        </div>
 
-        {/* Trust Signals */}
-        <div className="mt-5 flex items-center justify-center gap-6 text-zinc-500">
-          {[
-            { icon: Shield, label: 'Enkripsi 256-Bit' },
-            { icon: Zap, label: 'Respon Pantas' },
-            { icon: Globe, label: 'Rangkaian Kebangsaan' },
-          ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <Icon className="w-3.5 h-3.5 text-[#C5A367]/80" />
-              <span className="text-[10px] font-semibold tracking-wider uppercase text-zinc-400">{label}</span>
+          {/* Footer Copyright */}
+          <div className="mt-10 pt-4 border-t border-slate-800/40 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>© {new Date().getFullYear()} NADI Malaysia. Hak Cipta Terpelihara.</span>
+            <div className="flex items-center gap-3">
+              <span className="hover:text-slate-400 cursor-pointer">Privasi</span>
+              <span>·</span>
+              <span className="hover:text-slate-400 cursor-pointer">Terma</span>
             </div>
-          ))}
+          </div>
+
         </div>
 
-        <p className="text-center text-[10px] text-zinc-600 mt-4 leading-relaxed">
-          Dengan meneruskan, anda bersetuju dengan{' '}
-          <span className="underline cursor-pointer text-zinc-400 hover:text-white">Terma Perkhidmatan</span> dan{' '}
-          <span className="underline cursor-pointer text-zinc-400 hover:text-white">Dasar Privasi NADI</span>.
-        </p>
-      </motion.div>
+        {/* Right Column — Deep Futuristic 3D Particle Globe Visual Banner */}
+        <div className="hidden lg:block lg:col-span-7 xl:col-span-8 bg-[#03060E] relative overflow-hidden">
+          
+          {/* Interactive 3D Canvas Particle Globe */}
+          <ParticleGlobe />
+
+          {/* Dark Overlay Gradients */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#070B14] via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#03060E] via-transparent to-transparent opacity-80 pointer-events-none" />
+
+          {/* Live System Status Badges overlay */}
+          <div className="absolute top-10 right-10 flex items-center gap-3 z-10">
+            <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 backdrop-blur-xl flex items-center gap-2 shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>NADI Radar Node: <strong className="text-emerald-400 font-mono">ONLINE</strong></span>
+            </div>
+            <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 backdrop-blur-xl flex items-center gap-2 shadow-lg">
+              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              <span>AES-256 Encrypted</span>
+            </div>
+          </div>
+
+          {/* Bottom Hero Glass Card overlay */}
+          <div className="absolute bottom-12 left-12 right-12 p-8 rounded-3xl bg-slate-950/60 border border-slate-800/80 backdrop-blur-2xl max-w-xl shadow-2xl z-10">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-400 uppercase tracking-widest w-fit mb-3">
+              <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse" /> Rangkaian Sivik Kebangsaan
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Pemantauan Bencana & Komuniti Pintar Real-Time
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
+              Menghubungkan lebih 12,000+ warga Malaysia dengan amaran banjir sensor LoRaWAN, pengesan jalan rosak AI, dan sukarelawan komuniti secara pantas.
+            </p>
+            
+            {/* Live Telemetry Grid */}
+            <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-slate-800/60 text-left">
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Sensor Aktif</div>
+                <div className="text-lg font-black text-emerald-400 font-mono mt-0.5">142 Units</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Masa Respon</div>
+                <div className="text-lg font-black text-cyan-400 font-mono mt-0.5">&lt; 2 Saat</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Uptime Sistem</div>
+                <div className="text-lg font-black text-white font-mono mt-0.5">99.98%</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
   );
 }
-
