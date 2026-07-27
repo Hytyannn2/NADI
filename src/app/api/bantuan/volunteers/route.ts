@@ -33,6 +33,8 @@ const REAL_PORTALS = [
     { name: 'WWF-Malaysia', url: 'https://www.wwf.org.my', searchUrl: 'https://www.wwf.org.my/get_involved/' },
     { name: 'Habitat for Humanity MY', url: 'https://www.habitat.org.my', searchUrl: 'https://www.habitat.org.my/volunteer/' },
     { name: 'Yayasan Sukarelawan Siswa', url: 'https://yss.mohe.gov.my', searchUrl: 'https://yss.mohe.gov.my' },
+];
+
 // Known allowed domains for server-side scraping (SSRF protection)
 const ALLOWED_SCRAPE_DOMAINS = new Set(['mysukarelawan.gov.my']);
 

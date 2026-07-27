@@ -34,7 +34,8 @@ function safeCompare(a: string, b: string): boolean {
  *
  * TTN Webhook Setup:
  *   URL: https://your-domain.vercel.app/api/bencana/sensors/webhook
- *   Events: Uplink message
+ *   Optional: Add X-Webhook-Secret header for auth
+ */
 // In-memory cache for webhook replay protection and rate limiting
 const usedNonces = new Map<string, number>();
 const webhookRateLimit = new Map<string, { count: number; expires: number }>();
