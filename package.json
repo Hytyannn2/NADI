@@ -3,6 +3,7 @@
   "version": "2.8.10",
   "private": true,
   "scripts": {
+    "clean": "powershell -Command \"if (Test-Path .next) { Remove-Item -Recurse -Force .next }\"",
     "dev:next": "next dev",
     "dev:python": "cd dialect-engine && python server.py",
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:python\"",
