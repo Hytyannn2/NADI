@@ -67,20 +67,9 @@ async function scrapeMysukarelawan(targetLang: string): Promise<VolunteerOpp[]> 
             const linkMatch = card.match(/href="([^"]*aktiviti[^"]*)"/i) || card.match(/href="([^"]*activity[^"]*)"/i);
 
             if (titleMatch) {
-                // SECURITY: Proper HTML sanitization — strip tags, decode entities, remove event handlers
-                let title = titleMatch[1]
-                    .replace(/<script[\s\S]*?<\/script>/gi, '')     // Remove script tags entirely
-                    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')   // Remove event handlers (onclick, onerror, etc.)
-                    .replace(/<[^>]*>/g, '')                         // Strip remaining HTML tags
-                    .replace(/&amp;/g, '&')                         // Decode common HTML entities
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#39;/g, "'")
-                    .replace(/&#x27;/g, "'")
-                    .replace(/&#x2F;/g, '/')
-                    .replace(/&nbsp;/g, ' ')
-                    .trim();
+                // SECURITY: Consistent HTML entity sanitization
+                const rawTitle = titleMatch[1].replace(/<[^>]*>/g, '').trim();
+                const title = sanitizeText(rawTitle);
                 if (title.length < 5) continue;
 
                 const translate = (en: string, ms: string, zh: string, ta: string, ar: string) => {

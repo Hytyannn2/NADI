@@ -1,0 +1,7 @@
+# Trivy Ignore File for NADI Repository
+# Suppress false-positive LGPL license compliance warnings for Sharp / libvips image optimization libraries.
+# Sharp is used dynamically server-side by Next.js for image resizing and is non-distributable.
+
+trivy-license.Apache-2.0 AND LGPL-3.0-or-later
+trivy-license.LGPL-3.0-or-later
+trivy-license.Apache-2.0 AND LGPL-3.0-or-later AND MIT

@@ -69,7 +69,13 @@ export async function POST(request: Request) {
             const reqId = typeof body.requestId === 'string' ? body.requestId.trim().slice(0, 100) : '';
             const providedToken = typeof body.secretToken === 'string' ? body.secretToken.trim() : '';
 
-            // Rate limiting by IP
+            // Rate limiting by IP — clean up old entries if map grows
+            if (fulfillRateLimit.size > 500) {
+                const now = Date.now();
+                for (const [ip, ts] of fulfillRateLimit) {
+                    if (now - ts > FULFILL_COOLDOWN_MS * 2) fulfillRateLimit.delete(ip);
+                }
+            }
             const lastAttempt = fulfillRateLimit.get(clientIp) || 0;
             if (Date.now() - lastAttempt < FULFILL_COOLDOWN_MS) {
                 return NextResponse.json({ success: false, error: 'Too many requests. Please wait.' }, { status: 429 });
