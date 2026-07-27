@@ -444,8 +444,8 @@ export default function BantuanView() {
                                     {!showAIMatcher && Object.keys(matchResults).length === 0 && (
                                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-4 rounded-2xl flex items-center justify-between shadow-sm cursor-pointer" style={{ background: 'linear-gradient(135deg, var(--accent-muted) 0%, rgba(197, 163, 103, 0.05) 100%)', border: '1px solid var(--accent)' }} onClick={() => setShowAIMatcher(true)}>
                                             <div>
-                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><Search className="w-4 h-4 text-[#C5A367]" /> Semak Kelayakan Instant</h4>
-                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>Semak program mana yang anda layak mohon secara serta-merta tanpa guna token AI.</p>
+                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><Search className="w-4 h-4 text-[#C5A367]" /> Semak Kelayakan</h4>
+                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>Semak program mana yang anda layak mohon secara serta-merta.</p>
                                             </div>
                                             <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white">Semak Sekarang</span>
                                         </motion.div>
@@ -459,7 +459,6 @@ export default function BantuanView() {
                                                     <div className="flex justify-between items-center mb-3">
                                                         <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                                                             <span>📋 Profil Isi Rumah</span>
-                                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Instant Rules</span>
                                                         </h4>
                                                         <button onClick={() => setShowAIMatcher(false)}><X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} /></button>
                                                     </div>
