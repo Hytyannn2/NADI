@@ -38,58 +38,110 @@ function ParticleGlobe() {
     };
     window.addEventListener('resize', handleResize);
 
-    // Generate 3D points on a sphere radius
-    const numPoints = 650;
+    // Radius of globe
     const radius = Math.min(width, height) * 0.38;
-    const points: { x: number; y: number; z: number; baseSize: number; isHotspot?: boolean; label?: string }[] = [];
 
-    // Golden spiral distribution on sphere
+    // Real geographic hotspot coordinates (lat, lon, label, type)
+    const REAL_HOTSPOTS = [
+      // Malaysia Hubs
+      { lat: 3.139, lon: 101.686, label: 'Kuala Lumpur', type: 'my' },
+      { lat: 6.125, lon: 102.238, label: 'Kota Bharu', type: 'my' },
+      { lat: 5.414, lon: 100.329, label: 'Penang (G.Town)', type: 'my' },
+      { lat: 1.492, lon: 103.741, label: 'Johor Bahru', type: 'my' },
+      { lat: 1.553, lon: 110.359, label: 'Kuching', type: 'my' },
+      { lat: 5.980, lon: 116.073, label: 'Kota Kinabalu', type: 'my' },
+      { lat: 3.807, lon: 103.325, label: 'Kuantan', type: 'my' },
+      { lat: 4.597, lon: 101.090, label: 'Ipoh', type: 'my' },
+      { lat: 2.189, lon: 102.250, label: 'Melaka', type: 'my' },
+      { lat: 5.311, lon: 103.132, label: 'K. Terengganu', type: 'my' },
+      { lat: 6.118, lon: 100.368, label: 'Alor Setar', type: 'my' },
+      { lat: 4.399, lon: 113.991, label: 'Miri', type: 'my' },
+      { lat: 5.840, lon: 118.117, label: 'Sandakan', type: 'my' },
+      { lat: 2.926, lon: 101.696, label: 'Putrajaya', type: 'my' },
+
+      // ASEAN & Regional Nodes
+      { lat: 1.352, lon: 103.819, label: 'Singapore', type: 'asean' },
+      { lat: 13.756, lon: 100.501, label: 'Bangkok', type: 'asean' },
+      { lat: -6.208, lon: 106.845, label: 'Jakarta', type: 'asean' },
+      { lat: 14.599, lon: 120.984, label: 'Manila', type: 'asean' },
+      { lat: 10.823, lon: 106.629, label: 'Ho Chi Minh', type: 'asean' },
+
+      // Global Nodes
+      { lat: 35.676, lon: 139.650, label: 'Tokyo', type: 'global' },
+      { lat: -33.868, lon: 151.209, label: 'Sydney', type: 'global' },
+      { lat: 51.507, lon: -0.127, label: 'London', type: 'global' },
+      { lat: 25.204, lon: 55.270, label: 'Dubai', type: 'global' },
+      { lat: 40.712, lon: -74.006, label: 'New York', type: 'global' },
+    ];
+
+    // Generate 3D points on sphere
+    const numPoints = 950;
+    const points: { x: number; y: number; z: number; baseSize: number; isHotspot?: boolean; label?: string; type?: string }[] = [];
+
+    // Helper: lat/lon to 3D Cartesian coordinates
+    const latLonTo3D = (lat: number, lon: number, r: number) => {
+      const phi = ((90 - lat) * Math.PI) / 180;
+      const theta = ((lon + 180) * Math.PI) / 180;
+      return {
+        x: -(r * Math.sin(phi) * Math.cos(theta)),
+        z: r * Math.sin(phi) * Math.sin(theta),
+        y: r * Math.cos(phi),
+      };
+    };
+
+    // Add real geographic hotspots first
+    REAL_HOTSPOTS.forEach((h) => {
+      const pos = latLonTo3D(h.lat, h.lon, radius);
+      points.push({
+        ...pos,
+        baseSize: h.type === 'my' ? 3.0 : 2.2,
+        isHotspot: true,
+        label: h.label,
+        type: h.type,
+      });
+    });
+
+    // Golden spiral distribution on sphere for particle density mesh
     const phi = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < numPoints; i++) {
-      const y = 1 - (i / (numPoints - 1)) * 2; // y goes from 1 to -1
+      const y = 1 - (i / (numPoints - 1)) * 2;
       const radiusAtY = Math.sqrt(1 - y * y);
       const theta = phi * i;
 
       const x = Math.cos(theta) * radiusAtY;
       const z = Math.sin(theta) * radiusAtY;
 
-      // Randomly mark some points as key hotspots (Malaysian hubs)
-      const isHotspot = i % 85 === 12;
-      const labels = ['Kuala Lumpur', 'Kota Bharu', 'Penang', 'Johor Bahru', 'Kuching', 'Kota Kinabalu', 'Kuantan'];
-      const label = isHotspot ? labels[(i / 85) | 0 % labels.length] : undefined;
-
       points.push({
         x: x * radius,
         y: y * radius,
         z: z * radius,
-        baseSize: isHotspot ? 2.5 : Math.random() * 1.2 + 0.6,
-        isHotspot,
-        label,
+        baseSize: Math.random() * 1.3 + 0.5,
+        isHotspot: false,
       });
     }
 
     let angleY = 0;
-    let angleX = 0.25;
+    let angleX = 0.28;
 
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      const centerX = width * 0.58;
+      const centerX = width * 0.56;
       const centerY = height * 0.5;
 
       // Draw background ambient glow for the globe
       const bgGlow = ctx.createRadialGradient(centerX, centerY, radius * 0.2, centerX, centerY, radius * 1.4);
-      bgGlow.addColorStop(0, 'rgba(16, 185, 129, 0.12)'); // Emerald core
-      bgGlow.addColorStop(0.4, 'rgba(6, 182, 212, 0.08)'); // Cyan atmosphere
-      bgGlow.addColorStop(0.8, 'rgba(30, 58, 138, 0.04)'); // Deep blue outer
+      bgGlow.addColorStop(0, 'rgba(16, 185, 129, 0.14)'); // Emerald core
+      bgGlow.addColorStop(0.35, 'rgba(6, 182, 212, 0.09)'); // Cyan atmosphere
+      bgGlow.addColorStop(0.75, 'rgba(30, 58, 138, 0.05)'); // Deep blue outer
       bgGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = bgGlow;
       ctx.fillRect(0, 0, width, height);
 
       // Draw outer atmospheric ring
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius * 1.05, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.arc(centerX, centerY, radius * 1.04, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.18)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
@@ -101,7 +153,7 @@ function ParticleGlobe() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      angleY += 0.003; // Smooth rotation speed
+      angleY += 0.0035; // Smooth rotation speed
 
       const cosY = Math.cos(angleY);
       const sinY = Math.sin(angleY);
@@ -119,7 +171,7 @@ function ParticleGlobe() {
         let z2 = z1 * cosX + p.y * sinX;
 
         // Perspective scale factor
-        const fov = 600;
+        const fov = 650;
         const scale = fov / (fov + z2);
         const px = centerX + x1 * scale;
         const py = centerY + y1 * scale;
@@ -132,6 +184,7 @@ function ParticleGlobe() {
           baseSize: p.baseSize,
           isHotspot: p.isHotspot,
           label: p.label,
+          type: p.type,
         };
       });
 
@@ -139,55 +192,74 @@ function ParticleGlobe() {
       projected.sort((a, b) => b.z - a.z);
 
       // Draw connecting lines between close front points
-      const frontPoints = projected.filter((p) => p.z < 80);
+      const frontPoints = projected.filter((p) => p.z < 60);
       ctx.lineWidth = 0.6;
 
       for (let i = 0; i < frontPoints.length; i += 3) {
         const p1 = frontPoints[i];
-        for (let j = i + 1; j < Math.min(i + 8, frontPoints.length); j++) {
+        for (let j = i + 1; j < Math.min(i + 9, frontPoints.length); j++) {
           const p2 = frontPoints[j];
           const dx = p1.px - p2.px;
           const dy = p1.py - p2.py;
           const distSq = dx * dx + dy * dy;
 
-          if (distSq < 4500) {
-            const alpha = (1 - Math.sqrt(distSq) / 67) * 0.25 * (p1.z < 0 ? 1 : 0.4);
+          if (distSq < 4800) {
+            const alpha = (1 - Math.sqrt(distSq) / 69) * 0.22 * (p1.z < 0 ? 1 : 0.4);
             ctx.beginPath();
             ctx.moveTo(p1.px, p1.py);
             ctx.lineTo(p2.px, p2.py);
-            ctx.strokeStyle = p1.isHotspot ? `rgba(16, 185, 129, ${alpha * 1.5})` : `rgba(6, 182, 212, ${alpha})`;
+            ctx.strokeStyle = p1.isHotspot 
+              ? (p1.type === 'my' ? `rgba(16, 185, 129, ${alpha * 1.6})` : `rgba(6, 182, 212, ${alpha * 1.4})`)
+              : `rgba(6, 182, 212, ${alpha})`;
             ctx.stroke();
           }
         }
       }
 
-      // Draw points
+      // Draw points & hotspot labels
       projected.forEach((p) => {
-        const opacity = Math.max(0.08, Math.min(1, (p.z < 0 ? 0.9 : 0.25) * p.scale));
+        const opacity = Math.max(0.08, Math.min(1, (p.z < 0 ? 0.95 : 0.22) * p.scale));
         const size = p.baseSize * p.scale;
 
         ctx.beginPath();
         ctx.arc(p.px, p.py, Math.max(0.8, size), 0, Math.PI * 2);
 
         if (p.isHotspot) {
-          ctx.fillStyle = `rgba(16, 185, 129, ${opacity})`;
+          const color = p.type === 'my' 
+            ? `rgba(16, 185, 129, ${opacity})`       // Emerald for Malaysia
+            : p.type === 'asean' 
+            ? `rgba(6, 182, 212, ${opacity})`        // Cyan for ASEAN
+            : `rgba(99, 102, 241, ${opacity})`;       // Indigo for Global
+
+          ctx.fillStyle = color;
           ctx.fill();
 
           // Outer pulse ring for hotspot
           ctx.beginPath();
-          ctx.arc(p.px, p.py, size * 2.5, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(16, 185, 129, ${opacity * 0.4})`;
-          ctx.lineWidth = 1;
+          ctx.arc(p.px, p.py, size * 2.6, 0, Math.PI * 2);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 0.8;
           ctx.stroke();
 
-          // Hotspot label
-          if (p.label && p.z < -40) {
-            ctx.font = '10px sans-serif';
-            ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.85})`;
-            ctx.fillText(p.label, p.px + 8, p.py + 3);
+          // Hotspot text label when on the front hemisphere (z < -20)
+          if (p.label && p.z < -20) {
+            ctx.font = p.type === 'my' ? 'bold 10px sans-serif' : '9px sans-serif';
+            ctx.fillStyle = p.type === 'my' 
+              ? `rgba(255, 255, 255, ${opacity * 0.95})` 
+              : `rgba(203, 213, 225, ${opacity * 0.75})`;
+            
+            // Draw tiny marker dot line
+            ctx.beginPath();
+            ctx.moveTo(p.px, p.py);
+            ctx.lineTo(p.px + 6, p.py - 4);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+
+            ctx.fillText(p.label, p.px + 9, p.py - 3);
           }
         } else {
-          ctx.fillStyle = p.z < 0 ? `rgba(6, 182, 212, ${opacity})` : `rgba(148, 163, 184, ${opacity * 0.5})`;
+          ctx.fillStyle = p.z < 0 ? `rgba(6, 182, 212, ${opacity})` : `rgba(148, 163, 184, ${opacity * 0.45})`;
           ctx.fill();
         }
       });
