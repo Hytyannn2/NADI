@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
+import pkg from '@/package.json';
 import { useGame } from '@/src/context/GameContext';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useXP } from '@/src/hooks/useXP';
@@ -509,7 +510,7 @@ export default function DashboardView() {
                     Platform Digital Komuniti & Respon Warga
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] mt-3 font-medium" style={{ color: 'var(--text-muted)' }}>
-                    <span>v2.7.3</span>
+                    <span>v{pkg.version}</span>
                     <span>•</span>
                     <span>Hak Cipta Terpelihara © {new Date().getFullYear()} NADI</span>
                     <span>•</span>
