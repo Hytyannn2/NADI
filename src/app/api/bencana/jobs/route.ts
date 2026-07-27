@@ -24,15 +24,24 @@ export async function GET() {
 // POST /api/bencana/jobs — submit, accept, or cancel a volunteer job
 export async function POST(request: Request) {
     try {
-        // SECURITY: CSRF defense-in-depth — validate Origin/Referer for state-changing requests
+        // SECURITY: CSRF defense-in-depth — validate Origin/Referer using exact hostname comparison
         const origin = request.headers.get('origin');
         const referer = request.headers.get('referer');
-        const host = request.headers.get('host');
-        if (origin && host && !origin.includes(host)) {
-            return NextResponse.json({ success: false, error: 'Forbidden: Cross-origin request detected.' }, { status: 403 });
-        }
-        if (!origin && referer && host && !referer.includes(host)) {
-            return NextResponse.json({ success: false, error: 'Forbidden: Cross-origin request detected.' }, { status: 403 });
+        const host = request.headers.get('host')?.split(':')[0]; // strip port
+        if (host) {
+            try {
+                if (origin) {
+                    const originHost = new URL(origin).hostname;
+                    if (originHost !== host && !originHost.endsWith('.' + host)) {
+                        return NextResponse.json({ success: false, error: 'Forbidden: Cross-origin request detected.' }, { status: 403 });
+                    }
+                } else if (referer) {
+                    const refererHost = new URL(referer).hostname;
+                    if (refererHost !== host && !refererHost.endsWith('.' + host)) {
+                        return NextResponse.json({ success: false, error: 'Forbidden: Cross-origin request detected.' }, { status: 403 });
+                    }
+                }
+            } catch { /* malformed URL — allow request to proceed, auth will catch it */ }
         }
 
         const body = await request.json();
@@ -44,14 +53,16 @@ export async function POST(request: Request) {
         // Accept a job
         if (action === 'accept' && jobId) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+            // SECURITY: Only accept jobs that are still 'open' to prevent race/overwrite
             const { data, error } = await supabase
                 .from('nadi_bencana_jobs')
                 .update({ status: 'accepted', accepted_by: user.id })
                 .eq('id', jobId)
+                .eq('status', 'open')
                 .select()
                 .single();
 
-            if (error) return NextResponse.json({ success: false, error: 'Job not found or error.' }, { status: 404 });
+            if (error) return NextResponse.json({ success: false, error: 'Job not found, already accepted, or error.' }, { status: 409 });
             return NextResponse.json({ success: true, job: data });
         }
 

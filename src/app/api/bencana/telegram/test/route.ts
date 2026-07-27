@@ -1,5 +1,21 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramTest, sendTelegramAlert } from '@/src/lib/telegram';
+import { timingSafeEqual } from 'crypto';
+
+// SECURITY: Constant-time string comparison to prevent timing attacks
+function safeCompare(a: string, b: string): boolean {
+    try {
+        const bufA = Buffer.from(a);
+        const bufB = Buffer.from(b);
+        if (bufA.length !== bufB.length) {
+            timingSafeEqual(bufA, bufA);
+            return false;
+        }
+        return timingSafeEqual(bufA, bufB);
+    } catch {
+        return false;
+    }
+}
 
 /**
  * GET /api/bencana/telegram/test
@@ -21,8 +37,8 @@ export async function GET(request: Request) {
         if (!adminKey) {
             return NextResponse.json({ success: false, error: 'Server misconfiguration: API key not set.' }, { status: 503 });
         }
-        const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-        if (providedKey !== adminKey) {
+        const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '') || '';
+        if (!safeCompare(providedKey, adminKey)) {
             return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
         }
     }
@@ -64,8 +80,8 @@ export async function POST(request: Request) {
         if (!adminKey) {
             return NextResponse.json({ success: false, error: 'Server misconfiguration: API key not set.' }, { status: 503 });
         }
-        const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-        if (providedKey !== adminKey) {
+        const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '') || '';
+        if (!safeCompare(providedKey, adminKey)) {
             return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
         }
     }

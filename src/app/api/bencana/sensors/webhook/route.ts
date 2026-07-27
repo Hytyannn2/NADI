@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendTelegramAlert } from '@/src/lib/telegram';
+import { timingSafeEqual } from 'crypto';
+
+// SECURITY: Constant-time string comparison to prevent timing attacks
+function safeCompare(a: string, b: string): boolean {
+    try {
+        const bufA = Buffer.from(a);
+        const bufB = Buffer.from(b);
+        if (bufA.length !== bufB.length) {
+            timingSafeEqual(bufA, bufA);
+            return false;
+        }
+        return timingSafeEqual(bufA, bufB);
+    } catch {
+        return false;
+    }
+}
 
 /**
  * POST /api/bencana/sensors/webhook
@@ -31,8 +47,8 @@ export async function POST(request: Request) {
                 console.error('[Webhook] FATAL: TTN_WEBHOOK_SECRET not set in non-dev environment. Rejecting all requests.');
                 return NextResponse.json({ success: false, error: 'Webhook not configured' }, { status: 503 });
             }
-            const providedSecret = request.headers.get('x-webhook-secret') || request.headers.get('x-downlink-apikey');
-            if (providedSecret !== webhookSecret) {
+            const providedSecret = request.headers.get('x-webhook-secret') || request.headers.get('x-downlink-apikey') || '';
+            if (!safeCompare(providedSecret, webhookSecret)) {
                 return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
             }
         }

@@ -17,6 +17,25 @@ function generateSecureId(): string {
     return result;
 }
 
+// SECURITY: Sanitize string input to prevent stored XSS and enforce length limits
+function sanitizeString(val: unknown, maxLen = 500): string {
+    if (typeof val !== 'string') return '';
+    return val
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&#x2F;/g, '/')
+        .replace(/&nbsp;/g, ' ')
+        .trim()
+        .slice(0, maxLen);
+}
+
 // GET /api/bantuan/requests — fetch all mutual aid requests
 export async function GET() {
     const sorted = [...requestsStore].sort((a, b) => b.submittedAt - a.submittedAt);
@@ -34,6 +53,7 @@ export async function POST(request: Request) {
 
         // Fulfill action — rate-limited to prevent abuse
         if (body.action === 'fulfill' && body.requestId) {
+            const reqId = sanitizeString(body.requestId, 100);
             // Rate limiting by IP
             const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
             const lastAttempt = fulfillRateLimit.get(clientIp) || 0;
@@ -50,7 +70,7 @@ export async function POST(request: Request) {
                 }
             }
 
-            const req = requestsStore.find(r => r.id === body.requestId);
+            const req = requestsStore.find(r => r.id === reqId);
             if (req) {
                 req.fulfilled = true;
                 return NextResponse.json({ success: true });
@@ -60,19 +80,28 @@ export async function POST(request: Request) {
 
         // Submit new request
         const { title, description, location, category, type, contact } = body;
-        if (!title || !description || !location) {
-            return NextResponse.json({ success: false, error: 'Missing required fields.' }, { status: 400 });
+        
+        // SECURITY: Type enforcement, length limits, and HTML sanitization
+        const cleanTitle = sanitizeString(title, 150);
+        const cleanDescription = sanitizeString(description, 1000);
+        const cleanLocation = sanitizeString(location, 150);
+        const cleanCategory = sanitizeString(category, 50) || 'General';
+        const cleanType = (type === 'offer' || type === 'need') ? type : 'need';
+        const cleanContact = sanitizeString(contact, 100);
+
+        if (!cleanTitle || !cleanDescription || !cleanLocation) {
+            return NextResponse.json({ success: false, error: 'Missing or invalid required fields.' }, { status: 400 });
         }
 
         const newRequest = {
             id: generateSecureId(),
             poster: 'Anonymous Warga',
-            type: type || 'need',
-            title,
-            description,
-            location,
-            category: category || 'General',
-            contact: contact || '',
+            type: cleanType,
+            title: cleanTitle,
+            description: cleanDescription,
+            location: cleanLocation,
+            category: cleanCategory,
+            contact: cleanContact,
             submittedAt: Date.now(),
             time: 'Just now',
             fulfilled: false,

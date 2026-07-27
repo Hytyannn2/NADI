@@ -23,19 +23,7 @@ export default function AdminDashboard() {
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [activeTab, setActiveTab] = useState<'overview' | 'reports'>('overview');
 
-    useEffect(() => {
-        if (!loading && !user) {
-            router.push('/');
-            return;
-        }
-        // SECURITY: Client-side admin role check (defense-in-depth — server APIs also enforce this)
-        if (!loading && user) {
-            const isAdmin = (user as any).app_metadata?.role === 'admin' || user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-            if (!isAdmin) {
-                router.push('/');
-            }
-        }
-    }, [user, loading, router]);
+    const [authorized, setAuthorized] = useState(false);
 
     const loadData = async () => {
         setFetching(true);
@@ -53,9 +41,26 @@ export default function AdminDashboard() {
         finally { setFetching(false); }
     };
 
-    useEffect(() => { if (user) loadData(); }, [user]);
+    useEffect(() => {
+        if (loading) return;
 
-    if (loading || !user) return (
+        if (!user) {
+            router.push('/');
+            return;
+        }
+
+        // SECURITY: Verify admin authorization BEFORE fetching any admin data
+        const isAdmin = (user as any).app_metadata?.role === 'admin' || user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+        if (!isAdmin) {
+            router.push('/');
+            return;
+        }
+
+        setAuthorized(true);
+        loadData();
+    }, [user, loading, router]);
+
+    if (loading || !user || !authorized) return (
         <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white">
             <Loader2 className="w-8 h-8 animate-spin text-[#C5A367] mb-4" />
             <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Authenticating Secure Connection...</p>

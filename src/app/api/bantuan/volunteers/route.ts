@@ -116,6 +116,38 @@ async function scrapeMysukarelawan(targetLang: string): Promise<VolunteerOpp[]> 
     }
 }
 
+// Simple in-memory rate limiter & response cache to prevent Groq API abuse
+const volunteerCache = new Map<string, { data: any; expires: number }>();
+const ipRateLimit = new Map<string, { count: number; expires: number }>();
+
+function sanitizeText(str: unknown): string {
+    if (typeof str !== 'string') return '';
+    return str
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&#x2F;/g, '/')
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+}
+
+function sanitizeUrl(rawUrl: unknown, fallback: string): string {
+    if (typeof rawUrl !== 'string') return fallback;
+    try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.toString();
+        }
+    } catch {}
+    return fallback;
+}
+
 async function getGroqVolunteers(groqKey: string, targetLang: string = 'English'): Promise<VolunteerOpp[]> {
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -125,27 +157,15 @@ async function getGroqVolunteers(groqKey: string, targetLang: string = 'English'
                 model: 'llama-3.3-70b-versatile',
                 messages: [{
                     role: 'system',
-                    content: `You are a Malaysian volunteer opportunity aggregator. The current year is 2026. Return ONLY valid JSON array of volunteer opportunities across Malaysia.
-
-CRITICAL INSTRUCTION: You MUST translate the string values of 'title', 'description', 'organization', 'location', and 'commitment' into ${targetLang}. Keep the exact JSON structure and keys in English.
-
-CRITICAL RULES FOR URLs:
-- For each opportunity, the "url" field MUST point to the SPECIFIC volunteer/get-involved page of the organization, NOT the homepage.
-- Use these EXACT real URLs for known organizations:
-  * MySukarelawan activities: "https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti"
-  * Mercy Malaysia volunteering: "https://www.mercy.org.my/get-involved/"
-  * Red Crescent volunteering: "https://www.redcrescent.org.my/our-services"
-  * WWF-Malaysia volunteering: "https://www.wwf.org.my/get_involved/"
-  * Habitat for Humanity MY: "https://www.habitat.org.my/volunteer/"
-  * MNS (Malaysian Nature Society): "https://www.mns.my/join-us"
-  * Food Aid Foundation: "https://www.foodaidfoundation.org/volunteer.html"
-  * Yayasan Sukarelawan Siswa: "https://yss.mohe.gov.my"
-  * SOLS 24/7: "https://sols247.org/volunteer/"
-  * Pertubuhan Sukarelawan Malaysia: search on mysukarelawan.gov.my
-  * Free Food Society: search on their Facebook/website
-  * Teach For Malaysia: "https://www.teachformalaysia.org/get-involved"
-  * UNICEF MY: "https://www.unicef.org/malaysia/take-action"
-  * Islamic Relief MY: "https://www.islamic-relief.org.my/volunteer/"
+                    content: `You are a Malaysian volunteer coordinator. Return active volunteer opportunities in Malaysia as a JSON array ONLY.
+Use REAL URLs from these organizations:
+- MySukarelawan: "https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti"
+- Yayasan Food Bank Malaysia: "https://yfbm.org"
+- Mercy Malaysia: "https://www.mercy.org.my/get-involved/"
+- Malaysian Red Crescent: "https://www.redcrescent.org.my/our-services"
+- WWF-Malaysia: "https://www.wwf.org.my/get_involved/"
+- Habitat for Humanity MY: "https://www.habitat.org.my/volunteer/"
+- Yayasan Sukarelawan Siswa: "https://yss.mohe.gov.my"
 
 If you don't know the exact volunteer page URL for an org, use: "https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti" (the national portal search).
 
@@ -168,7 +188,23 @@ Return 12-15 diverse opportunities from different states. ONLY JSON array, no ma
         const content = data.choices?.[0]?.message?.content || '[]';
 
         const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        return JSON.parse(cleaned);
+        const rawItems = JSON.parse(cleaned);
+        if (!Array.isArray(rawItems)) return [];
+
+        // SECURITY: Sanitize all AI-generated fields and validate URLs
+        return rawItems.map((item: any, idx: number) => ({
+            id: `ai-${idx}-${Date.now()}`,
+            title: sanitizeText(item.title) || 'Sukarelawan',
+            organization: sanitizeText(item.organization) || 'Organisasi Sukarelawan',
+            category: ['disaster_relief', 'education', 'environment', 'healthcare', 'community', 'elderly_care', 'animal_welfare', 'youth'].includes(item.category) ? item.category : 'community',
+            description: sanitizeText(item.description),
+            location: sanitizeText(item.location) || 'Malaysia',
+            commitment: sanitizeText(item.commitment) || 'Flexible',
+            spots: typeof item.spots === 'number' && Number.isFinite(item.spots) ? Math.max(0, Math.min(item.spots, 1000)) : 10,
+            url: sanitizeUrl(item.url, 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti'),
+            urgency: ['high', 'medium', 'low'].includes(item.urgency) ? item.urgency : 'medium',
+            startDate: sanitizeText(item.startDate) || '2026',
+        }));
     } catch {
         return [];
     }
@@ -179,6 +215,26 @@ export async function GET(request: NextRequest) {
     const langParam = searchParams.get('lang') || 'en';
     const langMap: Record<string, string> = { ms: 'Malay', en: 'English', zh: 'Chinese', ta: 'Tamil', ar: 'Arabic' };
     const targetLang = langMap[langParam] || 'English';
+
+    // SECURITY: Rate limiting by IP (max 20 req/min)
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const now = Date.now();
+    const rl = ipRateLimit.get(clientIp);
+    if (rl && rl.expires > now) {
+        if (rl.count >= 20) {
+            return NextResponse.json({ success: false, error: 'Too many requests. Please wait.' }, { status: 429 });
+        }
+        rl.count++;
+    } else {
+        ipRateLimit.set(clientIp, { count: 1, expires: now + 60000 });
+    }
+
+    // SECURITY & PERF: Return cached response if available (TTL 10 mins)
+    const cacheKey = targetLang;
+    const cached = volunteerCache.get(cacheKey);
+    if (cached && cached.expires > now) {
+        return NextResponse.json(cached.data);
+    }
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
@@ -231,12 +287,17 @@ export async function GET(request: NextRequest) {
             isPortal: true,
         }));
 
-        return NextResponse.json({
+        const responseData = {
             success: true,
             opportunities: unique.slice(0, 15),
             portals,
             total: unique.length,
-        });
+        };
+
+        // Cache the response for 10 minutes
+        volunteerCache.set(cacheKey, { data: responseData, expires: now + 600000 });
+
+        return NextResponse.json(responseData);
 
     } catch (error: any) {
         console.error('Volunteer opportunities API error:', error);
