@@ -50,7 +50,7 @@ export function useWeather() {
                     fetchLocationName(latitude, longitude);
                 },
                 (error) => {
-                    console.error("Error getting location:", error);
+                    console.info("Geolocation unavailable or denied, falling back to Kuala Lumpur:", error.message || "Position unavailable");
                     // Default to Kuala Lumpur if geolocation fails or is denied
                     const klLat = 3.1390;
                     const klLng = 101.6869;
