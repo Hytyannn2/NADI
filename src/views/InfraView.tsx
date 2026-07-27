@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGame } from '../context/GameContext';
@@ -324,18 +325,62 @@ export default function InfraView() {
         return { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'LOW' };
     };
 
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     return (
         <div className="p-5 h-full flex flex-col relative z-0">
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
             
-            {/* Hidden video element for dashcam stream */}
-            <video
-                ref={dashcam.videoRef}
-                className="hidden"
-                playsInline
-                muted
-                autoPlay
-            />
+            {/* Single video element & Overlay — Portal to document.body for true edge-to-edge fullscreen */}
+            {mounted && createPortal(
+                <>
+                    <video
+                        ref={dashcam.videoRef}
+                        className={dashcam.isDashcamEnabled ? 'fixed inset-0 w-screen h-screen object-cover z-[999999]' : 'hidden'}
+                        playsInline
+                        muted
+                        autoPlay
+                    />
+                    <AnimatePresence>
+                        {dashcam.isDashcamEnabled && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[9999999] pointer-events-none"
+                            >
+                                {/* Top bar */}
+                                <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+                                    <div className="flex items-center gap-2.5 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                                        <span className="text-xs font-bold text-white uppercase tracking-widest">Dashcam Live</span>
+                                    </div>
+                                    <button
+                                        onClick={handleToggleDashcam}
+                                        className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 active:scale-90 transition-transform shadow-2xl"
+                                    >
+                                        <span className="text-white text-xl font-bold">✕</span>
+                                    </button>
+                                </div>
+                                {/* Bottom info */}
+                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <Shield className="w-4 h-4 text-[#10B981]" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Privacy Mode</span>
+                                    </div>
+                                    <p className="text-xs text-zinc-300 font-medium leading-relaxed max-w-lg">
+                                        Only captures 1 frame on pothole impact • No continuous video recording stored or saved
+                                    </p>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </>,
+                document.body
+            )}
 
             {/* === HEADER === */}
             <motion.div
@@ -358,17 +403,15 @@ export default function InfraView() {
                         )}
                     </p>
                 </div>
-                {/* Dashcam Toggle — only show when moving */}
-                {detector.currentSpeed > 0 && (
-                    <button
-                        onClick={handleToggleDashcam}
-                        className={`shrink-0 px-3 py-3 flex items-center justify-center gap-1.5 rounded-xl transition-all text-xs font-bold border focus:outline-none active:scale-95 ${dashcam.isDashcamEnabled ? 'bg-red-50 text-red-600 border-red-200' : ''}`}
-                        style={!dashcam.isDashcamEnabled ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
-                    >
-                        {dashcam.isDashcamEnabled ? <Video className="w-4 h-4 text-red-500" /> : <VideoOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />}
-                        {dashcam.isDashcamEnabled ? '📸' : 'Cam'}
-                    </button>
-                )}
+                {/* Dashcam Toggle — always available so user can enable before driving */}
+                <button
+                    onClick={handleToggleDashcam}
+                    className={`shrink-0 px-3 py-3 flex items-center justify-center gap-1.5 rounded-xl transition-all text-xs font-bold border focus:outline-none active:scale-95 ${dashcam.isDashcamEnabled ? 'bg-red-50 text-red-600 border-red-200' : ''}`}
+                    style={!dashcam.isDashcamEnabled ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
+                >
+                    {dashcam.isDashcamEnabled ? <Video className="w-4 h-4 text-red-500" /> : <VideoOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />}
+                    {dashcam.isDashcamEnabled ? '📸' : 'Cam'}
+                </button>
             </motion.div>
 
             {/* === DRIVING HUD — only visible when actually moving === */}
