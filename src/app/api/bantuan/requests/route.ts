@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 
 // In-memory store for mutual aid requests (MVP — replace with Supabase in production)
 const requestsStore: any[] = [];
@@ -7,14 +8,9 @@ const requestsStore: any[] = [];
 const fulfillRateLimit = new Map<string, number>();
 const FULFILL_COOLDOWN_MS = 5000; // 5 seconds between fulfill attempts per IP
 
-// Generate a cryptographically random ID to prevent enumeration
+// Generate a cryptographically secure random ID using CSPRNG (crypto.randomUUID)
 function generateSecureId(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = 'req-';
-    for (let i = 0; i < 24; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    return `req-${randomUUID()}`;
 }
 
 // SECURITY: Robust HTML entity encoding to prevent stored XSS entirely
