@@ -90,14 +90,17 @@ export async function POST(request: Request) {
             usedNonces.set(nonce, now + 600000); // Store for 10 mins
         }
 
-        const isDev = process.env.NODE_ENV === 'development';
-        if (!isDev) {
+        // SECURITY: Webhook authentication — enforce secret check regardless of NODE_ENV
+        // To bypass auth during local testing, ALLOW_UNAUTHENTICATED_WEBHOOK_DEV=true must be explicitly set
+        const allowUnauthenticatedDev = process.env.ALLOW_UNAUTHENTICATED_WEBHOOK_DEV === 'true';
+
+        if (!allowUnauthenticatedDev) {
             if (!webhookSecret) {
-                console.error('[Webhook] FATAL: TTN_WEBHOOK_SECRET not set in non-dev environment. Rejecting all requests.');
-                return NextResponse.json({ success: false, error: 'Webhook not configured' }, { status: 503 });
+                console.error('[Webhook] FATAL: TTN_WEBHOOK_SECRET is not set. Rejecting request.');
+                return NextResponse.json({ success: false, error: 'Webhook secret not configured' }, { status: 503 });
             }
             const providedSecret = request.headers.get('x-webhook-secret') || request.headers.get('x-downlink-apikey') || '';
-            if (!safeCompare(providedSecret, webhookSecret)) {
+            if (!providedSecret || !safeCompare(providedSecret, webhookSecret)) {
                 return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
             }
         }
