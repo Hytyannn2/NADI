@@ -35,13 +35,61 @@ function safeCompare(a: string, b: string): boolean {
  * TTN Webhook Setup:
  *   URL: https://your-domain.vercel.app/api/bencana/sensors/webhook
  *   Events: Uplink message
- *   Optional: Add X-Webhook-Secret header for auth
- */
+// In-memory cache for webhook replay protection and rate limiting
+const usedNonces = new Map<string, number>();
+const webhookRateLimit = new Map<string, { count: number; expires: number }>();
+
+function cleanExpiredNonces() {
+    const now = Date.now();
+    for (const [nonce, expires] of usedNonces.entries()) {
+        if (expires < now) usedNonces.delete(nonce);
+    }
+}
+
 export async function POST(request: Request) {
     try {
+        // SECURITY: Payload size restriction (max 50KB)
+        const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
+        if (contentLength > 50000) {
+            return NextResponse.json({ success: false, error: 'Payload too large (max 50KB)' }, { status: 413 });
+        }
+
+        // SECURITY: Rate limiting (max 60 req/min per IP)
+        const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-client';
+        const now = Date.now();
+        const rateRecord = webhookRateLimit.get(clientIp);
+        if (rateRecord && rateRecord.expires > now) {
+            if (rateRecord.count >= 60) {
+                return NextResponse.json({ success: false, error: 'Rate limit exceeded (max 60 req/min)' }, { status: 429 });
+            }
+            rateRecord.count++;
+        } else {
+            webhookRateLimit.set(clientIp, { count: 1, expires: now + 60000 });
+        }
+
         // SECURITY: Webhook authentication with nonce and timestamp replay protection
         const webhookSecret = process.env.TTN_WEBHOOK_SECRET;
-        const nonce = request.headers.get('x-nonce') || request.headers.get('x-signature') || request.headers.get('x-timestamp') || request.headers.get('x-ttn-signature');
+        const timestampHeader = request.headers.get('x-timestamp') || request.headers.get('x-ttn-timestamp');
+        const nonce = request.headers.get('x-nonce') || request.headers.get('x-signature') || request.headers.get('x-ttn-signature');
+
+        // Replay protection: Validate timestamp freshness (max 5 minutes tolerance)
+        if (timestampHeader) {
+            const reqTime = parseInt(timestampHeader, 10);
+            const nowSec = Math.floor(now / 1000);
+            if (!isNaN(reqTime) && Math.abs(nowSec - reqTime) > 300) {
+                return NextResponse.json({ success: false, error: 'Request timestamp expired or invalid' }, { status: 401 });
+            }
+        }
+
+        // Replay protection: Validate nonce uniqueness
+        if (nonce) {
+            cleanExpiredNonces();
+            if (usedNonces.has(nonce)) {
+                return NextResponse.json({ success: false, error: 'Replay attack detected: nonce already processed' }, { status: 409 });
+            }
+            usedNonces.set(nonce, now + 600000); // Store for 10 mins
+        }
+
         const isDev = process.env.NODE_ENV === 'development';
         if (!isDev) {
             if (!webhookSecret) {

@@ -5,3 +5,22 @@
 trivy-license.Apache-2.0 AND LGPL-3.0-or-later
 trivy-license.LGPL-3.0-or-later
 trivy-license.Apache-2.0 AND LGPL-3.0-or-later AND MIT
+
+LGPL-3.0-or-later
+Apache-2.0 AND LGPL-3.0-or-later
+Apache-2.0 AND LGPL-3.0-or-later AND MIT
+
+@img/sharp-win32-x64
+@img/sharp-win32-ia32
+@img/sharp-win32-arm64
+@img/sharp-wasm32
+@img/sharp-libvips-linuxmusl-x64
+@img/sharp-libvips-linuxmusl-arm64
+@img/sharp-libvips-linux-x64
+@img/sharp-libvips-linux-s390x
+@img/sharp-libvips-linux-riscv64
+@img/sharp-libvips-linux-ppc64
+@img/sharp-libvips-linux-arm64
+@img/sharp-libvips-linux-arm
+@img/sharp-libvips-darwin-x64
+@img/sharp-libvips-darwin-arm64

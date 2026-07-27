@@ -33,12 +33,29 @@ const REAL_PORTALS = [
     { name: 'WWF-Malaysia', url: 'https://www.wwf.org.my', searchUrl: 'https://www.wwf.org.my/get_involved/' },
     { name: 'Habitat for Humanity MY', url: 'https://www.habitat.org.my', searchUrl: 'https://www.habitat.org.my/volunteer/' },
     { name: 'Yayasan Sukarelawan Siswa', url: 'https://yss.mohe.gov.my', searchUrl: 'https://yss.mohe.gov.my' },
-];
+// Known allowed domains for server-side scraping (SSRF protection)
+const ALLOWED_SCRAPE_DOMAINS = new Set(['mysukarelawan.gov.my']);
+
+function isAllowedScrapeUrl(targetUrl: string): boolean {
+    try {
+        const parsed = new URL(targetUrl);
+        return ALLOWED_SCRAPE_DOMAINS.has(parsed.hostname);
+    } catch {
+        return false;
+    }
+}
 
 async function scrapeMysukarelawan(targetLang: string): Promise<VolunteerOpp[]> {
     try {
+        const targetUrl = 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti';
+        // SECURITY: SSRF protection — enforce request-time domain allowlist
+        if (!isAllowedScrapeUrl(targetUrl)) {
+            console.error('[SSRF Guard] Blocked request to non-allowlisted domain:', targetUrl);
+            return [];
+        }
+
         // Try fetching from mysukarelawan.gov.my search page
-        const res = await fetch('https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti', {
+        const res = await fetch(targetUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml',
@@ -202,7 +219,17 @@ export async function GET(request: NextRequest) {
     const targetLang = langMap[langParam] || 'English';
 
     // SECURITY: Rate limiting by IP (max 20 req/min)
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-client';
     const now = Date.now();
+    const rateRecord = ipRateLimit.get(clientIp);
+    if (rateRecord && rateRecord.expires > now) {
+        if (rateRecord.count >= 20) {
+            return NextResponse.json({ success: false, error: 'Rate limit exceeded (max 20 req/min)' }, { status: 429 });
+        }
+        rateRecord.count++;
+    } else {
+        ipRateLimit.set(clientIp, { count: 1, expires: now + 60000 });
+    }
 
     // SECURITY & PERF: Return cached response if available (TTL 10 mins)
     const cacheKey = targetLang;
