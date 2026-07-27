@@ -27,6 +27,7 @@ interface VolunteerOpp {
 // Known real Malaysian volunteer portals with search/listing pages
 const REAL_PORTALS = [
     { name: 'MySukarelawan', url: 'https://mysukarelawan.gov.my', searchUrl: 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti' },
+    { name: 'Yayasan Food Bank Malaysia (YFBM)', url: 'https://yfbm.org', searchUrl: 'https://yfbm.org' },
     { name: 'Mercy Malaysia', url: 'https://www.mercy.org.my', searchUrl: 'https://www.mercy.org.my/get-involved/' },
     { name: 'Malaysian Red Crescent', url: 'https://www.redcrescent.org.my', searchUrl: 'https://www.redcrescent.org.my/our-services' },
     { name: 'WWF-Malaysia', url: 'https://www.wwf.org.my', searchUrl: 'https://www.wwf.org.my/get_involved/' },

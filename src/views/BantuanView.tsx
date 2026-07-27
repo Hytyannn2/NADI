@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle } from 'lucide-react';
+import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import VolunteerChat from '@/src/components/VolunteerChat';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -57,6 +57,9 @@ export default function BantuanView() {
     const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>('programs');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
+    const [filterLocation, setFilterLocation] = useState<string>('all');
+    const [filterEligStatus, setFilterEligStatus] = useState<'all' | 'eligible' | 'maybe' | 'not_eligible'>('all');
+    const [sortBy, setSortBy] = useState<'default' | 'name_asc' | 'name_desc' | 'provider_asc' | 'provider_desc' | 'match_desc' | 'match_asc'>('name_asc');
     const [volFilterCategory, setVolFilterCategory] = useState<string>('all');
 
     // Algorithmic Debouncing optimization
@@ -108,6 +111,7 @@ export default function BantuanView() {
     const { data: localJobsData, isLoading: localJobsLoading, mutate: mutateLocalJobs } = useSWR(activeTab === 'volunteer' ? '/api/bencana/jobs' : null, fetcher);
     const localJobs: VolunteerJob[] = localJobsData?.jobs || [];
     const [showJobForm, setShowJobForm] = useState(false);
+    const [selectedProgram, setSelectedProgram] = useState<AidProgram | null>(null);
     const [isSubmittingJob, setIsSubmittingJob] = useState(false);
     const [jobForm, setJobForm] = useState({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
 
@@ -117,16 +121,16 @@ export default function BantuanView() {
 
     // Lock background scroll when modal is open and pre-fill name
     useEffect(() => {
-        if (showJobForm) {
+        if (showJobForm || selectedProgram) {
             document.body.style.overflow = 'hidden';
-            if (!jobForm.name && user?.user_metadata?.full_name) {
+            if (showJobForm && !jobForm.name && user?.user_metadata?.full_name) {
                 setJobForm(prev => ({ ...prev, name: user.user_metadata.full_name }));
             }
         } else {
             document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
-    }, [showJobForm, user]);
+    }, [showJobForm, selectedProgram, user]);
     const [chatJobName, setChatJobName] = useState<string | null>(null);
 
     const handleAcceptJob = async (jobId: string) => {
@@ -200,10 +204,10 @@ export default function BantuanView() {
 
 
     const typeColors: Record<string, string> = {
-        government: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        ngo: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-        zakat: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-        community: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+        government: 'bg-blue-500/15 text-blue-300 border-blue-400/30 shadow-[0_0_12px_rgba(59,130,246,0.15)]',
+        ngo: 'bg-purple-500/15 text-purple-300 border-purple-400/30 shadow-[0_0_12px_rgba(168,85,247,0.15)]',
+        zakat: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]',
+        community: 'bg-amber-500/15 text-amber-300 border-amber-400/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]',
     };
 
     const urgencyStyles: Record<string, { bg: string; text: string; label: string }> = {
@@ -223,12 +227,45 @@ export default function BantuanView() {
         youth: '⚡',
     };
 
-    const filteredPrograms = aidPrograms.filter(a =>
-        (filterType === 'all' || a.type === filterType) &&
-        (debouncedSearchQuery.trim() === '' ||
-            a.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-            a.provider?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
-    );
+    const filteredPrograms = aidPrograms
+        .filter(a => {
+            const matchesType = filterType === 'all' || a.type === filterType;
+            const matchesLoc = filterLocation === 'all' || a.location.toLowerCase().includes(filterLocation.toLowerCase());
+            const matchObj = matchResults[a.id];
+            const matchesElig = filterEligStatus === 'all'
+                ? true
+                : filterEligStatus === 'eligible'
+                ? matchObj?.isEligible === true
+                : filterEligStatus === 'maybe'
+                ? matchObj?.isEligible === 'maybe'
+                : matchObj?.isEligible === false;
+
+            const q = debouncedSearchQuery.trim().toLowerCase();
+            const matchesSearch = q === '' ||
+                a.name.toLowerCase().includes(q) ||
+                a.provider?.toLowerCase().includes(q) ||
+                a.description.toLowerCase().includes(q) ||
+                a.eligibility.toLowerCase().includes(q);
+
+            return matchesType && matchesLoc && matchesElig && matchesSearch;
+        })
+        .sort((a, b) => {
+            if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+            if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
+            if (sortBy === 'provider_asc') return a.provider.localeCompare(b.provider);
+            if (sortBy === 'provider_desc') return b.provider.localeCompare(a.provider);
+            if (sortBy === 'match_desc') {
+                const scoreA = (matchResults[a.id] as any)?.matchScore ?? ((matchResults[a.id] as any)?.isEligible === true ? 100 : 0);
+                const scoreB = (matchResults[b.id] as any)?.matchScore ?? ((matchResults[b.id] as any)?.isEligible === true ? 100 : 0);
+                return scoreB - scoreA;
+            }
+            if (sortBy === 'match_asc') {
+                const scoreA = (matchResults[a.id] as any)?.matchScore ?? ((matchResults[a.id] as any)?.isEligible === true ? 100 : 0);
+                const scoreB = (matchResults[b.id] as any)?.matchScore ?? ((matchResults[b.id] as any)?.isEligible === true ? 100 : 0);
+                return scoreA - scoreB;
+            }
+            return 0;
+        });
 
     const filteredVolunteers = volOpportunities.filter(v =>
         (volFilterCategory === 'all' || v.category === volFilterCategory) &&
@@ -406,41 +443,111 @@ export default function BantuanView() {
                             initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}
                             className="space-y-4"
                         >
-                            {/* Search + Filter */}
-                            <div className="relative mb-2 group">
-                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                    <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                                </div>
-                                <input
-                                    type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                                    placeholder={t('bantuan.search_aid')}
-                                    className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
-                                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-                                />
-                            </div>
-                            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3 pb-1">
-                                {[
-                                    { id: 'all', label: 'Semua Program', icon: '🌐' },
-                                    { id: 'government', label: 'Kerajaan', icon: '🏛️' },
-                                    { id: 'ngo', label: 'NGO Bantuan', icon: '🤝' },
-                                    { id: 'zakat', label: 'Zakat & Baitulmal', icon: '🕌' }
-                                ].map(cat => {
-                                    const isActive = filterType === cat.id;
-                                    return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setFilterType(cat.id as any)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border"
-                                            style={isActive
-                                                ? { background: 'var(--accent-muted)', color: 'var(--accent)', borderColor: 'var(--accent)', boxShadow: '0 2px 8px rgba(197, 163, 103, 0.15)' }
-                                                : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
-                                            }
+                            {/* Multi-Factor Search & Filter Controls */}
+                            <div className="space-y-3 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex-1 group">
+                                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                            <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                                        </div>
+                                        <input
+                                            type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                                            placeholder={t('bantuan.search_aid')}
+                                            className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
+                                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                                        />
+                                    </div>
+
+                                    {/* Sort Dropdown */}
+                                    <div className="relative shrink-0">
+                                        <Filter className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--accent)' }} />
+                                        <select
+                                            value={sortBy}
+                                            onChange={e => setSortBy(e.target.value as any)}
+                                            className="appearance-none pl-9 pr-8 py-3 rounded-2xl text-xs font-bold outline-none cursor-pointer border transition-all"
+                                            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                                         >
-                                            <span className="text-sm">{cat.icon}</span>
-                                            <span>{cat.label}</span>
-                                        </button>
-                                    );
-                                })}
+                                            <option value="default">Default</option>
+                                            <option value="name_asc">Nama (A - Z)</option>
+                                            <option value="name_desc">Nama (Z - A)</option>
+                                            <option value="provider_asc">Agensi (A - Z)</option>
+                                            <option value="provider_desc">Agensi (Z - A)</option>
+                                            {Object.keys(matchResults).length > 0 && (
+                                                <>
+                                                    <option value="match_desc">Skor Kelayakan (Tertinggi)</option>
+                                                    <option value="match_asc">Skor Kelayakan (Terendah)</option>
+                                                </>
+                                            )}
+                                        </select>
+                                        <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                                    </div>
+                                </div>
+
+                                {/* Bigger Program Category Type Chips */}
+                                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-3 px-3 -mx-3">
+                                    {[
+                                        {
+                                            id: 'all',
+                                            label: 'Semua Kategori',
+                                            icon: Globe,
+                                            activeStyle: { background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.22) 0%, rgba(245, 158, 11, 0.16) 100%)', color: '#FCD34D', borderColor: '#F59E0B', boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)' },
+                                            inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                        },
+                                        {
+                                            id: 'government',
+                                            label: 'Kerajaan',
+                                            icon: Landmark,
+                                            activeStyle: { background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(37, 99, 235, 0.16) 100%)', color: '#93C5FD', borderColor: '#3B82F6', boxShadow: '0 4px 16px rgba(59, 130, 246, 0.25)' },
+                                            inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                        },
+                                        {
+                                            id: 'ngo',
+                                            label: 'NGO Bantuan',
+                                            icon: HandHeart,
+                                            activeStyle: { background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.22) 0%, rgba(147, 51, 234, 0.16) 100%)', color: '#E9D5FF', borderColor: '#A855F7', boxShadow: '0 4px 16px rgba(168, 85, 247, 0.25)' },
+                                            inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                        },
+                                        {
+                                            id: 'zakat',
+                                            label: 'Zakat & Baitulmal',
+                                            icon: Building,
+                                            activeStyle: { background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%)', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' },
+                                            inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                        }
+                                    ].map(cat => {
+                                        const isActive = filterType === cat.id;
+                                        const IconComp = cat.icon;
+                                        return (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setFilterType(cat.id as any)}
+                                                className="flex items-center gap-3 px-6 py-3.5 rounded-2xl text-base font-extrabold transition-all duration-300 shrink-0 border hover:-translate-y-1 hover:brightness-110 active:scale-95 shadow-md"
+                                                style={isActive ? cat.activeStyle : cat.inactiveStyle}
+                                            >
+                                                <IconComp className="w-5 h-5" />
+                                                <span>{cat.label}</span>
+                                            </button>
+                                        );
+                                    })}
+
+                                    {/* Match Filter (If Evaluated) */}
+                                    {Object.keys(matchResults).length > 0 && (
+                                        <>
+                                            <div className="w-[1px] h-8 bg-zinc-800 shrink-0 mx-1" />
+                                            <button
+                                                onClick={() => setFilterEligStatus(prev => prev === 'eligible' ? 'all' : 'eligible')}
+                                                className="flex items-center gap-3 px-6 py-3.5 rounded-2xl text-base font-extrabold transition-all duration-300 shrink-0 border hover:-translate-y-1 hover:brightness-110 active:scale-95 shadow-md"
+                                                style={filterEligStatus === 'eligible'
+                                                    ? { background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%)', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' }
+                                                    : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                                }
+                                            >
+                                                <CheckCircle className="w-5 h-5" />
+                                                <span>Layak Sahaja</span>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
 
                             {programsLoading ? (
@@ -453,62 +560,117 @@ export default function BantuanView() {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Instant Eligibility Matcher CTA */}
-                                    {!showAIMatcher && Object.keys(matchResults).length === 0 && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-4 rounded-2xl flex items-center justify-between shadow-sm cursor-pointer" style={{ background: 'linear-gradient(135deg, var(--accent-muted) 0%, rgba(197, 163, 103, 0.05) 100%)', border: '1px solid var(--accent)' }} onClick={() => setShowAIMatcher(true)}>
-                                            <div>
-                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><Search className="w-4 h-4 text-[#C5A367]" /> Semak Kelayakan</h4>
-                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>Semak program mana yang anda layak mohon secara serta-merta.</p>
-                                            </div>
-                                            <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white">Semak Sekarang</span>
-                                        </motion.div>
-                                    )}
-
-                                    {/* Instant Matcher Form */}
-                                    <AnimatePresence>
-                                        {showAIMatcher && (
-                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 overflow-hidden">
-                                                <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)' }}>
-                                                    <div className="flex justify-between items-center mb-3">
-                                                        <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                                            <span>📋 Profil Isi Rumah</span>
-                                                        </h4>
-                                                        <button onClick={() => setShowAIMatcher(false)}><X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} /></button>
-                                                    </div>
-                                                    <form onSubmit={handleAIMatch} className="space-y-3">
-                                                        <div className="grid grid-cols-2 gap-3">
+                                    {/* Instant Eligibility Matcher Card - Hardware Accelerated 60FPS */}
+                                    {Object.keys(matchResults).length === 0 && (
+                                        <div className="mb-4">
+                                            {/* Compact CTA Banner */}
+                                            <AnimatePresence initial={false} mode="wait">
+                                                {!showAIMatcher && (
+                                                    <motion.div
+                                                        key="cta-banner"
+                                                        initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                                                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                                        exit={{ opacity: 0, height: 0, scale: 0.98 }}
+                                                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                                                        className="overflow-hidden transform-gpu will-change-transform"
+                                                    >
+                                                        <div
+                                                            onClick={() => setShowAIMatcher(true)}
+                                                            className="p-4 rounded-2xl flex items-center justify-between shadow-sm cursor-pointer group hover:border-[#C5A367]/60 transition-colors"
+                                                            style={{
+                                                                background: 'linear-gradient(135deg, var(--accent-muted) 0%, rgba(197, 163, 103, 0.05) 100%)',
+                                                                border: '1px solid var(--accent)'
+                                                            }}
+                                                        >
                                                             <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.age')}</label>
-                                                                <input type="number" required placeholder="e.g. 28" value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                                                                    <Search className="w-4 h-4 text-[#C5A367]" />
+                                                                    <span>Semak Kelayakan</span>
+                                                                </h4>
+                                                                <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                                                    Semak program mana yang anda layak mohon secara serta-merta.
+                                                                </p>
                                                             </div>
-                                                            <div>
-                                                                 <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan Kasar Sebulan (RM)</label>
-                                                                 <input type="number" required placeholder="e.g. 2500 (Gaji Kasar)" value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
-                                                                 <span className="text-[8px] opacity-75 block mt-0.5" style={{ color: 'var(--text-muted)' }}>*Gaji kasar sebulan sebelum potongan KWSP/cukai</span>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.status')}</label>
-                                                                <select value={profile.status} onChange={e => setProfile({ ...profile, status: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
-                                                                    <option value="Bekerja">{t('bantuan.status_work')}</option>
-                                                                    <option value="Penganggur">{t('bantuan.status_nowork')}</option>
-                                                                    <option value="Pelajar">{t('bantuan.status_student')}</option>
-                                                                    <option value="Pesara">{t('bantuan.status_retiree')}</option>
-                                                                    <option value="OKU">OKU (Orang Kurang Upaya)</option>
-                                                                    <option value="Suri Rumah">Suri Rumah / Ibu Tunggal</option>
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.dependents')}</label>
-                                                                <input type="number" placeholder="e.g. 2" value={profile.dependents} onChange={e => setProfile({ ...profile, dependents: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
-                                                            </div>
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.05 }}
+                                                                whileTap={{ scale: 0.95 }}
+                                                                onClick={(e) => { e.stopPropagation(); setShowAIMatcher(true); }}
+                                                                className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white shadow-sm shrink-0 hover:bg-[#b59357] transition-colors"
+                                                            >
+                                                                Semak Sekarang
+                                                            </motion.button>
                                                         </div>
-                                                        <button type="submit" disabled={isMatching} className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mt-2" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
-                                                            {isMatching ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyemak...</> : '⚡ Semak Kelayakan Serta-Merta'}
-                                            </form>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            {/* Expanded Form Drawer */}
+                                            <AnimatePresence initial={false} mode="wait">
+                                                {showAIMatcher && (
+                                                    <motion.div
+                                                        key="form-drawer"
+                                                        initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                                                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                                        exit={{ opacity: 0, height: 0, scale: 0.98 }}
+                                                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                                                        className="overflow-hidden transform-gpu will-change-transform"
+                                                    >
+                                                        <div className="p-4 rounded-2xl shadow-md space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)' }}>
+                                                            <div className="flex justify-between items-center mb-3">
+                                                                <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                                                    <span>Profil Isi Rumah</span>
+                                                                </h4>
+                                                                <motion.button
+                                                                    whileHover={{ scale: 1.15, rotate: 90 }}
+                                                                    whileTap={{ scale: 0.85 }}
+                                                                    onClick={() => setShowAIMatcher(false)}
+                                                                    className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                                                                >
+                                                                    <X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                                                                </motion.button>
+                                                            </div>
+                                                            <form onSubmit={handleAIMatch} className="space-y-3">
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div>
+                                                                        <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.age')}</label>
+                                                                        <input type="number" required placeholder="e.g. 28" value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan Kasar Sebulan (RM)</label>
+                                                                        <input type="number" required placeholder="e.g. 2500 (Gaji Kasar)" value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                        <span className="text-[8px] opacity-75 block mt-0.5" style={{ color: 'var(--text-muted)' }}>*Gaji kasar sebulan sebelum potongan KWSP/cukai</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.status')}</label>
+                                                                        <select value={profile.status} onChange={e => setProfile({ ...profile, status: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
+                                                                            <option value="Bekerja">{t('bantuan.status_work')}</option>
+                                                                            <option value="Penganggur">{t('bantuan.status_nowork')}</option>
+                                                                            <option value="Pelajar">{t('bantuan.status_student')}</option>
+                                                                            <option value="Pesara">{t('bantuan.status_retiree')}</option>
+                                                                            <option value="OKU">OKU (Orang Kurang Upaya)</option>
+                                                                            <option value="Suri Rumah">Suri Rumah / Ibu Tunggal</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.dependents')}</label>
+                                                                        <input type="number" placeholder="e.g. 2" value={profile.dependents} onChange={e => setProfile({ ...profile, dependents: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    type="submit"
+                                                                    disabled={isMatching}
+                                                                    className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mt-2"
+                                                                    style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}
+                                                                >
+                                                                    {isMatching ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyemak...</> : 'Semak Kelayakan'}
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    )}
 
                                     {/* Active Match Status Banner */}
                                     {Object.keys(matchResults).length > 0 && !showAIMatcher && (
@@ -555,75 +717,76 @@ export default function BantuanView() {
                                             return (
                                                 <motion.div
                                                     key={aid.id}
-                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                                                    onClick={() => openUrl(aid.url)}
-                                                    className="rounded-2xl p-5 transition-all shadow-sm group"
+                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                                                    onClick={() => setSelectedProgram(aid)}
+                                                    className="rounded-2xl p-5 transition-all duration-300 shadow-sm group hover:-translate-y-0.5 relative flex flex-col justify-between cursor-pointer"
                                                     style={{
                                                         background: 'var(--bg-card)',
                                                         border: '1px solid var(--border-default)',
-                                                        cursor: aid.url ? 'pointer' : 'default',
                                                     }}
                                                 >
-                                                    <div className="flex items-start justify-between mb-3">
-                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md border ${typeColors[aid.type]}`}>{aid.type}</span>
-                                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md"
-                                                                style={{ background: aid.status === 'active' ? 'var(--success-muted)' : 'var(--accent-muted)', color: aid.status === 'active' ? 'var(--success)' : 'var(--accent)' }}
-                                                            >{aid.status}</span>
+                                                    <div>
+                                                        <div className="flex items-start justify-between mb-3">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${typeColors[aid.type]}`}>{aid.type}</span>
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg"
+                                                                    style={{ background: aid.status === 'active' ? 'var(--success-muted)' : 'var(--accent-muted)', color: aid.status === 'active' ? 'var(--success)' : 'var(--accent)' }}
+                                                                >{aid.status}</span>
+                                                            </div>
+                                                            <div className="w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-white/5 group-hover:bg-[#C5A367] group-hover:text-black">
+                                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                            </div>
                                                         </div>
-                                                        {aid.url && (
-                                                            <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
-                                                        )}
-                                                    </div>
-                                                    <h4 className="text-base font-bold mb-2 leading-tight group-hover:underline decoration-1 underline-offset-2" style={{ color: 'var(--text-primary)' }}>{aid.name}</h4>
 
-                                                    {match && (
-                                                        <div className={`mb-3 p-3 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
-                                                                    {match.isEligible === true ? <CheckCircle className="w-3.5 h-3.5" /> : match.isEligible === false ? <X className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                                                                    {match.isEligible === true ? t('bantuan.eligible') : match.isEligible === false ? t('bantuan.not_eligible') : t('bantuan.maybe_eligible')}
+                                                        <h3 className="text-base font-bold mb-2 group-hover:text-amber-300 transition-colors" style={{ color: 'var(--text-primary)' }}>{aid.name}</h3>
+
+                                                        {/* AI Match Badge */}
+                                                        {match && (
+                                                            <div className={`mb-3 p-2.5 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+                                                                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
+                                                                    <span>{match.isEligible === true ? '✓ LAYAK' : match.isEligible === false ? '✕ TIDAK LAYAK' : '⚠ MUNGKIN LAYAK'}</span>
+                                                                    {match.matchScore != null && (
+                                                                        <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-amber-400">
+                                                                            {match.matchScore}% Match
+                                                                        </span>
+                                                                    )}
                                                                 </div>
-                                                                {match.matchScore != null && (
-                                                                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
-                                                                        {match.matchScore}% Match
-                                                                    </span>
+                                                                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{match.reason}</p>
+                                                                {match.matchedCriteria && match.matchedCriteria.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                                        {match.matchedCriteria.map((c: string, ci: number) => (
+                                                                            <span key={ci} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                                                                                ✓ {c}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
                                                                 )}
                                                             </div>
-                                                            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{match.reason}</p>
-                                                            {match.matchedCriteria && match.matchedCriteria.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 mt-2">
-                                                                    {match.matchedCriteria.map((c: string, ci: number) => (
-                                                                        <span key={ci} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                                                                            ✓ {c}
-                                                                        </span>
-                                                                    ))}
+                                                        )}
+
+                                                        <p className="text-xs leading-relaxed mb-4 text-zinc-300 line-clamp-3" style={{ color: 'var(--text-secondary)' }}>{aid.description}</p>
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="space-y-1.5 pt-3 mb-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+                                                            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                                                <MapPin className="w-3.5 h-3.5 shrink-0 opacity-70" /> <span>{aid.location}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                                                                <Users className="w-3.5 h-3.5 shrink-0 opacity-70" /> <span className="truncate">{aid.eligibility}</span>
+                                                            </div>
+                                                            {aid.deadline && (
+                                                                <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                                                    <Clock className="w-3.5 h-3.5 shrink-0 opacity-70" /> <span>{aid.deadline}</span>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    )}
-
-                                                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{aid.description}</p>
-                                                    <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
-                                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                                            <MapPin className="w-3 h-3 shrink-0" /> {aid.location}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                                            <Users className="w-3 h-3 shrink-0" /> {aid.eligibility}
-                                                        </div>
-                                                        {aid.deadline && (
-                                                            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                                                <Clock className="w-3 h-3 shrink-0" /> {aid.deadline}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center justify-between mt-3">
-                                                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>{t('bantuan.provider')} {aid.provider}</p>
-                                                        {aid.url && (
-                                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                                {t('bantuan.visit_site')}
+                                                        <div className="flex items-center justify-between pt-2">
+                                                            <p className="text-[10px] font-medium opacity-80 truncate max-w-[150px]" style={{ color: 'var(--text-muted)' }}>{t('bantuan.provider')} <span className="font-semibold text-zinc-200">{aid.provider}</span></p>
+                                                            <span className="text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm border border-[#C5A367]/30 bg-[#C5A367]/10 text-[#C5A367] group-hover:bg-[#C5A367] group-hover:text-black">
+                                                                Lihat Butiran ➔
                                                             </span>
-                                                        )}
+                                                        </div>
                                                     </div>
                                                 </motion.div>
                                             );
@@ -866,6 +1029,145 @@ export default function BantuanView() {
                 </AnimatePresence>
 
             </div>
+
+            {/* Detailed Bantuan Program Modal Popup */}
+            {selectedProgram && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+                        onClick={(e) => e.target === e.currentTarget && setSelectedProgram(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto flex flex-col justify-between"
+                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                        >
+                            <div>
+                                {/* Header Badges & Close Button */}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-xl border ${typeColors[selectedProgram.type]}`}>
+                                            {selectedProgram.type}
+                                        </span>
+                                        <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-xl"
+                                            style={{ background: selectedProgram.status === 'active' ? 'var(--success-muted)' : 'var(--accent-muted)', color: selectedProgram.status === 'active' ? 'var(--success)' : 'var(--accent)' }}
+                                        >
+                                            {selectedProgram.status}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedProgram(null)}
+                                        className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+                                        style={{ color: 'var(--text-muted)' }}
+                                    >
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                {/* Title & Provider */}
+                                <h3 className="text-2xl font-bold mb-2 leading-snug" style={{ color: 'var(--text-primary)' }}>
+                                    {selectedProgram.name}
+                                </h3>
+                                <p className="text-xs font-semibold mb-6 opacity-80" style={{ color: 'var(--text-muted)' }}>
+                                    {t('bantuan.provider')} <span className="font-bold text-zinc-100">{selectedProgram.provider}</span>
+                                </p>
+
+                                {/* AI Match Status (If Available) */}
+                                {matchResults[selectedProgram.id] && (() => {
+                                    const selectedMatch = matchResults[selectedProgram.id] as any;
+                                    return (
+                                        <div className={`mb-6 p-4 rounded-2xl border ${selectedMatch.isEligible === true ? 'bg-green-500/10 border-green-500/20' : selectedMatch.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: selectedMatch.isEligible === true ? '#10B981' : selectedMatch.isEligible === false ? '#EF4444' : '#F59E0B' }}>
+                                                    {selectedMatch.isEligible === true ? <CheckCircle className="w-4 h-4" /> : selectedMatch.isEligible === false ? <X className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                                                    Status Kelayakan: {selectedMatch.isEligible === true ? 'LAYAK MEMOHON' : selectedMatch.isEligible === false ? 'TIDAK MEMENUHI SYARAT' : 'MUNGKIN LAYAK'}
+                                                </div>
+                                                {selectedMatch.matchScore != null && (
+                                                    <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-zinc-800 text-amber-400 border border-amber-500/20">
+                                                        {selectedMatch.matchScore}% Match
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs leading-relaxed font-medium" style={{ color: 'var(--text-primary)' }}>
+                                                {selectedMatch.reason}
+                                            </p>
+                                            {selectedMatch.matchedCriteria && selectedMatch.matchedCriteria.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                    {selectedMatch.matchedCriteria.map((c: string, ci: number) => (
+                                                        <span key={ci} className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium">
+                                                            ✓ {c}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Detailed Content Sections */}
+                                <div className="space-y-5">
+                                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1.5">
+                                        <h5 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                                            <Package className="w-4 h-4 text-amber-400" /> Penerangan Program & Kadar Bantuan
+                                        </h5>
+                                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                                            {selectedProgram.description}
+                                        </p>
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1.5">
+                                        <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-emerald-400" /> Syarat-Syarat Kelayakan Rasmi
+                                        </h5>
+                                        <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-primary)' }}>
+                                            {selectedProgram.eligibility}
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3">
+                                            <MapPin className="w-5 h-5 text-blue-400 shrink-0" />
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Wilayah Liputan</p>
+                                                <p className="text-xs font-bold text-zinc-100">{selectedProgram.location}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3">
+                                            <Clock className="w-5 h-5 text-purple-400 shrink-0" />
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status Permohonan</p>
+                                                <p className="text-xs font-bold text-zinc-100">{selectedProgram.deadline || 'Berterusan'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Button: Visit Web */}
+                            <div className="pt-6 mt-6 border-t border-white/10 flex items-center justify-end gap-3">
+                                <button
+                                    onClick={() => setSelectedProgram(null)}
+                                    className="px-5 py-3 rounded-2xl text-xs font-bold transition-all border border-white/10 hover:bg-white/5 text-zinc-300"
+                                >
+                                    Tutup
+                                </button>
+                                {selectedProgram.url && (
+                                    <button
+                                        onClick={() => openUrl(selectedProgram.url)}
+                                        className="px-6 py-3 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg bg-[#C5A367] text-black hover:bg-[#d6b478] active:scale-95"
+                                    >
+                                        Layari Portal Rasmi ↗
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                </AnimatePresence>
+                , document.body)}
         </div>
     );
 }

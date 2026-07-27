@@ -63,26 +63,182 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
     let incomeChecked = false;
     
     // Check specific income caps mentioned in program text or known programs
-    if (progName.includes('str') || progName.includes('sumbangan tunai') || progElig.includes('rm5,000') || progElig.includes('rm5000')) {
+    if (progName.includes('str') || progName.includes('sumbangan tunai rahmah') || progName.includes('bantuan tunai') || progElig.includes('rm5,000')) {
         incomeChecked = true;
-        if (income <= B40_MAX) {
-            score += 25;
-            matchedCriteria.push('Pendapatan B40 (≤ RM5,250)');
+
+        const isWargaEmas = age >= 60;
+        const isOKU = status.includes('oku');
+        const isPelajar = status.includes('pelajar');
+        const isBujang = dependents === 0 && !status.includes('suri') && !status.includes('bekerja') ? false : (dependents === 0 && status !== 'Suri Rumah');
+
+        if (isWargaEmas && dependents === 0) {
+            // Category: Warga Emas Tiada Pasangan (60+ years, income <= RM5000)
+            if (income <= 5000) {
+                score += 45;
+                matchedCriteria.push('Warga Emas Tiada Pasangan (RM600/tahun)');
+            } else {
+                score -= 40;
+                missingCriteria.push('Pendapatan Warga Emas melebihi RM5,000');
+            }
+        } else if (dependents === 0 && !status.includes('suri')) {
+            // Category: Bujang (21-59 yrs or OKU 19+, non-student, income <= RM2500)
+            if (isPelajar) {
+                score -= 50;
+                missingCriteria.push('Bujang pelajar IPTA/IPTS sepenuh masa tidak layak');
+            } else if ((age >= 21 && age <= 59) || (isOKU && age >= 19)) {
+                if (income <= 2500) {
+                    score += 45;
+                    matchedCriteria.push('Kategori Bujang (RM600/tahun)');
+                } else {
+                    score -= 40;
+                    missingCriteria.push('Pendapatan Bujang melebihi RM2,500');
+                }
+            } else if (age > 0 && age < 21 && !isOKU) {
+                score -= 35;
+                missingCriteria.push('Kategori Bujang terhad umur 21-59 tahun (19+ bagi OKU)');
+            } else if (income <= 2500) {
+                score += 35;
+                matchedCriteria.push('Kategori Bujang');
+            } else {
+                score -= 35;
+                missingCriteria.push('Pendapatan Bujang melebihi RM2,500');
+            }
+        } else {
+            // Category: Isi Rumah (Household, income <= RM5000)
+            if (income <= 5000) {
+                score += 45;
+                if (dependents > 0) {
+                    matchedCriteria.push(`Isi Rumah (${dependents} anak: RM750 - RM2,500/tahun)`);
+                } else {
+                    matchedCriteria.push('Isi Rumah Tiada Anak (RM500 - RM1,000/tahun)');
+                }
+            } else {
+                score -= 40;
+                missingCriteria.push('Pendapatan Isi Rumah melebihi RM5,000');
+            }
+        }
+    } else if (progName.includes('sara') || progName.includes('sumbangan asas rahmah') || progName.includes('bkm') || progName.includes('bantuan keluarga malaysia')) {
+        incomeChecked = true;
+        if (income <= 5000) {
+            score += 40;
+            matchedCriteria.push('Penerima STR / SARA (Kredit Barangan Asas MyKad RM1,200/tahun)');
         } else {
             score -= 40;
-            missingCriteria.push('Pendapatan melebihi had RM5,250');
+            missingCriteria.push('Terhad kepada penerima STR berpendapatan ≤ RM5,000');
         }
-    } else if (progName.includes('ekasih') || progElig.includes('miskin tegar') || progName.includes('jkm') || progElig.includes('rm2,200') || progElig.includes('rm2200')) {
+    } else if (progName.includes('bkk') || progName.includes('kanak-kanak')) {
+        incomeChecked = true;
+        if (dependents > 0 && income <= MISKIN_TEGAR_MAX) {
+            score += 45;
+            matchedCriteria.push(`Keluarga Miskin & Mempunyai Anak (${dependents} anak)`);
+        } else if (dependents > 0) {
+            score += 25;
+            matchedCriteria.push('Mempunyai Anak di bawah 18 tahun');
+        } else {
+            score -= 40;
+            missingCriteria.push('Khas untuk keluarga yang mempunyai anak di bawah 18 tahun');
+        }
+    } else if (progName.includes('bwe') || progName.includes('warga emas')) {
+        incomeChecked = true;
+        if (age >= 60 && income <= MISKIN_TEGAR_MAX) {
+            score += 45;
+            matchedCriteria.push('Warga Emas 60+ tanpa pendapatan (RM500/bulan)');
+        } else if (age >= 60) {
+            score += 25;
+            matchedCriteria.push('Umur 60 tahun ke atas');
+        } else {
+            score -= 40;
+            missingCriteria.push('Khas untuk warga emas berumur 60 tahun ke atas');
+        }
+    } else if (progName.includes('epoku')) {
+        incomeChecked = true;
+        if (status.includes('oku') && income >= 100 && income <= 1700) {
+            score += 50;
+            matchedCriteria.push('OKU Bekerja berpendapatan RM100 – RM1,700 (Elaun EPOKU RM450/bulan)');
+        } else if (status.includes('oku')) {
+            score += 25;
+            matchedCriteria.push('Pemegang Kad OKU JKM Bekerja');
+        } else {
+            score -= 40;
+            missingCriteria.push('Terhad untuk Pemegang Kad OKU yang bekerja (Pendapatan RM100-RM1,700)');
+        }
+    } else if (progName.includes('bpt') || progName.includes('penjagaan oku')) {
+        incomeChecked = true;
+        if (income <= 5000) {
+            score += 45;
+            matchedCriteria.push('Penjaga OKU / Pesakit Kronik Terlantar (Bantuan BPT RM500/bulan)');
+        } else {
+            score -= 40;
+            missingCriteria.push('Pendapatan isi rumah melebihi had RM5,000');
+        }
+    } else if (progName.includes('btb')) {
+        incomeChecked = true;
+        if (status.includes('oku') && age >= 16 && age <= 59) {
+            score += 50;
+            matchedCriteria.push('OKU 16-59 thn Tidak Berupaya Kerja (Bantuan BTB RM300/bulan)');
+        } else if (status.includes('oku')) {
+            score += 30;
+            matchedCriteria.push('Pemegang Kad OKU JKM');
+        } else {
+            score -= 40;
+            missingCriteria.push('Terhad untuk Pemegang Kad OKU (16-59thn) yang tidak berupaya bekerja');
+        }
+    } else if (progName.includes('blp') || progName.includes('latihan perantis')) {
+        incomeChecked = true;
+        if (age >= 16 && age <= 35) {
+            score += 45;
+            matchedCriteria.push('Belia 16-35 thn menjalani latihan kemahiran (Elaun BLP RM200/bulan)');
+        } else {
+            score -= 30;
+            missingCriteria.push('Terhad untuk belia berumur 16 hingga 35 tahun');
+        }
+    } else if (progName.includes('geran pelancaran') || progName.includes('gp')) {
         incomeChecked = true;
         if (income <= MISKIN_TEGAR_MAX) {
-            score += 30;
-            matchedCriteria.push('Pendapatan bawah Garis Kemiskinan (≤ RM2,208)');
+            score += 45;
+            matchedCriteria.push('Kumpulan Sasar JKM B40/Miskin (Modal Perniagaan GP RM2,700)');
         } else if (income <= B40_MAX) {
-            score += 10;
+            score += 25;
+            matchedCriteria.push('Potensi Perniagaan Berdikari');
+        } else {
+            score -= 35;
+            missingCriteria.push('Pendapatan melebihi had PGK Miskin');
+        }
+    } else if (progName.includes('alat tiruan') || progName.includes('bats')) {
+        incomeChecked = true;
+        if (status.includes('oku') || age >= 60 || income <= B40_MAX) {
+            score += 45;
+            matchedCriteria.push('Keperluan Alat Tiruan / Sokongan (Disyorkan Pakar)');
+        } else {
+            score -= 25;
+            missingCriteria.push('Khas untuk OKU, Warga Emas & Kumpulan Sasar JKM');
+        }
+    } else if (progName.includes('tabung bantuan segera') || progName.includes('tbs')) {
+        incomeChecked = true;
+        if (income <= B40_MAX) {
+            score += 45;
+            matchedCriteria.push('Bantuan Kecemasan Serta-Merta / Terdampar (TBS RM300)');
+        }
+    } else if (progName.includes('maik') || progName.includes('dermasiswa') || progName.includes('biasiswa tengku anis') || progName.includes('rumah kediaman asnaf')) {
+        incomeChecked = true;
+        if (income <= B40_MAX) {
+            score += 45;
+            matchedCriteria.push('Anak Kelantan / Asnaf MAIK (Sistem eAgihan MAIK)');
+        } else {
+            score -= 30;
+            missingCriteria.push('Khas untuk golongan Asnaf Kelantan mengikut Had Kifayah MAIK');
+        }
+    } else if (progName.includes('ekasih') || progElig.includes('miskin tegar') || progElig.includes('rm2,200') || progElig.includes('rm2200')) {
+        incomeChecked = true;
+        if (income <= MISKIN_TEGAR_MAX) {
+            score += 40;
+            matchedCriteria.push('Pendapatan bawah Garis Kemiskinan PGK DOSM 2024 (≤ RM2,208)');
+        } else if (income <= B40_MAX) {
+            score += 15;
             matchedCriteria.push('Golongan B40');
         } else {
             score -= 35;
-            missingCriteria.push('Khas untuk golongan B40 / Miskin Tegar');
+            missingCriteria.push('Pendapatan melebihi Garis Kemiskinan PGK 2024');
         }
     } else if (progType === 'zakat') {
         incomeChecked = true;
@@ -132,12 +288,16 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
             missingCriteria.push('Mempunyai anak yang masih bersekolah');
         }
     } else if (progName.includes('mystep') || progName.includes('belia') || progElig.includes('belia') || progElig.includes('graduan')) {
-        if (age >= 18 && age <= 35) {
-            score += 25;
-            matchedCriteria.push('Kategori Belia / Graduan (18-35 tahun)');
-        } else if (age > 35) {
-            score -= 15;
-            missingCriteria.push('Keutamaan golongan belia / graduan baharu');
+        if (age >= 18) {
+            score += 35;
+            matchedCriteria.push('Warganegara 18+ thn (Gaji RM1,400 - RM2,000/bln)');
+            if (status.includes('oku')) {
+                score += 15;
+                matchedCriteria.push('Kuota Khas 1% OKU MySTEP');
+            }
+        } else if (age > 0) {
+            score -= 30;
+            missingCriteria.push('Khas untuk warganegara berumur 18 tahun ke atas');
         }
     }
 
