@@ -1,9 +1,9 @@
 'use client';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Globe, Sun, Moon, LogOut, Award, Eye, Monitor, Baseline, Activity, Palette } from 'lucide-react';
+import { X, Globe, Sun, Moon, LogOut, Award, Eye, Monitor, Baseline, Activity, Palette, Clock, Volume2, RefreshCw, LayoutGrid, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
-import { useTheme, THEMES, FontSize, ColorblindMode, ThemeId } from '@/src/context/ThemeContext';
+import { useTheme, THEMES, FontSize, ColorblindMode, ThemeId, ClockFormat, AutoRefreshRate } from '@/src/context/ThemeContext';
 import { useGame } from '@/src/context/GameContext';
 
 interface SettingsModalProps {
@@ -21,7 +21,11 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
     highContrast, setHighContrast,
     colorblindMode, setColorblindMode,
     reduceMotion, setReduceMotion,
-    dyslexiaFont, setDyslexiaFont
+    dyslexiaFont, setDyslexiaFont,
+    clockFormat, setClockFormat,
+    soundEnabled, setSoundEnabled,
+    compactView, setCompactView,
+    autoRefresh, setAutoRefresh
   } = useTheme();
 
   const handleThemeSwitch = (tid: ThemeId, e: React.MouseEvent) => {
@@ -133,6 +137,88 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Clock & Time Format */}
+                  <div className="p-3 rounded-2xl" style={{ background: 'var(--bg-subtle)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-blue-500" />
+                        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Clock Format</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+                        {clockFormat === '12h' ? '1:30 PM' : '13:30'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {(['12h', '24h'] as ClockFormat[]).map(fmt => (
+                        <button key={fmt} onClick={() => setClockFormat(fmt)}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5"
+                          style={clockFormat === fmt
+                            ? { background: 'var(--accent-muted)', color: 'var(--accent)', borderColor: 'var(--accent)' }
+                            : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'transparent' }
+                          }
+                        >
+                          <span>{fmt === '12h' ? '12-Hour (AM/PM)' : '24-Hour (13:00)'}</span>
+                          {clockFormat === fmt && <span>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* System & Display Preferences */}
+              <section>
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                  <SlidersHorizontal className="w-4 h-4" /> System & Display
+                </h3>
+                
+                <div className="space-y-3">
+                  {/* Auto-Refresh Rate */}
+                  <div className="p-3 rounded-2xl" style={{ background: 'var(--bg-subtle)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <RefreshCw className="w-4 h-4 text-emerald-500" />
+                      <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Data Refresh Rate</p>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {(['30s', '1m', '5m', 'off'] as AutoRefreshRate[]).map(rate => (
+                        <button key={rate} onClick={() => setAutoRefresh(rate)}
+                          className="py-2 rounded-xl text-[11px] font-bold transition-all border text-center uppercase"
+                          style={autoRefresh === rate
+                            ? { background: 'var(--accent-muted)', color: 'var(--accent)', borderColor: 'var(--accent)' }
+                            : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'transparent' }
+                          }
+                        >
+                          {rate === 'off' ? 'Off' : rate}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Feature Toggles */}
+                  <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
+                    <label className="flex items-center justify-between p-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-b" style={{ borderColor: 'var(--border-default)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}><LayoutGrid className="w-4 h-4" /></div>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Compact UI Density</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Reduce spacing and card padding for dense views</p>
+                        </div>
+                      </div>
+                      <input type="checkbox" checked={compactView} onChange={(e) => setCompactView(e.target.checked)} className="w-5 h-5 accent-[var(--accent)]" />
+                    </label>
+
+                    <label className="flex items-center justify-between p-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}><Volume2 className="w-4 h-4" /></div>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Sound Effects</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Play audio chimes for level-ups & notifications</p>
+                        </div>
+                      </div>
+                      <input type="checkbox" checked={soundEnabled} onChange={(e) => setSoundEnabled(e.target.checked)} className="w-5 h-5 accent-[var(--accent)]" />
+                    </label>
                   </div>
                 </div>
               </section>
