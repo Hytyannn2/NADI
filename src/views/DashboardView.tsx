@@ -239,7 +239,7 @@ export default function DashboardView() {
                         background: completedQuests === totalQuests ? 'var(--success)' : 'var(--bg-subtle)',
                         color: completedQuests === totalQuests ? 'white' : 'var(--text-muted)'
                     }}>
-                        {completedQuests === totalQuests ? '✓ All Done!' : `${completedQuests}/${totalQuests}`}
+                        {completedQuests === totalQuests ? ' All Done!' : `${completedQuests}/${totalQuests}`}
                     </span>
                 </div>
                 <div className="space-y-2">
@@ -409,7 +409,7 @@ export default function DashboardView() {
 
                             {postError && (
                                 <p className="text-[10px] font-bold text-red-400 mt-1.5 flex items-center gap-1">
-                                    ⚠️ {postError}
+                                     {postError}
                                 </p>
                             )}
 
@@ -488,7 +488,7 @@ export default function DashboardView() {
                     <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Top Citizens</h3>
                     <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
                         {leaderboard.slice(0, 3).map((entry: any, i: number) => {
-                            const medals = ['🥇', '🥈', '🥉'];
+                            const medals = ['', '', ''];
                             return (
                                 <div key={i} className="flex items-center gap-3 p-3 border-b last:border-b-0" style={{ borderColor: 'var(--border-default)' }}>
                                     <span className="text-base">{medals[i]}</span>

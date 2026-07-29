@@ -91,11 +91,15 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
     const calibrationSamplesRef = useRef<number[]>([]);
     const calibrationStartRef = useRef(0);
 
-    // Rolling Z-axis waveform buffer: { timestamp, value }
-    const waveformBufferRef = useRef<{ t: number; z: number }[]>([]);
+    // Rolling waveform buffer: { timestamp, value }
+    const waveformBufferRef = useRef<{ t: number; val: number }[]>([]);
 
     // Track the latest gyroscope rotation rates
     const gyroRef = useRef({ alpha: 0, beta: 0, gamma: 0 });
+    
+    // Low-Pass Filter (LPF) Gravity Tracker
+    const gravityRef = useRef({ x: 0, y: 0, z: 9.8 });
+    const ALPHA = 0.8;
 
     // Detection callback — will be set by the consumer
     const onDetectionRef = useRef<((detection: PotholeDetection) => void) | null>(null);
@@ -136,7 +140,7 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
         speedKmh: number,
         waveformDurationMs: number,
         gyroMaxRotation: number,
-        zDrop: number,
+        impactMagnitude: number,
     ): number => {
         let score = 0;
 
@@ -164,13 +168,12 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
         }
         // if > threshold, no points (likely phone drop)
 
-        // Z-drop magnitude: +20 (scaled)
-        const absZ = Math.abs(zDrop);
-        if (absZ >= 6) {
+        // Impact magnitude: +20 (scaled)
+        if (impactMagnitude >= 6) {
             score += SCORE_MAGNITUDE; // very severe
-        } else if (absZ >= 4) {
+        } else if (impactMagnitude >= 4) {
             score += SCORE_MAGNITUDE * 0.8;
-        } else if (absZ >= 3) {
+        } else if (impactMagnitude >= 3) {
             score += SCORE_MAGNITUDE * 0.5;
         }
 
@@ -182,31 +185,33 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
         const buffer = waveformBufferRef.current;
         if (buffer.length < 3) return { isPothole: false, durationMs: 0 };
 
-        // Find the negative peak (minimum Z)
-        let minZ = Infinity;
-        let minIdx = 0;
+        // Find the peak magnitude (the impact)
+        let maxVal = -Infinity;
+        let maxIdx = 0;
         for (let i = 0; i < buffer.length; i++) {
-            if (buffer[i].z < minZ) {
-                minZ = buffer[i].z;
-                minIdx = i;
-            }
-        }
-
-        // Find the positive recovery peak after the negative dip
-        let maxZ = -Infinity;
-        let maxIdx = minIdx;
-        for (let i = minIdx; i < buffer.length; i++) {
-            if (buffer[i].z > maxZ) {
-                maxZ = buffer[i].z;
+            if (buffer[i].val > maxVal) {
+                maxVal = buffer[i].val;
                 maxIdx = i;
             }
         }
 
-        // Duration = time between negative dip and positive recovery
-        const durationMs = maxIdx > minIdx ? buffer[maxIdx].t - buffer[minIdx].t : 0;
+        // Find the start of the event (when magnitude first spiked)
+        let startIdx = maxIdx;
+        while (startIdx > 0 && buffer[startIdx].val > 1.0) {
+            startIdx--;
+        }
 
-        // Pothole: sharp dip → recovery in <200ms
-        // Speedbump: gradual rise → fall over >300ms
+        // Find the end of the event (when magnitude settled)
+        let endIdx = maxIdx;
+        while (endIdx < buffer.length - 1 && buffer[endIdx].val > 1.0) {
+            endIdx++;
+        }
+
+        // Duration = time of the entire high-magnitude event
+        const durationMs = buffer[endIdx].t - buffer[startIdx].t;
+
+        // Pothole: sharp spike resolving in <200ms
+        // Speedbump: gradual rise/fall over >300ms
         const isPothole = durationMs > 0 && durationMs <= POTHOLE_MAX_DURATION_MS;
 
         return { isPothole, durationMs };
@@ -215,19 +220,20 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
     // --- Start / Stop driving ---
     const startDriving = useCallback(() => {
         isActiveRef.current = true;
-        isCalibratingRef.current = true;
+        isCalibratingRef.current = false; // Calibration is instant now via LPF
         calibrationSamplesRef.current = [];
         calibrationStartRef.current = Date.now();
         setIsActive(true);
         setCalibration({
-            isCalibrating: true,
-            progress: 0,
+            isCalibrating: false,
+            progress: 100,
             baselineZ: 9.8,
             samples: [],
         });
         setMotionError(null);
         lastPosRef.current = null;
         speedRef.current = 0;
+        gravityRef.current = { x: 0, y: 0, z: 9.8 }; // Reset LPF
         setCurrentSpeed(0);
     }, []);
 
@@ -267,38 +273,40 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
 
         // DeviceMotion handler
         const handleMotion = (event: DeviceMotionEvent) => {
-            const accel = event.accelerationIncludingGravity;
+            const raw = event.accelerationIncludingGravity;
+            const linear = event.acceleration;
             const rotation = event.rotationRate;
-            if (!accel || accel.z === null) return;
-
-            const rawZ = accel.z ?? 0;
+            
+            if (!raw || raw.z === null) return;
             const now = Date.now();
 
-            // --- Calibration Phase ---
-            if (isCalibratingRef.current) {
-                calibrationSamplesRef.current.push(rawZ);
-                const elapsed = now - calibrationStartRef.current;
-                const progress = Math.min(100, (elapsed / CALIBRATION_DURATION_MS) * 100);
+            let linearX = 0, linearY = 0, linearZ = 0;
 
-                setCalibration(prev => ({ ...prev, progress }));
+            // 1. Isolate Linear Acceleration (Hardware vs Software LPF)
+            if (linear && linear.z !== null && (linear.x !== 0 || linear.y !== 0 || linear.z !== 0)) {
+                // Best case: OS provides hardware-filtered linear acceleration
+                linearX = linear.x ?? 0;
+                linearY = linear.y ?? 0;
+                linearZ = linear.z ?? 0;
+            } else {
+                // Fallback: Dynamic Low-Pass Filter (LPF)
+                const rawX = raw.x ?? 0;
+                const rawY = raw.y ?? 0;
+                const rawZ = raw.z ?? 0;
 
-                if (elapsed >= CALIBRATION_DURATION_MS) {
-                    // Calculate baseline: average Z during calibration
-                    const samples = calibrationSamplesRef.current;
-                    const avgZ = samples.reduce((a, b) => a + b, 0) / samples.length;
-                    baselineZRef.current = avgZ;
-                    isCalibratingRef.current = false;
-                    setCalibration({
-                        isCalibrating: false,
-                        progress: 100,
-                        baselineZ: avgZ,
-                        samples: [],
-                    });
-                }
-                return; // Don't process detections during calibration
+                gravityRef.current.x = ALPHA * gravityRef.current.x + (1 - ALPHA) * rawX;
+                gravityRef.current.y = ALPHA * gravityRef.current.y + (1 - ALPHA) * rawY;
+                gravityRef.current.z = ALPHA * gravityRef.current.z + (1 - ALPHA) * rawZ;
+
+                linearX = rawX - gravityRef.current.x;
+                linearY = rawY - gravityRef.current.y;
+                linearZ = rawZ - gravityRef.current.z;
             }
 
-            // --- Detection Phase ---
+            // 2. Calculate Orientation-Agnostic Magnitude
+            // A 3.0g force registers the same whether the phone is face up, face down, or tilted 45 degrees.
+            const magnitude = Math.sqrt(linearX**2 + linearY**2 + linearZ**2);
+
             // Track gyroscope
             if (rotation) {
                 gyroRef.current = {
@@ -308,18 +316,16 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
                 };
             }
 
-            // Subtract baseline gravity to normalize for phone angle
-            const normalizedZ = rawZ - baselineZRef.current;
-
             // Add to rolling waveform buffer
-            waveformBufferRef.current.push({ t: now, z: normalizedZ });
+            waveformBufferRef.current.push({ t: now, val: magnitude });
             // Prune old entries outside the buffer window
             waveformBufferRef.current = waveformBufferRef.current.filter(
                 entry => now - entry.t < WAVEFORM_BUFFER_MS
             );
 
-            // --- Filter 1: Z-axis threshold ---
-            if (normalizedZ > Z_DROP_THRESHOLD) return; // No spike detected
+            // --- Filter 1: Magnitude threshold ---
+            // Replaces the old static Z_DROP_THRESHOLD. We look for any shock > 3.0g
+            if (magnitude < 3.0) return; // No spike detected
 
             // --- Filter 2: Debounce ---
             if (now - lastDetectionTimeRef.current < DEBOUNCE_MS) return;
@@ -353,7 +359,7 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
                 speed,
                 durationMs,
                 maxGyro,
-                normalizedZ
+                magnitude
             );
 
             // --- Minimum confidence gate ---
@@ -366,7 +372,7 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
                 id: `det_${now}_${Math.random().toString(36).slice(2, 6)}`,
                 lat: latRef.current,
                 lng: lngRef.current,
-                zDrop: parseFloat(normalizedZ.toFixed(2)),
+                zDrop: parseFloat(magnitude.toFixed(2)), // Storing magnitude in zDrop for compatibility
                 speedKmh: Math.round(speed),
                 gyroMaxRotation: parseFloat(maxGyro.toFixed(1)),
                 waveformDurationMs: durationMs,

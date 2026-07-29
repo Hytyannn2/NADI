@@ -160,7 +160,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                           }
                         >
                           <span>{fmt === '12h' ? '12-Hour' : '24-Hour'}</span>
-                          {clockFormat === fmt && <span>✓</span>}
+                          {clockFormat === fmt && <span></span>}
                         </button>
                       ))}
                     </div>
@@ -301,7 +301,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                           }
                         >
                           <span className="capitalize">{mode === 'none' ? t('settings.cb_none') : mode}</span>
-                          {colorblindMode === mode && <span>✓</span>}
+                          {colorblindMode === mode && <span></span>}
                         </button>
                       ))}
                     </div>
@@ -324,7 +324,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                         opacity: b.unlocked ? 1 : 0.5
                       }}
                     >
-                      <span className="text-2xl shrink-0">{b.unlocked ? b.icon : '🔒'}</span>
+                      <span className="text-2xl shrink-0">{b.unlocked ? b.icon : ''}</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold truncate" style={{ color: b.unlocked ? 'var(--text-primary)' : 'var(--text-muted)' }}>{b.name}</p>
                         <p className="text-[9px] line-clamp-1" style={{ color: 'var(--text-muted)' }}>{b.description}</p>

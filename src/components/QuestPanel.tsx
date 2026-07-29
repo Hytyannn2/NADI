@@ -21,15 +21,15 @@ export default function QuestPanel({ visible, fabRect }: QuestPanelProps) {
     showXPPopup(50, 'Bonus Chest');
     showCelebration({
       type: 'quest_complete',
-      title: 'All Quests Done! 🎯',
+      title: 'All Quests Done! ',
       subtitle: 'You completed every daily quest. Legendary commitment!',
-      icon: '🏆',
+      icon: '',
       color: '#2563EB',
     });
   };
 
   // Mascot mood based on progress
-  const mascotMood = allQuestsComplete ? '🦸' : completedQuests > 0 ? '💪' : '🌱';
+  const mascotMood = allQuestsComplete ? '' : completedQuests > 0 ? '' : '';
   const mascotText = allQuestsComplete
     ? "You're unstoppable today!"
     : completedQuests > 0
@@ -152,7 +152,7 @@ export default function QuestPanel({ visible, fabRect }: QuestPanelProps) {
                     : { background: 'var(--accent-muted)', color: 'var(--accent)' }
                   }
                 >
-                  {q.completed ? '✓' : `+${q.xpReward}`}
+                  {q.completed ? '' : `+${q.xpReward}`}
                 </div>
               </motion.div>
             ))}
@@ -173,7 +173,7 @@ export default function QuestPanel({ visible, fabRect }: QuestPanelProps) {
             )}
             {bonusCollected && (
               <div className="text-center py-2 text-xs font-semibold" style={{ color: 'var(--success)' }}>
-                ✓ Bonus collected today
+                 Bonus collected today
               </div>
             )}
           </div>

@@ -444,7 +444,7 @@ export default function SuaraView() {
                                 {/* Feedback Mechanism */}
                                 <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
                                     <span className="text-xs uppercase font-bold tracking-widest" style={{ color: report.rating === 'corrected' ? 'var(--success)' : 'var(--text-muted)' }}>
-                                        {report.rating === 'corrected' ? '✓ Corrected — Terima kasih!' : report.rating === 'up' ? '✓ Accurate' : 'Rate accuracy'}
+                                        {report.rating === 'corrected' ? ' Corrected — Terima kasih!' : report.rating === 'up' ? ' Accurate' : 'Rate accuracy'}
                                     </span>
                                     <div className="flex gap-2">
                                         <button

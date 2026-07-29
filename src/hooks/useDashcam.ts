@@ -118,15 +118,40 @@ export function useDashcam(): UseDashcamReturn {
             return null;
         }
 
-        // Set canvas to video dimensions
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        const vWidth = video.videoWidth;
+        const vHeight = video.videoHeight;
 
-        // Draw the current video frame to canvas
+        // PDPA COMPLIANCE: Edge-Side Semantic Cropping
+        // We never capture the full frame. We crop the top portion to remove sky,
+        // pedestrians, and license plates of cars in front.
+        const isPortrait = vHeight > vWidth;
+        
+        let startY = 0;
+        let cropHeight = vHeight;
+        
+        if (isPortrait) {
+            // Portrait mount (e.g. Grab driver): Road is at the bottom 40%
+            startY = vHeight * 0.6;
+            cropHeight = vHeight * 0.4;
+        } else {
+            // Landscape mount: Road is at the bottom 50%
+            startY = vHeight * 0.5;
+            cropHeight = vHeight * 0.5;
+        }
+
+        canvas.width = vWidth;
+        canvas.height = cropHeight;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Draw ONLY the cropped bottom portion to the canvas
+        // ctx.drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+        ctx.drawImage(
+            video, 
+            0, startY, vWidth, cropHeight, 
+            0, 0, canvas.width, canvas.height
+        );
 
         // Convert to base64 JPEG (quality 0.7 for reasonable size)
         // This is the ONLY data that leaves the device — a single frame

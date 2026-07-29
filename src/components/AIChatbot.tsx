@@ -8,7 +8,7 @@ interface Message { id: string; role: 'user' | 'assistant'; content: string; }
 export default function AIChatbot({ activeTab }: { activeTab: string }) {
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: '0', role: 'assistant', content: 'Salam! Ambo NADI Assistant 🇲🇾 Gapo boleh ambo tolong demo hari ni? (Kelate / BM / English)' }
+        { id: '0', role: 'assistant', content: 'Salam! Ambo NADI Assistant  Gapo boleh ambo tolong demo hari ni? (Kelate / BM / English)' }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);

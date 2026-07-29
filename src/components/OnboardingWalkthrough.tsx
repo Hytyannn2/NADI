@@ -89,7 +89,7 @@ export default function OnboardingWalkthrough({ onComplete }: { onComplete: () =
     let tooltipStyle: React.CSSProperties = {};
     let fingerStyle: React.CSSProperties = { display: 'none' };
     let fingerAnim = {};
-    let fingerEmoji = '👆';
+    let fingerEmoji = '';
 
     if (targetRect && current.placement) {
         const padding = 16;
@@ -126,7 +126,7 @@ export default function OnboardingWalkthrough({ onComplete }: { onComplete: () =
                 left: targetRect.right + padding,
             };
             fingerAnim = { x: [0, -15, 0], scale: [1, 1.05, 0.95, 1] };
-            fingerEmoji = '👈';
+            fingerEmoji = '';
         } else if (p === 'top') {
             const leftPos = targetRect.left + targetRect.width / 2 - 140;
             tooltipStyle = {
@@ -142,7 +142,7 @@ export default function OnboardingWalkthrough({ onComplete }: { onComplete: () =
                 left: targetRect.left + targetRect.width / 2 - 20,
             };
             fingerAnim = { y: [0, 15, 0], scale: [1, 1.05, 0.95, 1] };
-            fingerEmoji = '👇';
+            fingerEmoji = '';
         } else if (p === 'bottom' || p === 'bottom-left') {
             const leftPos = p === 'bottom' ? targetRect.left + targetRect.width / 2 - 140 : undefined;
             tooltipStyle = {
@@ -159,7 +159,7 @@ export default function OnboardingWalkthrough({ onComplete }: { onComplete: () =
                 left: targetRect.left + targetRect.width / 2 - 20,
             };
             fingerAnim = { y: [0, -15, 0], scale: [1, 1.05, 0.95, 1] };
-            fingerEmoji = '👆';
+            fingerEmoji = '';
         }
     }
 

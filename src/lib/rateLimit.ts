@@ -82,7 +82,7 @@ export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitRe
             allowed: false,
             remaining: 0,
             retryAfterSeconds: retryAfter,
-            message: `Spam detected! You've been temporarily blocked for ${retryAfter}s. Chill lah 😄`,
+            message: `Spam detected! You've been temporarily blocked for ${retryAfter}s. Chill lah `,
         };
     }
 

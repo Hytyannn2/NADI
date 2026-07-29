@@ -136,7 +136,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                             <CircleMarker center={userLocation} radius={8}
                                 pathOptions={{ color: '#6366F1', fillColor: '#6366F1', fillOpacity: 0.7, weight: 3 }}>
                                 <Popup>
-                                    <div className="text-xs font-semibold">📍 Your Location</div>
+                                    <div className="text-xs font-semibold"> Your Location</div>
                                 </Popup>
                             </CircleMarker>
                         )}

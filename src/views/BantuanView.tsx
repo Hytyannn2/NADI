@@ -211,20 +211,20 @@ export default function BantuanView() {
     };
 
     const urgencyStyles: Record<string, { bg: string; text: string; label: string }> = {
-        high: { bg: 'var(--danger-muted)', text: 'var(--danger)', label: '🔴 Urgent' },
-        medium: { bg: 'rgba(217,119,6,0.08)', text: 'var(--warning)', label: '🟡 Active' },
-        low: { bg: 'var(--success-muted)', text: 'var(--success)', label: '🟢 Open' },
+        high: { bg: 'var(--danger-muted)', text: 'var(--danger)', label: ' Urgent' },
+        medium: { bg: 'rgba(217,119,6,0.08)', text: 'var(--warning)', label: ' Active' },
+        low: { bg: 'var(--success-muted)', text: 'var(--success)', label: ' Open' },
     };
 
     const categoryIcons: Record<string, string> = {
-        disaster_relief: '🆘',
-        education: '📚',
-        environment: '🌿',
-        healthcare: '🏥',
-        community: '🤝',
-        elderly_care: '👵',
-        animal_welfare: '🐾',
-        youth: '⚡',
+        disaster_relief: '',
+        education: '',
+        environment: '',
+        healthcare: '',
+        community: '',
+        elderly_care: '',
+        animal_welfare: '',
+        youth: '',
     };
 
     const filteredPrograms = aidPrograms
@@ -432,7 +432,7 @@ export default function BantuanView() {
                     onClick={() => setActiveTab('volunteer')}
                     className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
                     style={activeTab === 'volunteer' ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' } : { color: 'var(--text-muted)' }}
-                >{t('bantuan.tab_vol')} 🇲🇾</button>
+                >{t('bantuan.tab_vol')} </button>
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -744,7 +744,7 @@ export default function BantuanView() {
                                                         {match && (
                                                             <div className={`mb-3 p-2.5 rounded-xl border ${match.isEligible === true ? 'bg-green-500/10 border-green-500/20' : match.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
                                                                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: match.isEligible === true ? '#10B981' : match.isEligible === false ? '#EF4444' : '#F59E0B' }}>
-                                                                    <span>{match.isEligible === true ? '✓ LAYAK' : match.isEligible === false ? '✕ TIDAK LAYAK' : '⚠ MUNGKIN LAYAK'}</span>
+                                                                    <span>{match.isEligible === true ? ' LAYAK' : match.isEligible === false ? ' TIDAK LAYAK' : ' MUNGKIN LAYAK'}</span>
                                                                     {match.matchScore != null && (
                                                                         <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-amber-400">
                                                                             {match.matchScore}% Match
@@ -756,7 +756,7 @@ export default function BantuanView() {
                                                                     <div className="flex flex-wrap gap-1 mt-2">
                                                                         {match.matchedCriteria.map((c: string, ci: number) => (
                                                                             <span key={ci} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                                                                                ✓ {c}
+                                                                                 {c}
                                                                             </span>
                                                                         ))}
                                                                     </div>
@@ -784,7 +784,7 @@ export default function BantuanView() {
                                                         <div className="flex items-center justify-between pt-2">
                                                             <p className="text-[10px] font-medium opacity-80 truncate max-w-[150px]" style={{ color: 'var(--text-muted)' }}>{t('bantuan.provider')} <span className="font-semibold text-zinc-200">{aid.provider}</span></p>
                                                             <span className="text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm border border-[#C5A367]/30 bg-[#C5A367]/10 text-[#C5A367] group-hover:bg-[#C5A367] group-hover:text-black">
-                                                                Lihat Butiran ➔
+                                                                Lihat Butiran 
                                                             </span>
                                                         </div>
                                                     </div>
@@ -944,7 +944,7 @@ export default function BantuanView() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {filteredVolunteers.map((vol, i) => {
                                             const urgency = urgencyStyles[vol.urgency] || urgencyStyles.medium;
-                                            const catIcon = categoryIcons[vol.category] || '🤝';
+                                            const catIcon = categoryIcons[vol.category] || '';
                                             return (
                                                 <motion.div
                                                     key={vol.id}
@@ -1098,7 +1098,7 @@ export default function BantuanView() {
                                                 <div className="flex flex-wrap gap-1.5 mt-3">
                                                     {selectedMatch.matchedCriteria.map((c: string, ci: number) => (
                                                         <span key={ci} className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium">
-                                                            ✓ {c}
+                                                             {c}
                                                         </span>
                                                     ))}
                                                 </div>

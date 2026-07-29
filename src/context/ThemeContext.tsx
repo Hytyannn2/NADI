@@ -15,8 +15,8 @@ export interface ThemeConfig {
 }
 
 export const THEMES: Record<ThemeId, ThemeConfig> = {
-  light: { id: 'light', label: 'Light', icon: '☀️' },
-  dark: { id: 'dark', label: 'Dark', icon: '🌙' },
+  light: { id: 'light', label: 'Light', icon: '' },
+  dark: { id: 'dark', label: 'Dark', icon: '' },
 };
 
 const FONT_SIZES: Record<FontSize, string> = { S: '14px', M: '16px', L: '20px' };

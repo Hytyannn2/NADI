@@ -68,41 +68,72 @@ CREATE INDEX IF NOT EXISTS idx_infra_reports_status_created
 CREATE INDEX IF NOT EXISTS idx_infra_reports_confidence
   ON public.nadi_infra_reports (confidence_score);
 
--- 7. RPC function for spatial clustering queries
--- Called by the clustering API: find all reports within N meters of a point
-CREATE OR REPLACE FUNCTION find_nearby_infra_reports(
-  target_lng DOUBLE PRECISION,
-  target_lat DOUBLE PRECISION,
-  radius_meters INTEGER,
-  since TIMESTAMPTZ
+-- 7. Atomic RPC for Spatial Clustering
+-- Atomically groups a new report into an existing cluster within 15 meters,
+-- or creates a new cluster ID if none exist.
+-- Enforces concurrency control to prevent duplicate clusters.
+CREATE OR REPLACE FUNCTION atomic_cluster_pothole(
+  p_report_id UUID,
+  p_lat DOUBLE PRECISION,
+  p_lng DOUBLE PRECISION,
+  p_fingerprint TEXT,
+  p_threshold INTEGER
 )
-RETURNS TABLE (
-  id UUID,
-  lat TEXT,
-  lng TEXT,
-  device_fingerprint TEXT,
-  user_id UUID,
-  cluster_id UUID,
-  created_at TIMESTAMPTZ
-)
-LANGUAGE sql
-STABLE
+RETURNS JSONB
+LANGUAGE plpgsql
 AS $$
-  SELECT 
-    r.id,
-    r.lat,
-    r.lng,
-    r.device_fingerprint,
-    r.user_id,
-    r.cluster_id,
-    r.created_at
-  FROM public.nadi_infra_reports r
-  WHERE r.location IS NOT NULL
-    AND r.created_at >= since
-    AND ST_DWithin(
-      r.location,
-      ST_SetSRID(ST_MakePoint(target_lng, target_lat), 4326)::geography,
-      radius_meters
-    )
-  ORDER BY r.created_at DESC;
+DECLARE
+  v_cluster_id UUID;
+  v_radius_meters FLOAT := 15.0;
+  v_unique_devices INTEGER;
+  v_is_verified BOOLEAN := false;
+BEGIN
+  -- Lock the spatial grid lookup using an advisory transaction lock.
+  -- hashtext on a 6-character geohash serializes transactions for a ~1.2km x 0.6km area.
+  PERFORM pg_advisory_xact_lock(hashtext(ST_GeoHash(ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326), 6)));
+
+  -- 1. Find if a pothole cluster already exists within 15 meters (last 48 hours)
+  SELECT cluster_id INTO v_cluster_id
+  FROM public.nadi_infra_reports
+  WHERE ST_DWithin(
+    location,
+    ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography,
+    v_radius_meters
+  )
+  AND cluster_id IS NOT NULL
+  AND created_at >= NOW() - INTERVAL '48 hours'
+  ORDER BY created_at ASC
+  LIMIT 1;
+
+  -- 2. If no cluster exists, generate a new one
+  IF v_cluster_id IS NULL THEN
+    v_cluster_id := gen_random_uuid();
+  END IF;
+
+  -- 3. Assign this report to the cluster
+  UPDATE public.nadi_infra_reports
+  SET cluster_id = v_cluster_id
+  WHERE id = p_report_id;
+
+  -- 4. Count unique devices in this cluster
+  SELECT COUNT(DISTINCT COALESCE(device_fingerprint, user_id::text, id::text)) INTO v_unique_devices
+  FROM public.nadi_infra_reports
+  WHERE cluster_id = v_cluster_id;
+
+  -- 5. Auto-verify if threshold is met
+  IF v_unique_devices >= p_threshold THEN
+    v_is_verified := true;
+    UPDATE public.nadi_infra_reports
+    SET status = 'verified'
+    WHERE cluster_id = v_cluster_id;
+  END IF;
+
+  -- 6. Return structured result
+  RETURN jsonb_build_object(
+    'clusterId', v_cluster_id,
+    'uniqueDevices', v_unique_devices,
+    'threshold', p_threshold,
+    'isVerified', v_is_verified
+  );
+END;
 $$;

@@ -72,99 +72,34 @@ export async function POST(request: Request) {
         const parsedLng = typeof lng === 'string' ? parseFloat(lng) : lng;
         const threshold = isUrban(parsedLat, parsedLng) ? URBAN_THRESHOLD : RURAL_THRESHOLD;
 
-        // Find all reports within 15m radius in the last 48 hours using PostGIS
-        const windowStart = new Date(Date.now() - CLUSTER_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+        // Execute the atomic spatial clustering transaction
+        const { data: rpcData, error: rpcError } = await supabase.rpc('atomic_cluster_pothole', {
+            p_report_id: reportId,
+            p_lat: parsedLat,
+            p_lng: parsedLng,
+            p_fingerprint: deviceFingerprint || null,
+            p_threshold: threshold
+        });
 
-        // Use raw SQL via RPC for PostGIS spatial query
-        // If PostGIS is not available, fall back to bounding box approximation
-        let nearbyReports: any[] = [];
-
-        try {
-            // Try PostGIS first (preferred)
-            const { data: spatialData, error: spatialError } = await supabase.rpc(
-                'find_nearby_infra_reports',
-                {
-                    target_lng: parsedLng,
-                    target_lat: parsedLat,
-                    radius_meters: CLUSTER_RADIUS_METERS,
-                    since: windowStart,
-                }
-            );
-
-            if (!spatialError && spatialData) {
-                nearbyReports = spatialData;
-            } else {
-                throw new Error('PostGIS RPC not available, falling back');
-            }
-        } catch {
-            // Fallback: bounding box approximation (works without PostGIS)
-            // ~15m ≈ 0.000135° latitude, longitude varies but similar at equator
-            const latDelta = 0.000135;
-            const lngDelta = 0.000135;
-
-            const { data: fallbackData } = await supabase
-                .from('nadi_infra_reports')
-                .select('id, lat, lng, device_fingerprint, user_id, cluster_id, created_at')
-                .gte('created_at', windowStart)
-                .gte('lat', String(parsedLat - latDelta))
-                .lte('lat', String(parsedLat + latDelta))
-                .gte('lng', String(parsedLng - lngDelta))
-                .lte('lng', String(parsedLng + lngDelta))
-                .neq('id', reportId);
-
-            nearbyReports = fallbackData || [];
+        if (rpcError) {
+            throw new Error(`Atomic RPC failed: ${rpcError.message}`);
         }
 
-        // Count unique devices/users (include current report)
-        const uniqueDevices = new Set<string>();
-        if (deviceFingerprint) {
-            uniqueDevices.add(deviceFingerprint);
-        } else {
-            uniqueDevices.add(reportId); // fallback: use report ID as unique identifier
-        }
-
-        let existingClusterId: string | null = null;
-
-        for (const report of nearbyReports) {
-            if (report.id === reportId) continue;
-            const fingerprint = report.device_fingerprint || report.user_id || report.id;
-            uniqueDevices.add(fingerprint);
-            if (report.cluster_id) {
-                existingClusterId = report.cluster_id;
-            }
-        }
-
-        const uniqueCount = uniqueDevices.size;
-        const isVerified = uniqueCount >= threshold;
-
-        // Generate or reuse cluster_id
-        const clusterId = existingClusterId || crypto.randomUUID();
-
-        // Assign cluster_id to the current report
-        await supabase
-            .from('nadi_infra_reports')
-            .update({ cluster_id: clusterId })
-            .eq('id', reportId);
-
-        // If threshold is met, verify all reports in the cluster
-        if (isVerified) {
-            // Update all nearby reports with the same cluster_id and verified status
-            const allIds = [reportId, ...nearbyReports.map((r: any) => r.id)];
-            await supabase
-                .from('nadi_infra_reports')
-                .update({ cluster_id: clusterId, status: 'verified' })
-                .in('id', allIds);
-        }
+        const clusterData = rpcData as {
+            clusterId: string;
+            uniqueDevices: number;
+            threshold: number;
+            isVerified: boolean;
+        };
 
         return NextResponse.json({
             success: true,
             cluster: {
-                clusterId,
-                uniqueDevices: uniqueCount,
-                threshold,
+                clusterId: clusterData.clusterId,
+                uniqueDevices: clusterData.uniqueDevices,
+                threshold: clusterData.threshold,
                 isUrban: isUrban(parsedLat, parsedLng),
-                isVerified,
-                nearbyCount: nearbyReports.length,
+                isVerified: clusterData.isVerified,
             },
         });
     } catch (error) {

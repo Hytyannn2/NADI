@@ -213,7 +213,7 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                             {wbSuccess && (
                                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                                     className="bg-[#10B981]/10 border border-[#10B981]/20 rounded-2xl p-4 text-center text-xs font-bold text-[#10B981]"
-                                >✅ Report submitted anonymously. Reference ID generated.</motion.div>
+                                > Report submitted anonymously. Reference ID generated.</motion.div>
                             )}
 
                             <div>

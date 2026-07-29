@@ -449,9 +449,9 @@ export default function BencanaView() {
                                                 {/* Rise rate indicator */}
                                                 <div className="flex items-center gap-2 mt-1.5">
                                                     <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                                        {sensorStatus === 'danger' ? '🔴 Above danger threshold (120cm)'
-                                                            : sensorStatus === 'warning' ? '🟠 Approaching warning level (80cm)'
-                                                            : sensorData.water_level > 0 ? '🟢 Normal range' : 'No reading yet'}
+                                                        {sensorStatus === 'danger' ? ' Above danger threshold (120cm)'
+                                                            : sensorStatus === 'warning' ? ' Approaching warning level (80cm)'
+                                                            : sensorData.water_level > 0 ? ' Normal range' : 'No reading yet'}
                                                     </p>
                                                     {sensorData.rise_rate_cm_hr !== 0 && (
                                                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
@@ -533,7 +533,7 @@ export default function BencanaView() {
                                                 <span className="text-[10px] text-zinc-400 ml-0.5">hPa</span>
                                             </span>
                                             <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1 relative z-10">
-                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? '⚠️ Low Pressure' : 'Pressure'}
+                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? ' Low Pressure' : 'Pressure'}
                                             </span>
                                         </div>
                                     </div>
@@ -550,7 +550,7 @@ export default function BencanaView() {
                                 <div className="flex items-center gap-2 rounded-xl p-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                     <Clock className="w-3.5 h-3.5" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }} />
                                     <span className="text-[9px] font-bold" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }}>
-                                        {sensorData.is_online ? '🟢 Online' : '⚫ Offline'}
+                                        {sensorData.is_online ? ' Online' : ' Offline'}
                                     </span>
                                     <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
                                         · Last seen: {formatLastSeen(sensorData.last_reading)}
@@ -562,9 +562,9 @@ export default function BencanaView() {
 
                                 {/* Thresholds Reference */}
                                 <div className="flex items-center gap-4 text-[9px] font-medium px-1" style={{ color: 'var(--text-muted)' }}>
-                                    <span>🟢 Safe: &lt;80cm</span>
-                                    <span>🟠 Warning: 80-119cm</span>
-                                    <span>🔴 Danger: ≥120cm</span>
+                                    <span> Safe: &lt;80cm</span>
+                                    <span> Warning: 80-119cm</span>
+                                    <span> Danger: ≥120cm</span>
                                 </div>
                             </div>
                         </motion.div>
@@ -592,9 +592,9 @@ export default function BencanaView() {
                 style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
             >
                 {([
-                    { key: 'map' as const, label: '📍 Map' },
-                    { key: 'sensors' as const, label: '📡 Sensors' },
-                    { key: 'zones' as const, label: '🌊 Flood Zones' },
+                    { key: 'map' as const, label: ' Map' },
+                    { key: 'sensors' as const, label: ' Sensors' },
+                    { key: 'zones' as const, label: ' Flood Zones' },
                 ]).map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                         className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
@@ -655,7 +655,7 @@ export default function BencanaView() {
                                                     <Navigation className="w-4 h-4 shrink-0 text-blue-400" />
                                                     <div>
                                                         <p className="text-[11px] font-bold text-white">GPS active · {locationLabel}</p>
-                                                        <p className="text-[9px] font-medium text-gray-300 mt-0.5 tracking-wider">📍 {userLat.toFixed(4)}°N, {userLng.toFixed(4)}°E</p>
+                                                        <p className="text-[9px] font-medium text-gray-300 mt-0.5 tracking-wider"> {userLat.toFixed(4)}°N, {userLng.toFixed(4)}°E</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -679,7 +679,7 @@ export default function BencanaView() {
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'var(--accent-muted)' }}>
-                                                    {center.type === 'Sekolah' ? '🏫' : center.type === 'Masjid' ? '🕌' : '🏛️'}
+                                                    {center.type === 'Sekolah' ? '' : center.type === 'Masjid' ? '' : ''}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{center.name}</p>
@@ -687,7 +687,7 @@ export default function BencanaView() {
                                                         <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{center.district} · {center.type}</span>
                                                         {center.distanceKm !== null && (
                                                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                                📍 {center.distanceKm} km
+                                                                 {center.distanceKm} km
                                                             </span>
                                                         )}
                                                     </div>
@@ -720,7 +720,7 @@ export default function BencanaView() {
                                     <div className="mb-4 p-3 rounded-xl flex items-center gap-3 animate-pulse relative z-10" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                                         <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
                                         <div>
-                                            <p className="text-xs font-bold text-red-400">⚠️ EARLY WARNING: Rapid Rise Detected</p>
+                                            <p className="text-xs font-bold text-red-400"> EARLY WARNING: Rapid Rise Detected</p>
                                             <p className="text-[10px] text-red-400/80 mt-0.5">
                                                 Water rising {sensorData.rise_rate_cm_hr} cm/hr — estimated {Math.max(1, Math.round((120 - sensorData.water_level) / sensorData.rise_rate_cm_hr))} hours to danger level
                                             </p>
@@ -779,7 +779,7 @@ export default function BencanaView() {
                                             {formatLastSeen(sensorData.last_reading)}
                                         </p>
                                         <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                                            {sensorData.is_online ? '🟢 Online' : '⚫ Offline'}
+                                            {sensorData.is_online ? ' Online' : ' Offline'}
                                         </p>
                                     </div>
                                 </div>
@@ -815,7 +815,7 @@ export default function BencanaView() {
                                                 {sensorData.pressure_hpa !== null ? sensorData.pressure_hpa.toFixed(0) : '—'}
                                             </span>
                                             <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-0.5 relative z-10">
-                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? '⚠️ Storm Signal' : 'Pressure (hPa)'}
+                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? ' Storm Signal' : 'Pressure (hPa)'}
                                             </span>
                                         </div>
                                     </div>
@@ -902,8 +902,8 @@ export default function BencanaView() {
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-4 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                                                <span>👥 Pop: {zone.population.toLocaleString()}</span>
-                                                <span>📊 {zone.historicLevel}</span>
+                                                <span> Pop: {zone.population.toLocaleString()}</span>
+                                                <span> {zone.historicLevel}</span>
                                             </div>
                                         </motion.div>
                                     );

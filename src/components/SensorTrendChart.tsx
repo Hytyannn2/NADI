@@ -336,7 +336,7 @@ export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate
                 <div className="mt-3 p-2.5 rounded-xl flex items-center gap-2 animate-pulse" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                     <TrendingUp className="w-4 h-4 text-red-500 shrink-0" />
                     <p className="text-[10px] font-bold text-red-400">
-                        ⚠️ EARLY WARNING: Water rising {riseRate} cm/hr — monitor closely
+                         EARLY WARNING: Water rising {riseRate} cm/hr — monitor closely
                     </p>
                 </div>
             )}

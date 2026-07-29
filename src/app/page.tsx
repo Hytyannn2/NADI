@@ -100,7 +100,7 @@ export default function App() {
   const xpPercent = Math.min((xp / xpToNext) * 100, 100);
   const completedQuests = quests.filter(q => q.completed).length;
   const userEmail = user?.email ?? '';
-  const userInitial = userEmail.charAt(0).toUpperCase() || '🇲🇾';
+  const userInitial = userEmail.charAt(0).toUpperCase() || '';
   const userAvatar = user?.user_metadata?.avatar_url as string | undefined;
   const userName = (user?.user_metadata?.full_name as string | undefined) ?? userEmail.split('@')[0] ?? 'Warga';
 
@@ -267,7 +267,7 @@ export default function App() {
                   <p className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{t('header.notifications')}</p>
                 </div>
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>All caught up! 🎉</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>All caught up! </p>
                   <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('header.notif_hint')}</p>
                 </div>
               </motion.div>
@@ -388,7 +388,7 @@ export default function App() {
                             <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.description}</p>
                           </div>
                           {b.unlocked && (
-                            <span className="text-[8px] font-bold px-2 py-0.5 rounded" style={{ background: 'var(--success-muted, rgba(16,185,129,0.1))', color: 'var(--success, #10B981)' }}>✓</span>
+                            <span className="text-[8px] font-bold px-2 py-0.5 rounded" style={{ background: 'var(--success-muted, rgba(16,185,129,0.1))', color: 'var(--success, #10B981)' }}></span>
                           )}
                         </div>
                       ))}

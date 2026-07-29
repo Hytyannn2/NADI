@@ -162,7 +162,7 @@ function CelebrationModal({ data, onClose }: { data: CelebrationData; onClose: (
           className="w-full py-3.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-[#0A0A0C] shadow-lg relative z-10"
           style={{ background: `linear-gradient(135deg, ${data.color}, ${data.color}CC)` }}
         >
-          Awesome! 🎉
+          Awesome! 
         </motion.button>
       </motion.div>
     </motion.div>

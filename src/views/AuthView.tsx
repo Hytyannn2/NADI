@@ -1,5 +1,50 @@
 'use client';
 
+import pkg from '@/package.json';
+
+const APP_VERSION = `v${pkg.version}`;
+
+function MalaysiaFlagIcon({ className = "w-7 h-7" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g clipPath="url(#circular-flag-clip)">
+        {/* White background circle */}
+        <circle cx="256" cy="256" r="256" fill="#FFFFFF" />
+
+        {/* 14 Red and White Stripes */}
+        <rect y="0" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="73.14" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="146.28" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="219.42" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="292.57" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="365.71" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="438.85" width="512" height="36.57" fill="#CC1E27" />
+        <rect y="475.42" width="512" height="36.57" fill="#CC1E27" />
+
+        {/* Navy Blue Canton (Top-Left quadrant covering 8 stripes) */}
+        <rect width="323" height="292.57" fill="#1C2156" />
+
+        {/* Golden Crescent Moon */}
+        <path
+          d="M 185 85 C 235 85 275 125 275 175 C 275 225 235 265 185 265 C 162 265 141 257 125 244 C 158 231 181 198 181 175 C 181 152 158 119 125 106 C 141 93 162 85 185 85 Z"
+          fill="#FFC800"
+        />
+
+        {/* 14-Pointed Golden Star */}
+        <path
+          d="M 235 175 L 246 153 L 262 167 L 264 143 L 285 153 L 280 129 L 304 132 L 292 110 L 316 105 L 297 89 L 318 77 L 295 70 L 309 52 L 287 53 L 292 29 L 272 40 L 269 16 L 253 31 L 242 9 L 232 31 L 216 16 L 213 40 L 193 29 L 198 53 L 176 52 L 190 70 L 167 77 L 188 89 L 169 105 L 193 110 L 181 132 L 205 129 L 200 153 L 221 143 L 223 167 Z"
+          fill="#FFC800"
+        />
+      </g>
+      <defs>
+        <clipPath id="circular-flag-clip">
+          <circle cx="256" cy="256" r="256" />
+        </clipPath>
+      </defs>
+    </svg>
+  );
+}
+
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
@@ -41,68 +86,43 @@ function ParticleGlobe() {
     // Radius of globe
     const radius = Math.min(width, height) * 0.38;
 
-    // Real geographic hotspot coordinates (lat, lon, label, type)
-    const REAL_HOTSPOTS = [
-      // Malaysia Hubs
-      { lat: 3.139, lon: 101.686, label: 'Kuala Lumpur', type: 'my' },
-      { lat: 6.125, lon: 102.238, label: 'Kota Bharu', type: 'my' },
-      { lat: 5.414, lon: 100.329, label: 'Penang (G.Town)', type: 'my' },
-      { lat: 1.492, lon: 103.741, label: 'Johor Bahru', type: 'my' },
-      { lat: 1.553, lon: 110.359, label: 'Kuching', type: 'my' },
-      { lat: 5.980, lon: 116.073, label: 'Kota Kinabalu', type: 'my' },
-      { lat: 3.807, lon: 103.325, label: 'Kuantan', type: 'my' },
-      { lat: 4.597, lon: 101.090, label: 'Ipoh', type: 'my' },
-      { lat: 2.189, lon: 102.250, label: 'Melaka', type: 'my' },
-      { lat: 5.311, lon: 103.132, label: 'K. Terengganu', type: 'my' },
-      { lat: 6.118, lon: 100.368, label: 'Alor Setar', type: 'my' },
-      { lat: 4.399, lon: 113.991, label: 'Miri', type: 'my' },
-      { lat: 5.840, lon: 118.117, label: 'Sandakan', type: 'my' },
-      { lat: 2.926, lon: 101.696, label: 'Putrajaya', type: 'my' },
-
-      // ASEAN & Regional Nodes
-      { lat: 1.352, lon: 103.819, label: 'Singapore', type: 'asean' },
-      { lat: 13.756, lon: 100.501, label: 'Bangkok', type: 'asean' },
-      { lat: -6.208, lon: 106.845, label: 'Jakarta', type: 'asean' },
-      { lat: 14.599, lon: 120.984, label: 'Manila', type: 'asean' },
-      { lat: 10.823, lon: 106.629, label: 'Ho Chi Minh', type: 'asean' },
-
-      // Global Nodes
-      { lat: 35.676, lon: 139.650, label: 'Tokyo', type: 'global' },
-      { lat: -33.868, lon: 151.209, label: 'Sydney', type: 'global' },
-      { lat: 51.507, lon: -0.127, label: 'London', type: 'global' },
-      { lat: 25.204, lon: 55.270, label: 'Dubai', type: 'global' },
-      { lat: 40.712, lon: -74.006, label: 'New York', type: 'global' },
+    // 100% MALAYSIA PLACES ONLY — Beautifully scattered for aesthetic decoration
+    const MALAYSIA_PLACES = [
+      'Kuala Lumpur', 'Kota Bharu', 'Penang', 'Johor Bahru', 'Kuching', 
+      'Kota Kinabalu', 'Kuantan', 'Ipoh', 'Melaka', 'Kuala Terengganu', 
+      'Alor Setar', 'Sandakan', 'Miri', 'Putrajaya', 'Seremban', 
+      'Kangar', 'Labuan', 'Bintulu', 'Taiping', 'Sibu', 
+      'Tawau', 'Batu Pahat', 'Bangi', 'Cyberjaya'
     ];
 
-    // Generate 3D points on sphere
-    const numPoints = 950;
-    const points: { x: number; y: number; z: number; baseSize: number; isHotspot?: boolean; label?: string; type?: string }[] = [];
+    const numPoints = 800;
+    const points: { x: number; y: number; z: number; baseSize: number; isHotspot?: boolean; label?: string }[] = [];
 
-    // Helper: lat/lon to 3D Cartesian coordinates
-    const latLonTo3D = (lat: number, lon: number, r: number) => {
-      const phi = ((90 - lat) * Math.PI) / 180;
-      const theta = ((lon + 180) * Math.PI) / 180;
-      return {
-        x: -(r * Math.sin(phi) * Math.cos(theta)),
-        z: r * Math.sin(phi) * Math.sin(theta),
-        y: r * Math.cos(phi),
-      };
-    };
+    const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle
 
-    // Add real geographic hotspots first
-    REAL_HOTSPOTS.forEach((h) => {
-      const pos = latLonTo3D(h.lat, h.lon, radius);
+    // Evenly distribute 24 Malaysian locations all around the 3D sphere surface
+    for (let i = 0; i < MALAYSIA_PLACES.length; i++) {
+      // Spread latitude evenly from top (+0.85) to bottom (-0.85)
+      const y = 0.85 - (i / (MALAYSIA_PLACES.length - 1)) * 1.7;
+      const radiusAtY = Math.sqrt(1 - y * y);
+      
+      // Step longitude around the globe (137.5 degrees step for optimal spacing)
+      const theta = i * 2.39996; // ~137.5 degrees
+
+      const x = Math.cos(theta) * radiusAtY;
+      const z = Math.sin(theta) * radiusAtY;
+
       points.push({
-        ...pos,
-        baseSize: h.type === 'my' ? 3.0 : 2.2,
+        x: x * radius,
+        y: y * radius,
+        z: z * radius,
+        baseSize: 2.8,
         isHotspot: true,
-        label: h.label,
-        type: h.type,
+        label: MALAYSIA_PLACES[i],
       });
-    });
+    }
 
-    // Golden spiral distribution on sphere for particle density mesh
-    const phi = Math.PI * (3 - Math.sqrt(5));
+    // Fill the rest of the 3D sphere with background particle mesh dots
     for (let i = 0; i < numPoints; i++) {
       const y = 1 - (i / (numPoints - 1)) * 2;
       const radiusAtY = Math.sqrt(1 - y * y);
@@ -115,7 +135,7 @@ function ParticleGlobe() {
         x: x * radius,
         y: y * radius,
         z: z * radius,
-        baseSize: Math.random() * 1.3 + 0.5,
+        baseSize: Math.random() * 1.2 + 0.5,
         isHotspot: false,
       });
     }
@@ -184,7 +204,6 @@ function ParticleGlobe() {
           baseSize: p.baseSize,
           isHotspot: p.isHotspot,
           label: p.label,
-          type: p.type,
         };
       });
 
@@ -209,12 +228,15 @@ function ParticleGlobe() {
             ctx.moveTo(p1.px, p1.py);
             ctx.lineTo(p2.px, p2.py);
             ctx.strokeStyle = p1.isHotspot 
-              ? (p1.type === 'my' ? `rgba(16, 185, 129, ${alpha * 1.6})` : `rgba(6, 182, 212, ${alpha * 1.4})`)
+              ? `rgba(16, 185, 129, ${alpha * 1.6})`
               : `rgba(6, 182, 212, ${alpha})`;
             ctx.stroke();
           }
         }
       }
+
+      // Screen collision tracking array to prevent text label overlap
+      const drawnLabelPositions: { x: number; y: number }[] = [];
 
       // Draw points & hotspot labels
       projected.forEach((p) => {
@@ -225,11 +247,7 @@ function ParticleGlobe() {
         ctx.arc(p.px, p.py, Math.max(0.8, size), 0, Math.PI * 2);
 
         if (p.isHotspot) {
-          const color = p.type === 'my' 
-            ? `rgba(16, 185, 129, ${opacity})`       // Emerald for Malaysia
-            : p.type === 'asean' 
-            ? `rgba(6, 182, 212, ${opacity})`        // Cyan for ASEAN
-            : `rgba(99, 102, 241, ${opacity})`;       // Indigo for Global
+          const color = `rgba(16, 185, 129, ${opacity})`; // Emerald for Malaysia
 
           ctx.fillStyle = color;
           ctx.fill();
@@ -241,22 +259,28 @@ function ParticleGlobe() {
           ctx.lineWidth = 0.8;
           ctx.stroke();
 
-          // Hotspot text label when on the front hemisphere (z < -20)
-          if (p.label && p.z < -20) {
-            ctx.font = p.type === 'my' ? 'bold 10px sans-serif' : '9px sans-serif';
-            ctx.fillStyle = p.type === 'my' 
-              ? `rgba(255, 255, 255, ${opacity * 0.95})` 
-              : `rgba(203, 213, 225, ${opacity * 0.75})`;
-            
-            // Draw tiny marker dot line
-            ctx.beginPath();
-            ctx.moveTo(p.px, p.py);
-            ctx.lineTo(p.px + 6, p.py - 4);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
+          // Hotspot text label when on front hemisphere (z < -45) and not overlapping another label
+          if (p.label && p.z < -45) {
+            const isTooClose = drawnLabelPositions.some(
+              (pos) => Math.hypot(pos.x - p.px, pos.y - p.py) < 42
+            );
 
-            ctx.fillText(p.label, p.px + 9, p.py - 3);
+            if (!isTooClose) {
+              drawnLabelPositions.push({ x: p.px, y: p.py });
+
+              ctx.font = 'bold 10px sans-serif';
+              ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.95})`;
+              
+              // Draw marker indicator line
+              ctx.beginPath();
+              ctx.moveTo(p.px, p.py);
+              ctx.lineTo(p.px + 7, p.py - 4);
+              ctx.strokeStyle = `rgba(16, 185, 129, ${opacity * 0.6})`;
+              ctx.lineWidth = 0.8;
+              ctx.stroke();
+
+              ctx.fillText(p.label, p.px + 10, p.py - 3);
+            }
           }
         } else {
           ctx.fillStyle = p.z < 0 ? `rgba(6, 182, 212, ${opacity})` : `rgba(148, 163, 184, ${opacity * 0.45})`;
@@ -318,13 +342,13 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           },
         });
         if (error) throw error;
-        setMessage(lang === 'BM' ? 'Pautan pengesahan telah dihantar ke e-mel anda! 📬' : 'Verification link sent to your email! 📬');
+        setMessage(lang === 'BM' ? 'Pautan pengesahan telah dihantar ke e-mel anda! ' : 'Verification link sent to your email! ');
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/reset`,
         });
         if (error) throw error;
-        setMessage(lang === 'BM' ? 'Pautan menetapkan semula kata laluan telah dihantar! 🔑' : 'Password reset link sent to your email! 🔑');
+        setMessage(lang === 'BM' ? 'Pautan menetapkan semula kata laluan telah dihantar! ' : 'Password reset link sent to your email! ');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -433,13 +457,13 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             <div className="flex items-center justify-between mb-8 sm:mb-12">
               {/* Brand Logo & Name */}
               <div className="flex items-center gap-3">
-                <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#0C1222] border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
-                  <span className="text-xl">🇲🇾</span>
+                <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#0C1222] border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)] overflow-hidden">
+                  <img src="/images/malaysia-flag.png" alt="Malaysia Flag" className="w-7 h-7 rounded-full object-cover relative z-10 filter drop-shadow" />
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 blur-sm pointer-events-none" />
                 </div>
                 <div>
                   <span className="text-lg font-black tracking-wider text-white flex items-center gap-1.5">
-                    NADI <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">v2.8</span>
+                    NADI <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">{APP_VERSION}</span>
                   </span>
                   <p className="text-[10px] text-slate-400 tracking-widest uppercase font-medium">Smart Civic Platform</p>
                 </div>
@@ -769,39 +793,39 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           <div className="absolute top-10 right-10 flex items-center gap-3 z-10">
             <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 backdrop-blur-xl flex items-center gap-2 shadow-lg">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>NADI Radar Node: <strong className="text-emerald-400 font-mono">ONLINE</strong></span>
+              <span>Sistem NADI: <strong className="text-emerald-400 font-mono">AKTIF</strong></span>
             </div>
             <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 backdrop-blur-xl flex items-center gap-2 shadow-lg">
               <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>AES-256 Encrypted</span>
+              <span>Enkripsi 256-Bit</span>
             </div>
           </div>
 
           {/* Bottom Hero Glass Card overlay */}
           <div className="absolute bottom-12 left-12 right-12 p-8 rounded-3xl bg-slate-950/60 border border-slate-800/80 backdrop-blur-2xl max-w-xl shadow-2xl z-10">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-400 uppercase tracking-widest w-fit mb-3">
-              <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse" /> Rangkaian Sivik Kebangsaan
+              <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse" /> Platform Sivik Kebangsaan
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Pemantauan Bencana & Komuniti Pintar Real-Time
+              Pemantauan Bencana & Respon Komuniti Pintar
             </h3>
             <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-              Menghubungkan lebih 12,000+ warga Malaysia dengan amaran banjir sensor LoRaWAN, pengesan jalan rosak AI, dan sukarelawan komuniti secara pantas.
+              Platform digital bersepadu untuk pemantauan aras air sensor LoRaWAN, pengesahan laporan kerosakan infrastruktur, dan koordinasi bantuan bencana di Malaysia.
             </p>
             
-            {/* Live Telemetry Grid */}
+            {/* System Feature Grid */}
             <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-slate-800/60 text-left">
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400">Sensor Aktif</div>
-                <div className="text-lg font-black text-emerald-400 font-mono mt-0.5">142 Units</div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Modul Utama</div>
+                <div className="text-sm font-extrabold text-emerald-400 font-mono mt-0.5">5 Komuniti</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400">Masa Respon</div>
-                <div className="text-lg font-black text-cyan-400 font-mono mt-0.5">&lt; 2 Saat</div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Teknologi</div>
+                <div className="text-sm font-extrabold text-cyan-400 font-mono mt-0.5">LoRa & AI</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400">Uptime Sistem</div>
-                <div className="text-lg font-black text-white font-mono mt-0.5">99.98%</div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Kawasan</div>
+                <div className="text-sm font-extrabold text-white font-mono mt-0.5">Malaysia</div>
               </div>
             </div>
           </div>

@@ -364,7 +364,7 @@ export default function InfraView() {
                                         onClick={handleToggleDashcam}
                                         className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 active:scale-90 transition-transform shadow-2xl"
                                     >
-                                        <span className="text-white text-xl font-bold">✕</span>
+                                        <span className="text-white text-xl font-bold"></span>
                                     </button>
                                 </div>
                                 {/* Bottom info */}
@@ -412,7 +412,7 @@ export default function InfraView() {
                     style={!dashcam.isDashcamEnabled ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
                 >
                     {dashcam.isDashcamEnabled ? <Video className="w-4 h-4 text-red-500" /> : <VideoOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />}
-                    {dashcam.isDashcamEnabled ? '📸' : 'Cam'}
+                    {dashcam.isDashcamEnabled ? '' : 'Cam'}
                 </button>
             </motion.div>
 
@@ -456,14 +456,14 @@ export default function InfraView() {
             {/* Motion Error */}
             {detector.motionError && (
                 <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
-                    ⚠ {detector.motionError}
+                     {detector.motionError}
                 </div>
             )}
 
             {/* Dashcam Error */}
             {dashcam.error && (
                 <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                    📷 {dashcam.error}
+                     {dashcam.error}
                 </div>
             )}
 
@@ -553,7 +553,7 @@ export default function InfraView() {
                                             {/* Dashcam indicator */}
                                             {a.snapshotBase64 && (
                                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
-                                                    📸 Frame
+                                                     Frame
                                                 </span>
                                             )}
                                         </div>
@@ -566,7 +566,7 @@ export default function InfraView() {
                                                         <Users className="w-3 h-3" /> Crowdsource Cluster
                                                     </span>
                                                     <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${a.cluster.isVerified ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-zinc-800 text-zinc-400'}`}>
-                                                        {a.cluster.isVerified ? '✓ Verified' : `${a.cluster.isUrban ? 'Urban' : 'Rural'}`}
+                                                        {a.cluster.isVerified ? ' Verified' : `${a.cluster.isUrban ? 'Urban' : 'Rural'}`}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">

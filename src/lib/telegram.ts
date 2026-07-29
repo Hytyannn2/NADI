@@ -40,48 +40,48 @@ export async function sendTelegramAlert(data: TelegramAlertData): Promise<boolea
     }
 
     const isDanger = data.status === 'danger';
-    const icon = isDanger ? '🚨' : '⚠️';
+    const icon = isDanger ? '' : '';
     const statusLabel = isDanger ? 'BAHAYA' : 'AMARAN AWAL';
 
     // Estimate time to danger level (120cm)
     const timeEstimate = data.riseRate && data.riseRate > 0 && data.waterLevel < 120
-        ? `⏱️ Anggaran ${Math.max(1, Math.round((120 - data.waterLevel) / data.riseRate))} jam ke paras bahaya`
+        ? ` Anggaran ${Math.max(1, Math.round((120 - data.waterLevel) / data.riseRate))} jam ke paras bahaya`
         : null;
 
     // Build message in Malay (target audience: rural Kelantan communities)
     const lines: string[] = [
         `${icon} ${statusLabel} — JAGA KELANTAN`,
         ``,
-        `📍 ${data.sensorName}`,
-        `📌 ${data.location}`,
-        `💧 Paras air: ${data.waterLevel} cm`,
+        ` ${data.sensorName}`,
+        ` ${data.location}`,
+        ` Paras air: ${data.waterLevel} cm`,
     ];
 
     if (data.riseRate !== undefined && data.riseRate !== 0) {
-        lines.push(`📈 Kadar naik: ${data.riseRate.toFixed(1)} cm/jam`);
+        lines.push(` Kadar naik: ${data.riseRate.toFixed(1)} cm/jam`);
     }
 
     if (data.batteryPct !== null && data.batteryPct !== undefined) {
-        lines.push(`🔋 Bateri: ${data.batteryPct}%`);
+        lines.push(` Bateri: ${data.batteryPct}%`);
     }
 
     if (data.temperatureC !== null && data.temperatureC !== undefined) {
-        lines.push(`🌡️ Suhu: ${data.temperatureC}°C`);
+        lines.push(` Suhu: ${data.temperatureC}°C`);
     }
 
     if (data.rssiDbm !== null && data.rssiDbm !== undefined) {
-        lines.push(`📶 Isyarat: ${data.rssiDbm} dBm`);
+        lines.push(` Isyarat: ${data.rssiDbm} dBm`);
     }
 
     lines.push(``);
 
     if (isDanger) {
-        lines.push(`⚡ SILA BERSEDIA UNTUK BERPINDAH.`);
+        lines.push(` SILA BERSEDIA UNTUK BERPINDAH.`);
     } else if (timeEstimate) {
         lines.push(timeEstimate);
     }
 
-    lines.push(``, `🕐 ${new Date().toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`);
+    lines.push(``, ` ${new Date().toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`);
 
     const text = lines.join('\n');
 
@@ -128,12 +128,12 @@ export async function sendTelegramTest(): Promise<{ success: boolean; error?: st
             body: JSON.stringify({
                 chat_id: chatId,
                 text: [
-                    `✅ NADI Bencana — Telegram Connected`,
+                    ` NADI Bencana — Telegram Connected`,
                     ``,
                     `Bot berjaya disambungkan ke sistem NADI.`,
                     `Anda akan menerima amaran banjir secara automatik.`,
                     ``,
-                    `🕐 ${new Date().toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`,
+                    ` ${new Date().toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`,
                 ].join('\n'),
             }),
         });

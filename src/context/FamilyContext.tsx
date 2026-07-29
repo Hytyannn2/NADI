@@ -15,7 +15,7 @@ interface FamilyContextType {
   updateMember: (id: string, data: Partial<FamilyMember>) => void;
 }
 
-const AVATARS = ['👤', '👩', '👦', '👧', '🧓'];
+const AVATARS = ['', '', '', '', ''];
 
 const FamilyContext = createContext<FamilyContextType>({
   members: [], activeId: '', activeMember: null,
