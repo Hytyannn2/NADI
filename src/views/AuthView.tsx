@@ -789,17 +789,6 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           <div className="absolute inset-0 bg-gradient-to-r from-[#070B14] via-transparent to-transparent pointer-events-none" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#03060E] via-transparent to-transparent opacity-80 pointer-events-none" />
 
-          {/* Live System Status Badges overlay */}
-          <div className="absolute top-10 right-10 flex items-center gap-3 z-10">
-            <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 backdrop-blur-xl flex items-center gap-2 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>Sistem NADI: <strong className="text-emerald-400 font-mono">AKTIF</strong></span>
-            </div>
-            <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300 backdrop-blur-xl flex items-center gap-2 shadow-lg">
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Enkripsi 256-Bit</span>
-            </div>
-          </div>
 
           {/* Bottom Hero Glass Card overlay */}
           <div className="absolute bottom-12 left-12 right-12 p-8 rounded-3xl bg-slate-950/60 border border-slate-800/80 backdrop-blur-2xl max-w-xl shadow-2xl z-10">
