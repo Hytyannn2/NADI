@@ -96,26 +96,26 @@ function ParticleGlobe() {
     ];
 
     const numPoints = 800;
-    const points: { x: number; y: number; z: number; baseSize: number; isHotspot?: boolean; label?: string }[] = [];
+    const points: { nx: number; ny: number; nz: number; baseSize: number; isHotspot?: boolean; label?: string }[] = [];
 
     const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle
 
     // Evenly distribute 24 Malaysian locations all around the 3D sphere surface
     for (let i = 0; i < MALAYSIA_PLACES.length; i++) {
       // Spread latitude evenly from top (+0.85) to bottom (-0.85)
-      const y = 0.85 - (i / (MALAYSIA_PLACES.length - 1)) * 1.7;
-      const radiusAtY = Math.sqrt(1 - y * y);
+      const ny = 0.85 - (i / (MALAYSIA_PLACES.length - 1)) * 1.7;
+      const radiusAtY = Math.sqrt(1 - ny * ny);
       
       // Step longitude around the globe (137.5 degrees step for optimal spacing)
       const theta = i * 2.39996; // ~137.5 degrees
 
-      const x = Math.cos(theta) * radiusAtY;
-      const z = Math.sin(theta) * radiusAtY;
+      const nx = Math.cos(theta) * radiusAtY;
+      const nz = Math.sin(theta) * radiusAtY;
 
       points.push({
-        x: x * radius,
-        y: y * radius,
-        z: z * radius,
+        nx,
+        ny,
+        nz,
         baseSize: 2.8,
         isHotspot: true,
         label: MALAYSIA_PLACES[i],
@@ -124,17 +124,17 @@ function ParticleGlobe() {
 
     // Fill the rest of the 3D sphere with background particle mesh dots
     for (let i = 0; i < numPoints; i++) {
-      const y = 1 - (i / (numPoints - 1)) * 2;
-      const radiusAtY = Math.sqrt(1 - y * y);
+      const ny = 1 - (i / (numPoints - 1)) * 2;
+      const radiusAtY = Math.sqrt(1 - ny * ny);
       const theta = phi * i;
 
-      const x = Math.cos(theta) * radiusAtY;
-      const z = Math.sin(theta) * radiusAtY;
+      const nx = Math.cos(theta) * radiusAtY;
+      const nz = Math.sin(theta) * radiusAtY;
 
       points.push({
-        x: x * radius,
-        y: y * radius,
-        z: z * radius,
+        nx,
+        ny,
+        nz,
         baseSize: Math.random() * 1.2 + 0.5,
         isHotspot: false,
       });
@@ -146,6 +146,7 @@ function ParticleGlobe() {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
+      const radius = Math.min(width, height) * 0.38;
       const centerX = width * 0.56;
       const centerY = height * 0.5;
 
@@ -182,13 +183,17 @@ function ParticleGlobe() {
 
       // Project 3D to 2D
       const projected = points.map((p) => {
+        const pxRadius = p.nx * radius;
+        const pyRadius = p.ny * radius;
+        const pzRadius = p.nz * radius;
+
         // Rotate Y
-        let x1 = p.x * cosY - p.z * sinY;
-        let z1 = p.z * cosY + p.x * sinY;
+        let x1 = pxRadius * cosY - pzRadius * sinY;
+        let z1 = pzRadius * cosY + pxRadius * sinY;
 
         // Rotate X
-        let y1 = p.y * cosX - z1 * sinX;
-        let z2 = z1 * cosX + p.y * sinX;
+        let y1 = pyRadius * cosX - z1 * sinX;
+        let z2 = z1 * cosX + pyRadius * sinX;
 
         // Perspective scale factor
         const fov = 650;
