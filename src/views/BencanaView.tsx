@@ -679,7 +679,7 @@ export default function BencanaView() {
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'var(--accent-muted)' }}>
-                                                    {center.type === 'Sekolah' ? '' : center.type === 'Masjid' ? '' : ''}
+                                                    {center.type === 'Sekolah' ? '🏫' : center.type === 'Masjid' ? '🕌' : '🏛️'}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{center.name}</p>

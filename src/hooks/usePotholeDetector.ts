@@ -50,14 +50,14 @@ interface UsePotholeDetectorReturn {
 // --- Config ---
 const SPEED_MIN_KMH = 10;
 const SPEED_MAX_KMH = 120;
-const Z_DROP_THRESHOLD = -3.0;          // g-force threshold (after baseline subtraction)
+const MAGNITUDE_THRESHOLD = 4.5;          // g-force threshold (4.5g eliminates engine vibration & minor bumps)
 const WAVEFORM_BUFFER_MS = 500;         // rolling buffer window
-const POTHOLE_MAX_DURATION_MS = 200;    // pothole waveform completes in <200ms
+const POTHOLE_MAX_DURATION_MS = 250;    // pothole waveform completes in <250ms
 const GYRO_MAX_ROTATION = 150;          // deg/s — above this = phone tumbling
-const DEBOUNCE_MS = 3000;               // 3 second cooldown between detections
+const DEBOUNCE_MS = 5000;               // 5 second cooldown between detections
 const CALIBRATION_DURATION_MS = 3000;   // 3 seconds of baseline sampling
 const CALIBRATION_SAMPLE_RATE = 50;     // sample every ~50ms during calibration
-const CONFIDENCE_THRESHOLD = 60;        // minimum confidence to report
+const CONFIDENCE_THRESHOLD = 70;        // minimum confidence to report (increased to 70 for precision)
 
 // Confidence scoring weights
 const SCORE_SPEED = 25;
@@ -180,12 +180,23 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
         return Math.round(Math.min(100, score));
     }, []);
 
-    // Analyze waveform buffer to determine pothole vs speedbump
-    const analyzeWaveform = useCallback((): { isPothole: boolean; durationMs: number } => {
+    // Analyze waveform buffer to determine pothole vs speedbump vs rumble strip
+    const analyzeWaveform = useCallback((): { isPothole: boolean; durationMs: number; isRumbleStrip: boolean } => {
         const buffer = waveformBufferRef.current;
-        if (buffer.length < 3) return { isPothole: false, durationMs: 0 };
+        if (buffer.length < 3) return { isPothole: false, durationMs: 0, isRumbleStrip: false };
 
-        // Find the peak magnitude (the impact)
+        // 1. Check for Rumble Strips (Garis Kuning Sekolah): Count peaks > 2.5g in rolling window
+        let peakCount = 0;
+        for (let i = 1; i < buffer.length - 1; i++) {
+            if (buffer[i].val > 2.5 && buffer[i].val > buffer[i - 1].val && buffer[i].val > buffer[i + 1].val) {
+                peakCount++;
+            }
+        }
+        if (peakCount >= 3) {
+            return { isPothole: false, durationMs: 0, isRumbleStrip: true };
+        }
+
+        // Find peak magnitude
         let maxVal = -Infinity;
         let maxIdx = 0;
         for (let i = 0; i < buffer.length; i++) {
@@ -195,26 +206,24 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
             }
         }
 
-        // Find the start of the event (when magnitude first spiked)
+        // Find start and end of spike
         let startIdx = maxIdx;
-        while (startIdx > 0 && buffer[startIdx].val > 1.0) {
+        while (startIdx > 0 && buffer[startIdx].val > 1.5) {
             startIdx--;
         }
 
-        // Find the end of the event (when magnitude settled)
         let endIdx = maxIdx;
-        while (endIdx < buffer.length - 1 && buffer[endIdx].val > 1.0) {
+        while (endIdx < buffer.length - 1 && buffer[endIdx].val > 1.5) {
             endIdx++;
         }
 
-        // Duration = time of the entire high-magnitude event
         const durationMs = buffer[endIdx].t - buffer[startIdx].t;
 
-        // Pothole: sharp spike resolving in <200ms
-        // Speedbump: gradual rise/fall over >300ms
+        // Pothole: sharp spike resolving in <250ms
+        // Speedbump: gradual rise/fall over >280ms
         const isPothole = durationMs > 0 && durationMs <= POTHOLE_MAX_DURATION_MS;
 
-        return { isPothole, durationMs };
+        return { isPothole, durationMs, isRumbleStrip: false };
     }, []);
 
     // --- Start / Stop driving ---
@@ -324,8 +333,8 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
             );
 
             // --- Filter 1: Magnitude threshold ---
-            // Replaces the old static Z_DROP_THRESHOLD. We look for any shock > 3.0g
-            if (magnitude < 3.0) return; // No spike detected
+            // High precision threshold: requires shock >= 4.5g (eliminates engine vibration & phone holder shakes)
+            if (magnitude < MAGNITUDE_THRESHOLD) return;
 
             // --- Filter 2: Debounce ---
             if (now - lastDetectionTimeRef.current < DEBOUNCE_MS) return;
@@ -341,8 +350,9 @@ export function usePotholeDetector(): UsePotholeDetectorReturn {
                 // If no speed data yet, allow with reduced confidence
             }
 
-            // --- Filter 4: Waveform Analysis ---
-            const { isPothole, durationMs } = analyzeWaveform();
+            // --- Filter 4: Waveform Analysis & Rumble Strip Rejection ---
+            const { isPothole, durationMs, isRumbleStrip } = analyzeWaveform();
+            if (isRumbleStrip || !isPothole) return; // Reject rumble strips (garis kuning) and speedbumps
 
             // --- Filter 5: Gyroscope Stability ---
             const maxGyro = Math.max(

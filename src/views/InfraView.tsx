@@ -91,12 +91,25 @@ export default function InfraView() {
         return () => { detector.stopDriving(); };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Fetch existing anomalies on mount
+    // Load local & DB anomalies on mount
     useEffect(() => {
+        // 1. Load offline / persistent local anomalies first
+        const savedLocal = localStorage.getItem('nadi_local_potholes');
+        let localAnomalies: Anomaly[] = [];
+        if (savedLocal) {
+            try {
+                localAnomalies = JSON.parse(savedLocal);
+                setAnomalies(localAnomalies);
+            } catch (e) {
+                console.error("Failed to parse local potholes from storage", e);
+            }
+        }
+
+        // 2. Load DB anomalies from Supabase and merge
         supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(50)
             .then(({ data }) => {
-                if (data) {
-                    const mapped = data.map((d: any) => ({
+                if (data && data.length > 0) {
+                    const mapped: Anomaly[] = data.map((d: any) => ({
                         id: d.id,
                         lat: typeof d.lat === 'string' ? parseFloat(d.lat) : d.lat,
                         lng: typeof d.lng === 'string' ? parseFloat(d.lng) : d.lng,
@@ -110,7 +123,16 @@ export default function InfraView() {
                         speedKmh: d.speed_kmh || 0,
                         snapshotBase64: d.snapshot_base64,
                     }));
-                    setAnomalies(mapped);
+                    setAnomalies(prev => {
+                        const merged = [...prev];
+                        mapped.forEach(m => {
+                            if (!merged.some(item => item.id === m.id)) {
+                                merged.push(m);
+                            }
+                        });
+                        localStorage.setItem('nadi_local_potholes', JSON.stringify(merged.slice(0, 50)));
+                        return merged;
+                    });
                 }
             });
 
@@ -121,7 +143,7 @@ export default function InfraView() {
                     const d = payload.new as any;
                     setAnomalies(prev => {
                         if (prev.some(a => a.id === d.id)) return prev;
-                        return [{
+                        const updated = [{
                             id: d.id,
                             lat: typeof d.lat === 'string' ? parseFloat(d.lat) : d.lat,
                             lng: typeof d.lng === 'string' ? parseFloat(d.lng) : d.lng,
@@ -135,18 +157,24 @@ export default function InfraView() {
                             speedKmh: d.speed_kmh || 0,
                             snapshotBase64: d.snapshot_base64,
                         }, ...prev];
+                        localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
+                        return updated;
                     });
                 }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_infra_reports' }, (payload) => {
                 if (payload.new) {
                     const d = payload.new as any;
-                    setAnomalies(prev => prev.map(a => a.id === d.id ? {
-                        ...a,
-                        status: d.status,
-                        verifications: d.verifications,
-                        aiAnalysis: d.ai_analysis || a.aiAnalysis,
-                    } : a));
+                    setAnomalies(prev => {
+                        const updated = prev.map(a => a.id === d.id ? {
+                            ...a,
+                            status: d.status,
+                            verifications: d.verifications,
+                            aiAnalysis: d.ai_analysis || a.aiAnalysis,
+                        } : a);
+                        localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
+                        return updated;
+                    });
                 }
             })
             .subscribe();
@@ -179,7 +207,12 @@ export default function InfraView() {
             speedKmh: det.speedKmh,
             snapshotBase64: snapshot || undefined,
         };
-        setAnomalies(prev => [newAnomaly, ...prev]);
+        
+        setAnomalies(prev => {
+            const updated = [newAnomaly, ...prev];
+            localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
+            return updated;
+        });
 
         // Persist to DB with sensor fusion data
         const deviceFp = getDeviceFingerprint();

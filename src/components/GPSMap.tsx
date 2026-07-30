@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LocateFixed, Plus, Minus, Maximize2, Minimize2 } from 'lucide-react';
+import { LocateFixed, Plus, Minus, Maximize2, Minimize2, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -17,6 +18,7 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
   const markerRef = useRef<L.Marker | null>(null);
 
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isAnimatingFS, setIsAnimatingFS] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -75,29 +77,38 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
     }
   }, [lat, lng]);
 
-  // Handle Full Screen Toggle
+  // Handle Full Screen Toggle with smooth progressive tile invalidation
   const toggleFullScreen = () => {
     if (!containerRef.current) return;
+    setIsAnimatingFS(true);
+
+    const invalidateSmoothly = () => {
+      [50, 150, 300, 500].forEach(delay => {
+        setTimeout(() => {
+          mapInstanceRef.current?.invalidateSize();
+        }, delay);
+      });
+      setTimeout(() => setIsAnimatingFS(false), 550);
+    };
 
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().then(() => {
         setIsFullScreen(true);
+        invalidateSmoothly();
       }).catch((err) => {
         console.error('Fullscreen request failed:', err);
         setIsFullScreen(prev => !prev); // Fallback to CSS fullscreen
+        invalidateSmoothly();
       });
     } else {
       document.exitFullscreen().then(() => {
         setIsFullScreen(false);
+        invalidateSmoothly();
       }).catch(() => {
         setIsFullScreen(false);
+        invalidateSmoothly();
       });
     }
-
-    // Tell Leaflet to recalculate container bounds after fullscreen transition
-    setTimeout(() => {
-      mapInstanceRef.current?.invalidateSize();
-    }, 250);
   };
 
   // Sync state if user exits fullscreen via ESC key
@@ -105,9 +116,11 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
     const handleFSChange = () => {
       const isFS = !!document.fullscreenElement;
       setIsFullScreen(isFS);
-      setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
-      }, 200);
+      [50, 150, 300, 500].forEach(delay => {
+        setTimeout(() => {
+          mapInstanceRef.current?.invalidateSize();
+        }, delay);
+      });
     };
 
     document.addEventListener('fullscreenchange', handleFSChange);
@@ -115,77 +128,117 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
   }, []);
 
   return (
-    <div
+    <motion.div
       ref={containerRef}
-      className={`w-full h-full relative transition-all ${
+      layout
+      transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+      className={`w-full h-full relative overflow-hidden transition-all duration-300 ${
         isFullScreen ? 'fixed inset-0 z-[9999] w-screen h-screen bg-black' : ''
       }`}
       style={{ zIndex: isFullScreen ? 9999 : 1, background: '#000' }}
     >
+      {/* Ripple Glow Transition Animation */}
+      <AnimatePresence>
+        {isAnimatingFS && (
+          <motion.div
+            initial={{ scale: 0.2, opacity: 0.8 }}
+            animate={{ scale: 3, opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="absolute inset-0 pointer-events-none z-[500] rounded-full"
+            style={{
+              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 75%)',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       <div ref={mapRef} className="w-full h-full" />
 
       {/* Control Buttons Stack (Zoom In, Zoom Out, Fullscreen, Recenter) */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-[400]">
-        {/* Fullscreen Toggle */}
-        <button
+        {/* Fullscreen Toggle Button with Smooth Icon Morph */}
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             toggleFullScreen();
           }}
-          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all backdrop-blur-md"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-2xl backdrop-blur-xl transition-colors relative overflow-hidden group"
           aria-label={isFullScreen ? 'Exit Full Screen' : 'Full Screen'}
           title={isFullScreen ? 'Exit Full Screen' : 'Full Screen'}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
-          {isFullScreen ? <Minimize2 className="w-4 h-4 text-emerald-400" /> : <Maximize2 className="w-4 h-4 text-white" />}
-        </button>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={isFullScreen ? 'exit' : 'enter'}
+              initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
+              transition={{ duration: 0.2 }}
+            >
+              {isFullScreen ? (
+                <Minimize2 className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-white group-hover:text-emerald-400 transition-colors" />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </motion.button>
 
         {/* Zoom In */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             mapInstanceRef.current?.zoomIn();
           }}
-          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all backdrop-blur-md"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl transition-all"
           aria-label="Zoom In"
           title="Zoom In"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           <Plus className="w-4 h-4" />
-        </button>
+        </motion.button>
 
         {/* Zoom Out */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             mapInstanceRef.current?.zoomOut();
           }}
-          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all backdrop-blur-md"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl transition-all"
           aria-label="Zoom Out"
           title="Zoom Out"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           <Minus className="w-4 h-4" />
-        </button>
+        </motion.button>
 
         {/* Recenter to User Location */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             mapInstanceRef.current?.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
           }}
-          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all backdrop-blur-md mt-1"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl transition-all mt-1"
           aria-label="Recenter Map"
           title="Recenter to My Location"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
         >
           <LocateFixed className="w-4 h-4 text-blue-400" />
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -12,9 +12,21 @@ export interface WeatherData {
     pm10: number;
 }
 
+const DEFAULT_WEATHER: WeatherData = {
+    temp: 31,
+    feelsLike: 33,
+    humidity: 78,
+    windSpeed: 12,
+    rainMm: 0,
+    floodRisk: 'Low',
+    aqi: 42,
+    pm25: 9.8,
+    pm10: 18.2,
+};
+
 export function useWeather() {
-    const [weather, setWeather] = useState<WeatherData | null>(null);
-    const [isWeatherLoading, setIsWeatherLoading] = useState(true);
+    const [weather, setWeather] = useState<WeatherData>(DEFAULT_WEATHER);
+    const [isWeatherLoading, setIsWeatherLoading] = useState(false);
     const [locationLabel, setLocationLabel] = useState('Locating...');
     const [userLat, setUserLat] = useState<number | null>(null);
     const [userLng, setUserLng] = useState<number | null>(null);
@@ -24,7 +36,6 @@ export function useWeather() {
         let lastFetchedLat: number | null = null;
 
         const fetchLocationName = (lat: number, lng: number) => {
-            // Prevent spamming the geocoding API
             if (lastFetchedLat === lat) return;
             lastFetchedLat = lat;
 
@@ -33,12 +44,10 @@ export function useWeather() {
                 .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Unknown Location'); })
                 .catch(() => { setLocationLabel('Unknown Location'); });
 
-            setIsWeatherLoading(true);
             fetch(`/api/weather?lat=${lat}&lng=${lng}`)
                 .then(r => r.json())
-                .then(d => { if (d.success) setWeather(d.weather); })
-                .catch(() => {})
-                .finally(() => setIsWeatherLoading(false));
+                .then(d => { if (d.success && d.weather) setWeather(d.weather); })
+                .catch(() => {});
         };
 
         if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {

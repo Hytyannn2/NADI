@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Map, X, AlertTriangle, Droplets, Construction, Loader2, MapPin, Info } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
+import { createClient } from '@/src/lib/supabase/client';
+
 // Dynamic import to avoid SSR issues with Leaflet
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
@@ -31,6 +33,64 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
     const [mapReady, setMapReady] = useState(false);
     const mapRef = useRef<any>(null);
+    const supabase = createClient();
+
+    // Fetch detected potholes from localStorage and Supabase DB
+    useEffect(() => {
+        const loadHeatPoints = async () => {
+            const heatPoints: HeatPoint[] = [];
+
+            // 1. Load from localStorage (offline / persistent local detections)
+            const savedLocal = localStorage.getItem('nadi_local_potholes');
+            if (savedLocal) {
+                try {
+                    const localAnomalies = JSON.parse(savedLocal);
+                    localAnomalies.forEach((a: any) => {
+                        if (a.lat && a.lng && a.lat !== 0 && a.lng !== 0) {
+                            heatPoints.push({
+                                lat: parseFloat(a.lat),
+                                lng: parseFloat(a.lng),
+                                type: 'pothole',
+                                label: `Pothole (${a.status || 'pending'}) - ${a.speedKmh || 0} km/h`,
+                                severity: Math.min(5, Math.max(1, Math.round((a.zDropped || 4) / 1.5))),
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.error("Error loading local potholes for map", e);
+                }
+            }
+
+            // 2. Load from Supabase DB (nadi_infra_reports table)
+            try {
+                const { data } = await supabase.from('nadi_infra_reports').select('*').limit(100);
+                if (data) {
+                    data.forEach((d: any) => {
+                        const lat = parseFloat(d.lat);
+                        const lng = parseFloat(d.lng);
+                        if (lat && lng && lat !== 0 && lng !== 0) {
+                            const exists = heatPoints.some(p => Math.abs(p.lat - lat) < 0.0001 && Math.abs(p.lng - lng) < 0.0001);
+                            if (!exists) {
+                                heatPoints.push({
+                                    lat,
+                                    lng,
+                                    type: 'pothole',
+                                    label: `Pothole Report (${d.status})`,
+                                    severity: Math.min(5, Math.max(1, Math.round((d.z_dropped || 4) / 1.5))),
+                                });
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Error loading DB potholes for map", e);
+            }
+
+            setPoints(heatPoints);
+        };
+
+        loadHeatPoints();
+    }, [supabase]);
 
     // Inject Leaflet CSS immediately
     useEffect(() => {
