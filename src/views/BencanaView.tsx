@@ -1,5 +1,5 @@
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3 } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -29,6 +29,7 @@ const SensorTrendChart = dynamic(() => import('@/src/components/SensorTrendChart
 import { useWeather } from '@/src/hooks/useWeather';
 import { createClient } from '@/src/lib/supabase/client';
 import useSWR from 'swr';
+import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kelantanPpsCenters';
 
 export interface FloodZone {
     district: string;
@@ -198,40 +199,51 @@ export default function BencanaView() {
         };
     };
 
+    const [selectedJajahan, setSelectedJajahan] = useState<string>('All');
+    const [selectedType, setSelectedType] = useState<string>('All');
+    const [sortBy, setSortBy] = useState<'nearest' | 'capacity' | 'name'>('nearest');
+    const [searchPps, setSearchPps] = useState<string>('');
+    const [displayLimit, setDisplayLimit] = useState<number>(24);
+    const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
+
     const { data: bencanaData } = useSWR('bencana_data', fetchBencanaData, { revalidateOnFocus: false });
     const floodZones: FloodZone[] = bencanaData?.zones || [];
-    const rawEvacCenters: EvacCenter[] = bencanaData?.centers || [
-        { name: 'SK Kubang Kerian', district: 'Kota Bharu', capacity: 500, type: 'Sekolah', lat: 6.092444, lng: 102.274583 },
-        { name: 'Masjid Muhammadi', district: 'Kota Bharu', capacity: 800, type: 'Masjid', lat: 6.132155, lng: 102.236688 },
-        { name: 'SK Kuala Krai', district: 'Kuala Krai', capacity: 400, type: 'Sekolah', lat: 5.534744, lng: 102.197519 },
-        { name: 'SK Gua Musang', district: 'Gua Musang', capacity: 350, type: 'Sekolah', lat: 4.882100, lng: 101.964500 },
-        { name: 'Dewan Sultan Tanah Merah', district: 'Tanah Merah', capacity: 300, type: 'Dewan', lat: 5.808300, lng: 102.148100 }
-    ];
 
-    // Fallback coordinates lookup for evacuation shelters
-    const SHELTER_COORDS: Record<string, { lat: number, lng: number }> = {
-        'SK Kubang Kerian': { lat: 6.092444, lng: 102.274583 },
-        'Masjid Muhammadi': { lat: 6.132155, lng: 102.236688 },
-        'SK Kuala Krai': { lat: 5.534744, lng: 102.197519 },
-        'Dewan MPKB': { lat: 6.126400, lng: 102.238100 },
-        'SK Pasir Mas': { lat: 6.042500, lng: 102.141200 },
-        'SK Gua Musang': { lat: 4.882100, lng: 101.964500 },
-        'Dewan Sultan Tanah Merah': { lat: 5.808300, lng: 102.148100 }
-    };
-
-    // Calculate distance and sort by nearest center first
-    const evacCenters = rawEvacCenters.map(center => {
-        const lat = center.lat || SHELTER_COORDS[center.name]?.lat;
-        const lng = center.lng || SHELTER_COORDS[center.name]?.lng;
-        const dist = (userLat !== null && userLng !== null && lat !== undefined && lng !== undefined)
-            ? getDistanceKm(userLat, userLng, lat, lng)
+    // Calculate distance to all official Kelantan PPS centers from live GPS
+    const allProcessedEvacCenters = ALL_KELANTAN_PPS_CENTERS.map(center => {
+        const dist = (userLat !== null && userLng !== null)
+            ? getDistanceKm(userLat, userLng, center.lat, center.lng)
             : null;
-        return { ...center, lat, lng, distanceKm: dist };
+        return {
+            name: center.name,
+            district: center.jajahan,
+            capacity: center.capacity,
+            type: center.type,
+            lat: center.lat,
+            lng: center.lng,
+            distanceKm: dist,
+        };
     });
 
-    if (userLat !== null && userLng !== null) {
-        evacCenters.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+    const filteredEvacCenters = allProcessedEvacCenters.filter(c => {
+        const matchesJajahan = selectedJajahan === 'All' || c.district.toLowerCase() === selectedJajahan.toLowerCase();
+        const matchesType = selectedType === 'All' || c.type.toLowerCase().includes(selectedType.toLowerCase());
+        const matchesSearch = searchPps === '' || c.name.toLowerCase().includes(searchPps.toLowerCase()) || c.district.toLowerCase().includes(searchPps.toLowerCase());
+        return matchesJajahan && matchesType && matchesSearch;
+    });
+
+    if (sortBy === 'capacity') {
+        filteredEvacCenters.sort((a, b) => b.capacity - a.capacity);
+    } else if (sortBy === 'name') {
+        filteredEvacCenters.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+        if (userLat !== null && userLng !== null) {
+            filteredEvacCenters.sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+        }
     }
+
+    // Map shelters layer (top 10 nearest centers)
+    const mapShelters = filteredEvacCenters.slice(0, 10);
 
     // Real-time geolocation tracking
     useEffect(() => {
@@ -664,42 +676,192 @@ export default function BencanaView() {
                                 )}
                             </div>
 
-                            {/* Nearest Evacuation Centers */}
-                            <div>
-                                <h3 className="text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
-                                    <AlertTriangle className="w-3.5 h-3.5" /> Nearest Evacuation Centers
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {evacCenters.slice(0, 5).map((center, i) => (
-                                        <motion.div
-                                            key={center.name}
-                                            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i }}
-                                            className="flex items-center justify-between p-3.5 rounded-xl"
-                                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'var(--accent-muted)' }}>
-                                                    {center.type === 'Sekolah' ? '🏫' : center.type === 'Masjid' ? '🕌' : '🏛️'}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{center.name}</p>
-                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{center.district} · {center.type}</span>
-                                                        {center.distanceKm !== null && (
-                                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                                 {center.distanceKm} km
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right shrink-0 ml-2">
-                                                <p className="text-xs font-bold" style={{ color: 'var(--success)' }}>{center.capacity}</p>
-                                                <p className="text-[8px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>capacity</p>
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                            {/* Official Kelantan Evacuation Centers (PPS) */}
+                            <div className="space-y-4">
+                                {/* Section Header & Sleek Glassmorphic Search Bar */}
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                    <div>
+                                        <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+                                            <AlertTriangle className="w-4 h-4 text-emerald-400" />
+                                            Official Kelantan Evacuation Centers (PPS)
+                                        </h3>
+                                        <p className="text-[11px] text-zinc-400 mt-1">
+                                            Registered Centers: <span className="text-emerald-400 font-bold">{filteredEvacCenters.length}</span> of {allProcessedEvacCenters.length} across Kelantan
+                                        </p>
+                                    </div>
+
+                                    {/* Sleek Search Bar */}
+                                    <div className="relative w-full md:w-80">
+                                        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Cari pusat pemindahan (e.g. SK, Masjid, Dewan)..."
+                                            value={searchPps}
+                                            onChange={(e) => {
+                                                setSearchPps(e.target.value);
+                                                setDisplayLimit(24);
+                                            }}
+                                            className="w-full pl-10 pr-9 py-2 rounded-xl text-xs bg-black/60 border border-zinc-700/70 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-white placeholder-zinc-500 transition-all shadow-inner"
+                                        />
+                                        {searchPps && (
+                                            <button onClick={() => setSearchPps('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+
+                                {/* Filter Controls Bar: Jajahan + Type + Sort */}
+                                <div className="space-y-2.5 p-3.5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                    {/* Jajahan Pills */}
+                                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 shrink-0 mr-1 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3 text-emerald-400" /> Jajahan:
+                                        </span>
+                                        {['All', 'Kota Bharu', 'Pasir Mas', 'Gua Musang', 'Kuala Krai', 'Tumpat', 'Bachok', 'Machang', 'Pasir Puteh', 'Jeli', 'Tanah Merah'].map(jajahan => (
+                                            <button
+                                                key={jajahan}
+                                                onClick={() => {
+                                                    setSelectedJajahan(jajahan);
+                                                    setDisplayLimit(24);
+                                                }}
+                                                className={`px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
+                                                    selectedJajahan === jajahan
+                                                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-md'
+                                                        : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700'
+                                                }`}
+                                            >
+                                                {jajahan}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Type Filters & Sort By Controls */}
+                                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-zinc-800/60">
+                                        {/* Type Pills */}
+                                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 shrink-0 mr-1 flex items-center gap-1">
+                                                <Filter className="w-3 h-3 text-blue-400" /> Jenis:
+                                            </span>
+                                            {[
+                                                { id: 'All', label: 'Semua' },
+                                                { id: 'Sekolah', label: '🏫 Sekolah' },
+                                                { id: 'Masjid', label: '🕌 Masjid' },
+                                                { id: 'Dewan', label: '🏛️ Dewan' },
+                                                { id: 'Balai Raya', label: '📍 Balai Raya' },
+                                                { id: 'Madrasah', label: '🕌 Madrasah' },
+                                            ].map(t => (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => {
+                                                        setSelectedType(t.id);
+                                                        setDisplayLimit(24);
+                                                    }}
+                                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border ${
+                                                        selectedType === t.id
+                                                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                                            : 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:text-white'
+                                                    }`}
+                                                >
+                                                    {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Sort By Dropdown Pills */}
+                                        <div className="flex items-center gap-1.5 ml-auto">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1">
+                                                <ArrowUpDown className="w-3 h-3 text-purple-400" /> Susun:
+                                            </span>
+                                            {[
+                                                { id: 'nearest', label: '📍 Terdekat' },
+                                                { id: 'capacity', label: '👥 Kapasiti' },
+                                                { id: 'name', label: '🔤 Nama A-Z' },
+                                            ].map(s => (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => setSortBy(s.id as any)}
+                                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border ${
+                                                        sortBy === s.id
+                                                            ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
+                                                            : 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:text-white'
+                                                    }`}
+                                                >
+                                                    {s.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* PPS Cards Grid */}
+                                {filteredEvacCenters.length === 0 ? (
+                                    <div className="p-12 text-center rounded-2xl border border-zinc-800 bg-zinc-900/40">
+                                        <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-2 opacity-60" />
+                                        <p className="text-xs font-bold text-zinc-300">Tiada pusat pemindahan dijumpai</p>
+                                        <p className="text-[10px] text-zinc-500 mt-1">Cuba cari nama lain atau tukar jajahan filter.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {filteredEvacCenters.slice(0, displayLimit).map((center, i) => (
+                                                <motion.div
+                                                    key={`${center.district}-${center.name}-${i}`}
+                                                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(0.2, 0.03 * (i % 12)) }}
+                                                    className="flex items-center justify-between p-3.5 rounded-2xl transition-all hover:border-emerald-500/40 hover:bg-zinc-900/80 group"
+                                                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                                                >
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 group-hover:scale-110 transition-transform" style={{ background: 'var(--accent-muted)' }}>
+                                                            {center.type === 'Sekolah' ? '🏫' : center.type === 'Masjid' ? '🕌' : center.type === 'Madrasah' ? '🕌' : center.type === 'Dewan' ? '🏛️' : '📍'}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-bold truncate group-hover:text-emerald-400 transition-colors" style={{ color: 'var(--text-primary)' }}>{center.name}</p>
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{center.district} · {center.type}</span>
+                                                                {center.distanceKm !== null && (
+                                                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                                         {center.distanceKm} km
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right shrink-0 ml-2">
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                            Official PPS
+                                                        </span>
+                                                        <p className="text-[8px] font-bold uppercase text-zinc-500 mt-0.5">JKM / NADMA</p>
+                                                    </div>
+                                                </motion.div>
+                                            ))}
+                                        </div>
+
+                                        {/* Pagination & Load More Controls */}
+                                        {filteredEvacCenters.length > displayLimit && (
+                                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-zinc-800">
+                                                <span className="text-[11px] font-medium text-zinc-400">
+                                                    Menunjukkan <strong className="text-emerald-400">{displayLimit}</strong> daripada <strong>{filteredEvacCenters.length}</strong> Pusat Pemindahan
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => setDisplayLimit(prev => Math.min(filteredEvacCenters.length, prev + 24))}
+                                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
+                                                    >
+                                                        Lihat Lagi (+24 Pusat)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDisplayLimit(filteredEvacCenters.length)}
+                                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700 hover:text-white transition-all"
+                                                    >
+                                                        Tunjukkan Semua ({filteredEvacCenters.length})
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </motion.div>
                     )}

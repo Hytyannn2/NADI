@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface WeatherData {
     temp: number;
@@ -24,25 +24,75 @@ const DEFAULT_WEATHER: WeatherData = {
     pm10: 18.2,
 };
 
+// Default Kelantan coordinates (Kota Bharu center)
+const KOTA_BHARU_DEFAULT = { lat: 6.1254, lng: 102.2381, label: 'Kota Bharu' };
+
 export function useWeather() {
     const [weather, setWeather] = useState<WeatherData>(DEFAULT_WEATHER);
     const [isWeatherLoading, setIsWeatherLoading] = useState(false);
-    const [locationLabel, setLocationLabel] = useState('Locating...');
-    const [userLat, setUserLat] = useState<number | null>(null);
-    const [userLng, setUserLng] = useState<number | null>(null);
+    const [locationLabel, setLocationLabel] = useState('Kota Bharu');
+    const [userLat, setUserLat] = useState<number | null>(KOTA_BHARU_DEFAULT.lat);
+    const [userLng, setUserLng] = useState<number | null>(KOTA_BHARU_DEFAULT.lng);
+    const [isManualOverride, setIsManualOverride] = useState(false);
+
+    const lastLatRef = useRef<number | null>(KOTA_BHARU_DEFAULT.lat);
+    const lastLngRef = useRef<number | null>(KOTA_BHARU_DEFAULT.lng);
+    const lastFetchTimeRef = useRef<number>(0);
+
+    const setManualLocation = (lat: number, lng: number, label: string) => {
+        setIsManualOverride(true);
+        lastLatRef.current = lat;
+        lastLngRef.current = lng;
+        setUserLat(lat);
+        setUserLng(lng);
+        setLocationLabel(label);
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('nadi_saved_user_location', JSON.stringify({ lat, lng, label }));
+            } catch (e) {}
+        }
+        fetch(`/api/weather?lat=${lat}&lng=${lng}`)
+            .then(r => r.json())
+            .then(d => { if (d.success && d.weather) setWeather(d.weather); })
+            .catch(() => {});
+    };
+
+    useEffect(() => {
+        // Restore saved custom location from localStorage if available
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('nadi_saved_user_location');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.lat && parsed.lng && parsed.label) {
+                        setIsManualOverride(true);
+                        setUserLat(parsed.lat);
+                        setUserLng(parsed.lng);
+                        setLocationLabel(parsed.label);
+                        lastLatRef.current = parsed.lat;
+                        lastLngRef.current = parsed.lng;
+                        fetch(`/api/weather?lat=${parsed.lat}&lng=${parsed.lng}`)
+                            .then(r => r.json())
+                            .then(d => { if (d.success && d.weather) setWeather(d.weather); })
+                            .catch(() => {});
+                    }
+                }
+            } catch (e) {}
+        }
+    }, []);
 
     useEffect(() => {
         let watchId: number | null = null;
-        let lastFetchedLat: number | null = null;
 
         const fetchLocationName = (lat: number, lng: number) => {
-            if (lastFetchedLat === lat) return;
-            lastFetchedLat = lat;
+            const now = Date.now();
+            if (now - lastFetchTimeRef.current < 15000) return; // Throttle to max once per 15s
+            lastFetchTimeRef.current = now;
 
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=12`, { headers: { 'User-Agent': 'NADI/1.0' } })
                 .then(r => r.json())
-                .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Unknown Location'); })
-                .catch(() => { setLocationLabel('Unknown Location'); });
+                .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Kota Bharu'); })
+                .catch(() => { setLocationLabel('Kota Bharu'); });
 
             fetch(`/api/weather?lat=${lat}&lng=${lng}`)
                 .then(r => r.json())
@@ -53,21 +103,30 @@ export function useWeather() {
         if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
-                    const { latitude, longitude } = position.coords;
-                    setUserLat(latitude);
-                    setUserLng(longitude);
-                    fetchLocationName(latitude, longitude);
+                    if (isManualOverride) return; // Do not overwrite user's saved location!
+                    const { latitude, longitude, accuracy } = position.coords;
+                    if (accuracy < 5000) {
+                        // Only update if moved by more than ~150 meters (0.0015 degrees)
+                        if (
+                            lastLatRef.current !== null &&
+                            lastLngRef.current !== null &&
+                            Math.abs(latitude - lastLatRef.current) < 0.0015 &&
+                            Math.abs(longitude - lastLngRef.current) < 0.0015
+                        ) {
+                            return;
+                        }
+
+                        lastLatRef.current = latitude;
+                        lastLngRef.current = longitude;
+                        setUserLat(latitude);
+                        setUserLng(longitude);
+                        fetchLocationName(latitude, longitude);
+                    }
                 },
                 (error) => {
-                    console.info("Geolocation unavailable or denied, falling back to Kuala Lumpur:", error.message || "Position unavailable");
-                    // Default to Kuala Lumpur if geolocation fails or is denied
-                    const klLat = 3.1390;
-                    const klLng = 101.6869;
-                    setUserLat(klLat);
-                    setUserLng(klLng);
-                    fetchLocationName(klLat, klLng);
+                    console.info("Geolocation unavailable, using default location:", error.message || "Position unavailable");
                 },
-                { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+                { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
             );
         }
 
@@ -76,7 +135,16 @@ export function useWeather() {
                 navigator.geolocation.clearWatch(watchId);
             }
         };
-    }, []);
+    }, [isManualOverride]);
 
-    return { weather, isWeatherLoading, locationLabel, userLat, userLng };
+    const resetToAutoGps = () => {
+        setIsManualOverride(false);
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.removeItem('nadi_saved_user_location');
+            } catch (e) {}
+        }
+    };
+
+    return { weather, isWeatherLoading, locationLabel, userLat, userLng, setManualLocation, isManualOverride, resetToAutoGps };
 }

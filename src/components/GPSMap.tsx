@@ -6,16 +6,27 @@ import { motion, AnimatePresence } from 'motion/react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+export interface EvacShelterMarker {
+  name: string;
+  lat: number;
+  lng: number;
+  type: string;
+  capacity?: number;
+  distanceKm?: number | null;
+}
+
 interface GPSMapProps {
   lat: number;
   lng: number;
+  shelters?: EvacShelterMarker[];
 }
 
-export default function GPSMap({ lat, lng }: GPSMapProps) {
+export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const shelterLayerRef = useRef<L.LayerGroup | null>(null);
 
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isAnimatingFS, setIsAnimatingFS] = useState(false);
@@ -27,7 +38,7 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
     if (!mapInstanceRef.current) {
       const map = L.map(mapRef.current, {
         center: [lat, lng],
-        zoom: 16,
+        zoom: 14,
         zoomControl: false,
         attributionControl: false,
       });
@@ -38,7 +49,10 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
         attribution: '&copy; Google Maps'
       }).addTo(map);
 
-      // Create custom animated marker
+      // Layer group for shelter markers
+      shelterLayerRef.current = L.layerGroup().addTo(map);
+
+      // Create custom animated user marker
       const userIcon = L.divIcon({
         className: 'custom-leaflet-icon',
         html: `
@@ -76,6 +90,40 @@ export default function GPSMap({ lat, lng }: GPSMapProps) {
       markerRef.current.setLatLng([lat, lng]);
     }
   }, [lat, lng]);
+
+  // Update shelter markers on map whenever shelters prop changes
+  useEffect(() => {
+    if (!shelterLayerRef.current) return;
+    shelterLayerRef.current.clearLayers();
+
+    shelters.forEach(s => {
+      if (!s.lat || !s.lng) return;
+      const emoji = s.type === 'Sekolah' ? '🏫' : s.type === 'Masjid' ? '🕌' : '🏛️';
+      const shelterIcon = L.divIcon({
+        className: 'shelter-leaflet-icon',
+        html: `
+          <div style="background: #10B981; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+            <span>${emoji}</span>
+            <span>${s.name.slice(0, 16)}${s.name.length > 16 ? '...' : ''}</span>
+          </div>
+        `,
+        iconSize: [120, 24],
+        iconAnchor: [60, 12],
+      });
+
+      const m = L.marker([s.lat, s.lng], { icon: shelterIcon });
+      m.bindPopup(`
+        <div style="padding: 4px; font-family: sans-serif;">
+          <strong style="font-size: 12px; color: #111;">${s.name}</strong>
+          <div style="font-size: 10px; color: #555; margin-top: 2px;">
+            ${s.type} · Capacity: <strong>${s.capacity || 400}</strong>
+          </div>
+          ${s.distanceKm ? `<div style="font-size: 10px; color: #3B82F6; font-weight: bold; margin-top: 4px;">📍 ${s.distanceKm} km from you</div>` : ''}
+        </div>
+      `);
+      shelterLayerRef.current?.addLayer(m);
+    });
+  }, [shelters]);
 
   // Handle Full Screen Toggle with smooth progressive tile invalidation
   const toggleFullScreen = () => {
