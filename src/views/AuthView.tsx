@@ -573,6 +573,25 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       selectStatePlaceholder: 'Sila Pilih Negeri',
       confirmPassLabel: 'Sahkan Kata Laluan',
       confirmPassPlaceholder: 'Sila masukkan semula kata laluan anda',
+      pass8Chars: '8+ Aksara',
+      passUppercase: 'Huruf Besar (A-Z)',
+      passNumber: 'Nombor (0-9)',
+      radarTitle: 'RADAR HUJAN DOPPLER',
+      radarSub: 'Kemaskini 15-Min Real-Time',
+      damageTitle: 'ADUAN KEROSAKAN',
+      damageSub: 'Foto AI & Sensor Impak Jalan',
+      satelliteTag: '628+ PPS SATELIT SAH',
+      systemLive: 'SISTEM LIVE',
+      eligibilityTitle: 'ENJIN SEMAKAN KELAYAKAN',
+      eligibilitySub: 'Semak Kelayakan Anda Serta-Merta!',
+      bannerTitle: 'NADI — Rangkaian Pintar & Pengurusan Bencana Kebangsaan',
+      navDisaster: 'Bencana',
+      navAid: 'Bantuan',
+      navReports: 'Aduan',
+      navCommunity: 'Komuniti',
+      copyright: 'NADI Malaysia. Hak Cipta Terpelihara.',
+      privacy: 'Privasi',
+      terms: 'Terma',
     },
     EN: {
       loginTitle: 'Login',
@@ -605,6 +624,25 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       phonePlaceholder: 'e.g. 012-345 6789',
       stateLabel: 'State',
       selectStatePlaceholder: 'Select State',
+      pass8Chars: '8+ Chars',
+      passUppercase: 'Uppercase (A-Z)',
+      passNumber: 'Number (0-9)',
+      radarTitle: 'DOPPLER RAIN RADAR',
+      radarSub: '15-Min Real-Time Update',
+      damageTitle: 'DAMAGE REPORTING',
+      damageSub: 'AI Photo & Road Impact Sensors',
+      satelliteTag: '628+ VERIFIED SATELLITE PPS',
+      systemLive: 'SYSTEM LIVE',
+      eligibilityTitle: 'ELIGIBILITY CHECK ENGINE',
+      eligibilitySub: 'Check Your Eligibility Instantly!',
+      bannerTitle: 'NADI — Smart Civic Network & National Disaster Management',
+      navDisaster: 'Disaster',
+      navAid: 'Aid',
+      navReports: 'Reports',
+      navCommunity: 'Community',
+      copyright: 'NADI Malaysia. All Rights Reserved.',
+      privacy: 'Privacy',
+      terms: 'Terms',
     },
   }[lang];
 
@@ -860,7 +898,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                             </motion.span>
                           )}
                         </AnimatePresence>
-                        <span>8+ Aksara</span>
+                        <span>{t.pass8Chars}</span>
                       </motion.div>
 
                       {/* Criterion 2: Uppercase A-Z */}
@@ -887,7 +925,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                             </motion.span>
                           )}
                         </AnimatePresence>
-                        <span>Huruf Besar (A-Z)</span>
+                        <span>{t.passUppercase}</span>
                       </motion.div>
 
                       {/* Criterion 3: Number 0-9 */}
@@ -914,7 +952,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                             </motion.span>
                           )}
                         </AnimatePresence>
-                        <span>Nombor (0-9)</span>
+                        <span>{t.passNumber}</span>
                       </motion.div>
                     </div>
                   )}
@@ -1079,11 +1117,11 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
 
           {/* Footer Copyright */}
           <div className="mt-4 pt-3 border-t border-slate-800/40 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>© {new Date().getFullYear()} NADI Malaysia. Hak Cipta Terpelihara.</span>
+            <span>© {new Date().getFullYear()} {t.copyright}</span>
             <div className="flex items-center gap-3">
-              <span className="hover:text-slate-400 cursor-pointer">Privasi</span>
+              <span className="hover:text-slate-400 cursor-pointer">{t.privacy}</span>
               <span>·</span>
-              <span className="hover:text-slate-400 cursor-pointer">Terma</span>
+              <span className="hover:text-slate-400 cursor-pointer">{t.terms}</span>
             </div>
           </div>
 
@@ -1107,10 +1145,10 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>SYSTEM LIVE</span>
+              <span>{t.systemLive}</span>
             </div>
             <div className="px-3.5 py-1.5 rounded-full bg-slate-950/85 border border-slate-800/80 backdrop-blur-xl text-[10px] font-mono font-bold text-emerald-400 border-emerald-500/30 shadow-xl">
-              628+ PPS SATELIT SAH
+              {t.satelliteTag}
             </div>
           </div>
 
@@ -1118,8 +1156,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           <div className="absolute top-8 left-6 p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-2xl z-10 flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#10b981] animate-pulse shrink-0" />
             <div>
-              <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Radar Hujan Doppler</div>
-              <div className="text-xs font-extrabold text-white">Kemaskini 15-Min Real-Time</div>
+              <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">{t.radarTitle}</div>
+              <div className="text-xs font-extrabold text-white">{t.radarSub}</div>
             </div>
           </div>
 
@@ -1128,8 +1166,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               <Shield className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Aduan Kerosakan</div>
-              <div className="text-xs font-extrabold text-white">Foto AI & Sensor Impak Jalan</div>
+              <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">{t.damageTitle}</div>
+              <div className="text-xs font-extrabold text-white">{t.damageSub}</div>
             </div>
           </div>
 
@@ -1138,8 +1176,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               <Zap className="w-4 h-4 text-cyan-400" />
             </div>
             <div>
-              <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Enjin Semakan Kelayakan</div>
-              <div className="text-xs font-extrabold text-white">Semak Kelayakan Anda Serta-Merta!</div>
+              <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">{t.eligibilityTitle}</div>
+              <div className="text-xs font-extrabold text-white">{t.eligibilitySub}</div>
             </div>
           </div>
 
@@ -1150,14 +1188,14 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
               </div>
               <p className="text-xs sm:text-sm font-bold text-slate-200 tracking-wide">
-                NADI — Rangkaian Pintar & Pengurusan Bencana Kebangsaan
+                {t.bannerTitle}
               </p>
             </div>
             <div className="hidden xl:flex items-center gap-2 text-[10px] font-mono font-semibold text-slate-400">
-              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-emerald-400">Bencana</span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-cyan-400">Bantuan</span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-amber-400">Aduan</span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-purple-400">Komuniti</span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-emerald-400">{t.navDisaster}</span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-cyan-400">{t.navAid}</span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-amber-400">{t.navReports}</span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-purple-400">{t.navCommunity}</span>
             </div>
           </div>
 
