@@ -39,6 +39,13 @@ export default function DashboardView() {
     const totalBadges = badges.length;
 
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
+    const userAvatar = (
+        user?.user_metadata?.avatar_url ||
+        user?.user_metadata?.picture ||
+        user?.user_metadata?.avatarUrl ||
+        user?.identities?.[0]?.identity_data?.avatar_url ||
+        user?.identities?.[0]?.identity_data?.picture
+    ) as string | undefined;
 
     // Greeting based on time of day
     const hour = new Date().getHours();
@@ -393,8 +400,12 @@ export default function DashboardView() {
                 {/* Inline Post Composer */}
                 <div className="rounded-2xl border p-4 mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
                     <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-1" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                            {userName.charAt(0)}
+                        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center text-xs font-bold shrink-0 mt-1">
+                            {userAvatar ? (
+                                <img src={userAvatar} alt="user avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <span style={{ color: 'var(--accent)' }}>{userName.charAt(0)}</span>
+                            )}
                         </div>
                         <div className="flex-1">
                             <textarea
@@ -444,8 +455,12 @@ export default function DashboardView() {
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                {(post.author || 'Warga').charAt(0)}
+                                            <div className="w-6 h-6 rounded-full overflow-hidden border border-slate-800 bg-slate-900 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                                <img 
+                                                    src={post.author_avatar || (post.user_id === user?.id && userAvatar ? userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author || 'Warga')}&background=0F766E&color=fff&bold=true`)} 
+                                                    alt={post.author} 
+                                                    className="w-full h-full object-cover" 
+                                                />
                                             </div>
                                             <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{post.author || 'Warga NADI'}</span>
                                         </div>

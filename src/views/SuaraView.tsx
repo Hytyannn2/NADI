@@ -5,9 +5,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAntiSpam } from '../hooks/useAntiSpam';
 import { useGame } from '../context/GameContext';
 import { useXP } from '../hooks/useXP';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 export default function SuaraView() {
+    const { user } = useAuth();
+    const userAvatar = (
+        user?.user_metadata?.avatar_url ||
+        user?.user_metadata?.picture ||
+        user?.user_metadata?.avatarUrl ||
+        user?.identities?.[0]?.identity_data?.avatar_url ||
+        user?.identities?.[0]?.identity_data?.picture
+    ) as string | undefined;
+
     const { formatTime } = useTheme();
     const [inputText, setInputText] = useState('');
     const [reports, setReports] = useState<any[]>([]);
@@ -383,12 +393,18 @@ export default function SuaraView() {
                                 {/* User Header */}
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-md" style={{ background: 'linear-gradient(135deg, var(--accent), #3B82F6)' }}>
-                                            R
+                                        <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-500/30 flex items-center justify-center font-bold text-white shadow-md shrink-0 bg-slate-900">
+                                            {report.author_avatar || userAvatar ? (
+                                                <img src={report.author_avatar || userAvatar} alt="user avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-sm font-bold text-emerald-400">
+                                                    {(user?.user_metadata?.full_name || user?.email || 'W').charAt(0).toUpperCase()}
+                                                </span>
+                                            )}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-1.5">
-                                                <h4 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Local Resident</h4>
+                                                <h4 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{user?.user_metadata?.full_name || 'Local Resident'}</h4>
                                                 <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center">
                                                     <Check className="w-2 h-2 text-white" />
                                                 </div>

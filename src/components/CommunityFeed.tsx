@@ -6,7 +6,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useGame } from '@/src/context/GameContext';
 import { useXP } from '@/src/hooks/useXP';
 
-interface Post { id: string; content: string; author: string; type: string; timestamp: number; upvotes: number; user_id?: string; }
+interface Post { id: string; content: string; author: string; author_avatar?: string; type: string; timestamp: number; upvotes: number; user_id?: string; }
 
 export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClose: () => void; initialTab?: 'feed' | 'whistle' }) {
     const [tab, setTab] = useState<'feed' | 'whistle'>(initialTab);
@@ -24,6 +24,13 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
     const [wbSuccess, setWbSuccess] = useState(false);
 
     const { user } = useAuth();
+    const userAvatar = (
+        user?.user_metadata?.avatar_url ||
+        user?.user_metadata?.picture ||
+        user?.user_metadata?.avatarUrl ||
+        user?.identities?.[0]?.identity_data?.avatar_url ||
+        user?.identities?.[0]?.identity_data?.picture
+    ) as string | undefined;
     const { incrementStat, completeQuest } = useGame();
     const { addXp } = useXP();
 
@@ -182,7 +189,16 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                                             className="bg-[#121214] border border-zinc-800 rounded-2xl p-4"
                                         >
                                             <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-bold text-zinc-300">{p.author}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden border border-zinc-700 bg-zinc-800 shrink-0 flex items-center justify-center">
+                                                        <img 
+                                                            src={p.author_avatar || (p.user_id === user?.id && userAvatar ? userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.author || 'Warga')}&background=0F766E&color=fff&bold=true`)} 
+                                                            alt={p.author} 
+                                                            className="w-full h-full object-cover" 
+                                                        />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-zinc-300">{p.author}</span>
+                                                </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-600">{timeAgo(p.timestamp)}</span>
                                                     {(p.user_id === user?.id || p.author === (user?.user_metadata?.full_name || user?.email?.split('@')[0])) && (
