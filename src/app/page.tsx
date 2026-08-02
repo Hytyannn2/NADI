@@ -100,8 +100,14 @@ export default function App() {
   const xpPercent = Math.min((xp / xpToNext) * 100, 100);
   const completedQuests = quests.filter(q => q.completed).length;
   const userEmail = user?.email ?? '';
-  const userInitial = userEmail.charAt(0).toUpperCase() || '';
-  const userAvatar = user?.user_metadata?.avatar_url as string | undefined;
+  const userInitial = userEmail.charAt(0).toUpperCase() || 'W';
+  const userAvatar = (
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    user?.user_metadata?.avatarUrl ||
+    user?.identities?.[0]?.identity_data?.avatar_url ||
+    user?.identities?.[0]?.identity_data?.picture
+  ) as string | undefined;
   const userName = (user?.user_metadata?.full_name as string | undefined) ?? userEmail.split('@')[0] ?? 'Warga';
 
   // === Onboarding ===
