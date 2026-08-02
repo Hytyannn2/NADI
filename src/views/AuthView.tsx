@@ -505,7 +505,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             setMessage(
               lang === 'BM' 
                 ? 'Akaun belum berdaftar. Kami telah memindahkan anda ke borang pendaftaran!' 
-                : 'Account not registered yet. Switched to sign-up form with your email pre-filled!'
+                : 'Account not registered yet. Switched to sign-up form!'
             );
             return;
           }
