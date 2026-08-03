@@ -83,16 +83,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Name and status are required.' }, { status: 400 });
         }
 
-        const validStatuses = ['safe', 'warning', 'danger'];
+        const validStatuses = ['safe', 'warning', 'danger', 'sensor_fault', 'offline'];
         if (!validStatuses.includes(status)) {
             return NextResponse.json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` }, { status: 400 });
         }
+
+        const isFault = status === 'sensor_fault' || status === 'offline';
 
         // Build update payload — always update status + last_reading, optionally telemetry fields
         const updatePayload: Record<string, unknown> = {
             status,
             last_reading: new Date().toISOString(),
-            is_online: true,
+            is_online: !isFault,
         };
         const validateNum = (v: unknown, min: number, max: number): number | undefined => {
             if (v === undefined || v === null) return undefined;
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
             if (!Number.isFinite(n) || n < min || n > max) return undefined;
             return n;
         };
-        if (water_level !== undefined) { const v = validateNum(water_level, 0, 2000); if (v !== undefined) updatePayload.water_level = v; }
+        if (water_level !== undefined) { const v = validateNum(water_level, -1, 2000); if (v !== undefined) updatePayload.water_level = v; }
         if (battery_pct !== undefined) { const v = validateNum(battery_pct, 0, 100); if (v !== undefined) updatePayload.battery_pct = v; }
         if (rssi_dbm !== undefined) { const v = validateNum(rssi_dbm, -140, 0); if (v !== undefined) updatePayload.rssi_dbm = v; }
         if (temperature_c !== undefined) { const v = validateNum(temperature_c, -50, 80); if (v !== undefined) updatePayload.temperature_c = v; }

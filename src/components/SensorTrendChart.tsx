@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface ChartDataPoint {
     time: string;
@@ -16,6 +16,9 @@ interface SensorTrendChartProps {
     currentWaterLevel: number; // Water level value
     riseRate: number;          // Pre-calculated backend rate (cm/hr, optional fallback)
     unit?: 'm' | 'cm';        // Explicit unit declaration. Default: 'm' (meters)
+    status?: string;          // e.g. 'safe', 'warning', 'danger', 'sensor_fault', 'offline'
+    lastReadingTime?: string | number | null; // Last ping timestamp
+    isOnline?: boolean;       // Live status
 }
 
 type ForecastRange = '30m' | '1h' | '3h' | '6h' | '12h' | '24h';
@@ -41,11 +44,41 @@ const TIME_WINDOW_MINUTES = 30;
 // threshold. This eliminates the "9.9 → 0, 10.0 → 240cm jump" flicker bug.
 const NOISE_DEADBAND_CM_HR = 5.0;
 
-export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate, unit = 'm' }: SensorTrendChartProps) {
+export default function SensorTrendChart({
+    sensorId,
+    currentWaterLevel,
+    riseRate,
+    unit = 'm',
+    status,
+    lastReadingTime,
+    isOnline,
+}: SensorTrendChartProps) {
     const [liveHistory, setLiveHistory] = useState<{ timestamp: number; timeLabel: string; level: number }[]>([]);
     const [forecastRange, setForecastRange] = useState<ForecastRange>('6h');
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const latestCmRef = useRef<number>(0);
+
+    // =========================================================================
+    // WATCHDOG: 30-Second Telemetry Timeout & Sensor Fault Protection
+    // =========================================================================
+    const lastPingTimestamp = useMemo(() => {
+        if (lastReadingTime) {
+            return typeof lastReadingTime === 'string' ? new Date(lastReadingTime).getTime() : lastReadingTime;
+        }
+        if (liveHistory.length > 0) {
+            return liveHistory[liveHistory.length - 1].timestamp;
+        }
+        return 0;
+    }, [lastReadingTime, liveHistory]);
+
+    const isSensorOffline = useMemo(() => {
+        if (isOnline === false || status === 'sensor_fault' || status === 'offline' || currentWaterLevel === -1) {
+            return true;
+        }
+        if (!lastPingTimestamp) return false;
+        const secondsSinceLastPing = (Date.now() - lastPingTimestamp) / 1000;
+        return secondsSinceLastPing > 35; // 35 seconds of silence = hardware offline
+    }, [lastPingTimestamp, status, isOnline, currentWaterLevel]);
 
     // =========================================================================
     // FIX #1: EXPLICIT UNIT CONVERSION (No Magic Threshold Heuristics)
@@ -354,7 +387,19 @@ export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate
                     <span className="text-[9px] text-zinc-500">Every 5-second pulse from your ESP32 sonar will plot live points &amp; project future waves</span>
                 </div>
             ) : (
-                <div className="h-48">
+                <div className="h-64 w-full relative">
+                    {/* OFFLINE HARDWARE OVERLAY BANNER */}
+                    {isSensorOffline && (
+                        <div className="absolute inset-0 z-30 bg-zinc-950/85 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-4 border border-red-500/30 text-center">
+                            <AlertTriangle className="w-8 h-8 text-red-500 animate-bounce mb-2" />
+                            <p className="text-xs font-bold uppercase tracking-widest text-red-400">
+                                ⚠️ SENSOR OFFLINE / DISCONNECTED
+                            </p>
+                            <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">
+                                ESP32 hardware or sonar transducer is not transmitting data. Telemetry paused for safety.
+                            </p>
+                        </div>
+                    )}
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={combinedChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>

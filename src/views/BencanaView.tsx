@@ -588,6 +588,9 @@ export default function BencanaView() {
                                     currentWaterLevel={sensorData.water_level}
                                     riseRate={sensorData.rise_rate_cm_hr}
                                     unit="m"
+                                    status={sensorData.status}
+                                    lastReadingTime={sensorData.last_reading}
+                                    isOnline={sensorData.is_online}
                                 />
 
                                 {/* Online status + last seen */}
@@ -1022,6 +1025,9 @@ export default function BencanaView() {
                                 currentWaterLevel={sensorData.water_level}
                                 riseRate={sensorData.rise_rate_cm_hr}
                                 unit="m"
+                                status={sensorData.status}
+                                lastReadingTime={sensorData.last_reading}
+                                isOnline={sensorData.is_online}
                             />
 
                             {/* Thresholds + Info */}
