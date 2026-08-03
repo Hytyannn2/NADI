@@ -35,16 +35,13 @@ export async function GET(request: Request) {
             recent15MinRain
         );
 
-        // Weather Code (WMO) heavy rain override when active thunderstorm/heavy showers are occurring
+        // Weather Code (WMO) thunderstorm / extreme severe weather hints
         // 95, 96, 99: Thunderstorm with rain/hail (Heavy >15mm/hr)
-        // 63, 65, 81, 82: Heavy rain / Heavy showers (>10mm/hr)
-        // 61, 80: Moderate rain (4 - 8mm/hr)
+        // 65, 82: Violent heavy rain / Heavy showers (>12mm/hr)
         if ([95, 96, 99].includes(weatherCode)) {
-            baseRainMm = Math.max(baseRainMm, 18.5);
-        } else if ([63, 65, 81, 82].includes(weatherCode)) {
-            baseRainMm = Math.max(baseRainMm, 12.0);
-        } else if ([61, 80].includes(weatherCode)) {
-            baseRainMm = Math.max(baseRainMm, 5.5);
+            baseRainMm = Math.max(baseRainMm, 15.0);
+        } else if ([65, 82].includes(weatherCode)) {
+            baseRainMm = Math.max(baseRainMm, 10.0);
         }
 
         const rainMm = baseRainMm;

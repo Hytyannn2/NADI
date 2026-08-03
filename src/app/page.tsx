@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, Activity, AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles } from 'lucide-react';
+import { AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles, ClipboardList, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
@@ -14,11 +14,11 @@ import { RANK_DATA } from '@/src/constants/ranks';
 
 // === Views ===
 import AuthView from '@/src/views/AuthView';
-import SuaraView from '../views/SuaraView';
 import InfraView from '../views/InfraView';
 import BencanaView from '../views/BencanaView';
 import DashboardView from '../views/DashboardView';
 import BantuanView from '../views/BantuanView';
+import KomunitiView from '../views/KomunitiView';
 
 // === Components ===
 import OnboardingWalkthrough from '../components/OnboardingWalkthrough';
@@ -44,7 +44,7 @@ function WhistleIcon({ className = "w-5 h-5", style }: { className?: string; sty
 }
 
 // ===== TAB TYPE =====
-type TabId = 'suara' | 'infra' | 'bencana' | 'dashboard' | 'bantuan';
+type TabId = 'utama' | 'bencana' | 'bantuan' | 'aduan' | 'komuniti';
 
 export default function App() {
   // === Auth & Context ===
@@ -59,7 +59,7 @@ export default function App() {
   const { xp, level, showLevelUp, xpToNext } = useXP();
 
   // === UI State ===
-  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabId>('utama');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -132,11 +132,11 @@ export default function App() {
 
   // === Tabs Config ===
   const tabs = [
-    { id: 'suara', name: t('nav.voice'), icon: Mic },
-    { id: 'infra', name: t('nav.infra'), icon: Activity },
-    { id: 'dashboard', name: t('nav.dashboard') || 'Home', icon: Home, isCenter: true },
-    { id: 'bencana', name: t('nav.bencana'), icon: AlertTriangle },
-    { id: 'bantuan', name: t('bantuan.title'), icon: Heart },
+    { id: 'aduan', name: 'Aduan', icon: ClipboardList },
+    { id: 'komuniti', name: 'Komuniti', icon: ShoppingBag },
+    { id: 'utama', name: 'Utama', icon: Home, isCenter: true },
+    { id: 'bencana', name: t('nav.bencana') || 'Bencana', icon: AlertTriangle },
+    { id: 'bantuan', name: t('bantuan.title') || 'Bantuan', icon: Heart },
   ];
 
   // === Loading / Auth Gate ===
@@ -459,11 +459,11 @@ export default function App() {
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   className="h-full"
                 >
-                  {activeTab === 'suara' && <SuaraView />}
-                  {activeTab === 'infra' && <InfraView />}
+                  {activeTab === 'utama' && <DashboardView />}
                   {activeTab === 'bencana' && <BencanaView />}
-                  {activeTab === 'dashboard' && <DashboardView />}
                   {activeTab === 'bantuan' && <BantuanView />}
+                  {activeTab === 'aduan' && <InfraView />}
+                  {activeTab === 'komuniti' && <KomunitiView />}
                 </motion.div>
               </div>
             </AnimatePresence>

@@ -1,343 +1,422 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Play, Square } from 'lucide-react';
-import { useTheme } from '@/src/context/ThemeContext';
-
-interface Reading {
-    water_level: number;
-    battery_pct: number | null;
-    temperature_c: number | null;
-    humidity_pct: number | null;
-    pressure_hpa: number | null;
-    recorded_at: string;
-}
+import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 
 interface ChartDataPoint {
     time: string;
     timeLabel: string;
-    water_level: number;
-    temperature_c: number | null;
-    pressure_hpa: number | null;
+    live_level?: number | null;
+    projected_level?: number | null;
+    isProjection?: boolean;
 }
 
 interface SensorTrendChartProps {
     sensorId: string | null;
-    currentWaterLevel: number;
-    riseRate: number;
+    currentWaterLevel: number; // Water level value
+    riseRate: number;          // Pre-calculated backend rate (cm/hr, optional fallback)
+    unit?: 'm' | 'cm';        // Explicit unit declaration. Default: 'm' (meters)
 }
 
-// Generate realistic river water level data with natural patterns
-function generateDemoData(hours: number): ChartDataPoint[] {
-    const points: ChartDataPoint[] = [];
-    const now = Date.now();
-    const intervalMs = (hours * 60 * 60 * 1000) / 120; // ~120 data points regardless of range
-    const totalPoints = 120;
+type ForecastRange = '30m' | '1h' | '3h' | '6h' | '12h' | '24h';
 
-    // Create a realistic river pattern: base level + slow tide + rain event + noise
-    const baseLevel = 35; // normal river level cm
-    const tideAmplitude = 12; // slow oscillation
-    const tidePeriod = 24 * 60 * 60 * 1000; // 24h cycle
+// =============================================================================
+// HYDROLOGICAL CONSTANTS
+// =============================================================================
+// Basin damping time constant (τ in hours).
+// Controls how quickly the linear rate decays toward zero for long-range forecasts.
+// τ = 4.0h means: at t = 4h the forecast has captured ~63% of its maximum possible
+// delta, and by t = 12h it's essentially flat (asymptote reached).
+// This prevents the 24h forecast from projecting a 172-meter tsunami from a 3cm wave.
+const DAMPING_TAU_HOURS = 4.0;
 
-    // Simulate a rain event that causes water to rise then slowly fall
-    const rainPeakTime = now - (hours * 0.3 * 60 * 60 * 1000); // peak at 30% from now
-    const rainDuration = hours * 0.4 * 60 * 60 * 1000; // rain event lasts 40% of the window
-    const rainPeakLevel = 55; // additional cm from rain
+// Time window (minutes) for the rolling telemetry buffer.
+// We keep the last 30 minutes of real hardware pings, NOT a fixed array count.
+// This ensures our OLS regression slope is always computed over a consistent
+// physical time span regardless of variable ping intervals.
+const TIME_WINDOW_MINUTES = 30;
 
-    for (let i = 0; i < totalPoints; i++) {
-        const timestamp = now - (totalPoints - i) * intervalMs;
-        const date = new Date(timestamp);
+// Soft noise deadband (cm/hr). Slopes below this magnitude are continuously
+// attenuated toward zero using subtraction rather than a hard step-function
+// threshold. This eliminates the "9.9 → 0, 10.0 → 240cm jump" flicker bug.
+const NOISE_DEADBAND_CM_HR = 5.0;
 
-        // Base tide oscillation
-        const tideOffset = tideAmplitude * Math.sin((2 * Math.PI * timestamp) / tidePeriod);
+export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate, unit = 'm' }: SensorTrendChartProps) {
+    const [liveHistory, setLiveHistory] = useState<{ timestamp: number; timeLabel: string; level: number }[]>([]);
+    const [forecastRange, setForecastRange] = useState<ForecastRange>('6h');
+    const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const latestCmRef = useRef<number>(0);
 
-        // Rain event — gaussian-like rise and fall
-        const distFromPeak = timestamp - rainPeakTime;
-        const rainSigma = rainDuration / 3;
-        const rainEffect = rainPeakLevel * Math.exp(-0.5 * Math.pow(distFromPeak / rainSigma, 2));
+    // =========================================================================
+    // FIX #1: EXPLICIT UNIT CONVERSION (No Magic Threshold Heuristics)
+    // =========================================================================
+    // The caller declares the unit explicitly via the `unit` prop.
+    //   unit='m'  → multiply by 100 to get cm (default — our API stores meters)
+    //   unit='cm' → use as-is
+    //
+    // This eliminates ALL magnitude-guessing bugs:
+    //   - Old < 10 threshold: broke at 10.0m floods (1000cm → 10cm)
+    //   - Old < 50 threshold: broke at 35cm dry season (35cm → 3500cm)
+    //   - Explicit unit: NEVER breaks regardless of value.
+    const currentCm = useMemo(() => {
+        if (!currentWaterLevel || currentWaterLevel <= 0) return 0;
+        return unit === 'm'
+            ? Math.round(currentWaterLevel * 100)
+            : Math.round(currentWaterLevel);
+    }, [currentWaterLevel, unit]);
 
-        // Random noise (±2cm)
-        const noise = (Math.random() - 0.5) * 4;
+    // =========================================================================
+    // FIX #4 & #5: TIME-BOUNDED BUFFER + INTERVAL HEARTBEAT
+    // =========================================================================
+    // Problem with useEffect dependency on primitives:
+    //   If currentWaterLevel stays at 1.25m for 15 minutes, React sees
+    //   1.25 === 1.25 and SKIPS the effect entirely. No new timestamps
+    //   get added, and the OLS regression operates on stale 15-min-old data.
+    //
+    // Solution: An interval-based heartbeat that runs every 5 seconds,
+    //   always appending the latest level + current timestamp to the buffer.
+    //   This ensures the time-bounded window stays fresh even when the
+    //   water level is perfectly static.
 
-        // Slight upward trend in recent data (approaching monsoon feeling)
-        const recentTrend = Math.max(0, (i - totalPoints * 0.8) * 0.3);
+    // Keep latestCmRef in sync so the interval closure always has the current value
+    useEffect(() => {
+        latestCmRef.current = currentCm;
+    }, [currentCm]);
 
-        const waterLevel = Math.max(5, Math.round((baseLevel + tideOffset + rainEffect + noise + recentTrend) * 10) / 10);
+    // Heartbeat interval: append a reading every 5 seconds regardless of level changes
+    useEffect(() => {
+        const appendReading = () => {
+            const level = latestCmRef.current;
+            if (level <= 0) return;
 
-        points.push({
-            time: date.toISOString(),
-            timeLabel: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            water_level: waterLevel,
-            temperature_c: 28 + Math.random() * 4,
-            pressure_hpa: 1010 + Math.random() * 8 - 4,
-        });
-    }
+            const now = Date.now();
+            const timeLabel = new Date(now).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+            });
 
-    return points;
-}
+            setLiveHistory((prev) => {
+                const cutoffTime = now - TIME_WINDOW_MINUTES * 60 * 1000;
+                const filtered = prev.filter((p) => p.timestamp >= cutoffTime);
 
-export default function SensorTrendChart({ sensorId, currentWaterLevel, riseRate }: SensorTrendChartProps) {
-    const { formatTime } = useTheme();
-    const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [timeRange, setTimeRange] = useState<number>(24);
-    const [isLiveDemo, setIsLiveDemo] = useState(false);
-    const [hasRealData, setHasRealData] = useState(false);
-    const liveDemoRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const demoDataRef = useRef<ChartDataPoint[]>([]);
-
-    // Fetch real readings from the API
-    const fetchReadings = useCallback(async () => {
-        if (!sensorId) return;
-        setIsLoading(true);
-        try {
-            const res = await fetch(`/api/bencana/sensors/readings?sensor_id=${sensorId}&hours=${timeRange}`);
-            const json = await res.json();
-            if (json.success && json.readings && json.readings.length > 0) {
-                const data: ChartDataPoint[] = json.readings.map((r: Reading) => {
-                    const date = new Date(r.recorded_at);
-                    return {
-                        time: date.toISOString(),
-                        timeLabel: formatTime(date),
-                        water_level: r.water_level,
-                        temperature_c: r.temperature_c,
-                        pressure_hpa: r.pressure_hpa,
-                    };
-                });
-                setChartData(data);
-                setHasRealData(true);
-            } else {
-                setHasRealData(false);
-                if (!isLiveDemo) {
-                    setChartData([]);
+                // Deduplicate: skip if last point was within 4 seconds
+                if (filtered.length > 0 && (now - filtered[filtered.length - 1].timestamp) < 4000) {
+                    return filtered;
                 }
-            }
-        } catch {
-            setHasRealData(false);
-            if (!isLiveDemo) setChartData([]);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [sensorId, timeRange, isLiveDemo, formatTime]);
 
-    // Fetch real data on mount and when time range changes
-    useEffect(() => {
-        if (!isLiveDemo) {
-            fetchReadings();
-            const interval = setInterval(fetchReadings, 120_000);
-            return () => clearInterval(interval);
-        }
-    }, [fetchReadings, isLiveDemo]);
-
-    // Live Demo mode — generates initial data and appends new points every 3s
-    const startLiveDemo = useCallback(() => {
-        // Generate initial historical data for the selected time range
-        const initial = generateDemoData(timeRange).map(p => ({ ...p, timeLabel: formatTime(new Date(p.time)) }));
-        demoDataRef.current = initial;
-        setChartData(initial);
-        setIsLiveDemo(true);
-
-        // Add a new point every 3 seconds
-        liveDemoRef.current = setInterval(() => {
-            const prev = demoDataRef.current;
-            const lastLevel = prev.length > 0 ? prev[prev.length - 1].water_level : 40;
-            const now = new Date();
-
-            // Random walk: drift ±3cm from last value with slight mean reversion
-            const meanReversion = (45 - lastLevel) * 0.02; // pull toward 45cm
-            const drift = (Math.random() - 0.48) * 6 + meanReversion; // slight upward bias
-            const newLevel = Math.max(5, Math.round((lastLevel + drift) * 10) / 10);
-
-            const newPoint: ChartDataPoint = {
-                time: now.toISOString(),
-                timeLabel: formatTime(now),
-                water_level: newLevel,
-                temperature_c: 28 + Math.random() * 4,
-                pressure_hpa: 1008 + Math.random() * 8,
-            };
-
-            // Keep the window to ~120 points max, drop oldest
-            const updated = [...prev.slice(-119), newPoint];
-            demoDataRef.current = updated;
-            setChartData(updated);
-        }, 3000);
-    }, [timeRange]);
-
-    const stopLiveDemo = useCallback(() => {
-        setIsLiveDemo(false);
-        if (liveDemoRef.current) {
-            clearInterval(liveDemoRef.current);
-            liveDemoRef.current = null;
-        }
-        demoDataRef.current = [];
-        // Fetch real data again
-        fetchReadings();
-    }, [fetchReadings]);
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (liveDemoRef.current) clearInterval(liveDemoRef.current);
+                return [...filtered, { timestamp: now, timeLabel, level }];
+            });
         };
-    }, []);
 
-    // When time range changes during live demo, regenerate
+        // Immediately append on mount/level change
+        appendReading();
+
+        // Start heartbeat interval (5 seconds)
+        heartbeatRef.current = setInterval(appendReading, 5000);
+
+        return () => {
+            if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+        };
+    }, []); // Runs once on mount; reads latestCmRef.current for fresh values
+
+    // Also append immediately whenever level actually changes (responsive to real sensor pings)
     useEffect(() => {
-        if (isLiveDemo) {
-            if (liveDemoRef.current) clearInterval(liveDemoRef.current);
-            startLiveDemo();
+        if (currentCm <= 0) return;
+
+        const now = Date.now();
+        const timeLabel = new Date(now).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+
+        setLiveHistory((prev) => {
+            const cutoffTime = now - TIME_WINDOW_MINUTES * 60 * 1000;
+            const filtered = prev.filter((p) => p.timestamp >= cutoffTime);
+
+            if (filtered.length > 0 && (now - filtered[filtered.length - 1].timestamp) < 2000) {
+                return filtered;
+            }
+
+            return [...filtered, { timestamp: now, timeLabel, level: currentCm }];
+        });
+    }, [currentCm]);
+
+    // =========================================================================
+    // FIX #2, #3: HYDROLOGICAL DAMPED WAVE FORECAST ENGINE
+    // =========================================================================
+    // Uses:
+    //   - OLS Linear Regression over the FULL time-bounded buffer (not last 6 pings)
+    //   - Continuous Soft-Thresholding (not a hard step-function cutoff)
+    //   - Exponential Asymptotic Damping (not unbounded linear extrapolation)
+    //
+    // Forecast formula:
+    //   ĥ(t + Δt) = h₀ + m · τ · (1 - e^(-Δt/τ))
+    //
+    // Where:
+    //   h₀ = Current water level (cm)
+    //   m  = OLS regression slope (cm/hr) after soft deadband subtraction
+    //   τ  = Basin damping constant (4.0 hours)
+    //   Δt = Forecast horizon step (hours)
+    //
+    // Properties:
+    //   - Short-range (Δt << τ): ĥ ≈ h₀ + m·Δt (nearly linear, tracks real rate)
+    //   - Long-range (Δt >> τ): ĥ → h₀ + m·τ  (asymptotes, never explodes)
+    //   - At Δt = τ: captures 63.2% of max delta (natural inflection point)
+    const combinedChartData = useMemo((): ChartDataPoint[] => {
+        if (liveHistory.length === 0) return [];
+
+        const combined: ChartDataPoint[] = [];
+
+        // --- LIVE HARDWARE POINTS (Solid Emerald Green) ---
+        liveHistory.forEach((pt, index) => {
+            const isLast = index === liveHistory.length - 1;
+            combined.push({
+                time: new Date(pt.timestamp).toISOString(),
+                timeLabel: pt.timeLabel,
+                live_level: pt.level,
+                projected_level: isLast ? pt.level : null, // Seamless bridge to cyan series
+                isProjection: false,
+            });
+        });
+
+        const lastPt = liveHistory[liveHistory.length - 1];
+
+        // --- ORDINARY LEAST SQUARES (OLS) LINEAR REGRESSION ---
+        // Computed over the ENTIRE time-bounded buffer (up to 30 minutes of data),
+        // not a tiny 6-ping window. This gives a statistically stable slope.
+        let activeRateCmHr = 0;
+        if (liveHistory.length >= 3) {
+            const t0 = liveHistory[0].timestamp;
+            const n = liveHistory.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+            liveHistory.forEach((pt) => {
+                const x = (pt.timestamp - t0) / (1000 * 3600); // Convert ms → hours
+                const y = pt.level;
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumXX += x * x;
+            });
+
+            const denominator = n * sumXX - sumX * sumX;
+            if (denominator > 1e-6) {
+                const rawSlope = (n * sumXY - sumX * sumY) / denominator;
+
+                // FIX #3: CONTINUOUS SOFT-THRESHOLDING
+                // Instead of: if (|slope| >= 10) use it, else zero.
+                //   (which causes a 240cm discontinuous jump at the threshold)
+                // We subtract the deadband magnitude continuously:
+                //   effective = sign(raw) * max(0, |raw| - deadband)
+                //
+                // This means:
+                //   slope =  3 cm/hr → effective =  0 cm/hr (noise, zeroed)
+                //   slope =  7 cm/hr → effective =  2 cm/hr (gentle, passes through attenuated)
+                //   slope = 25 cm/hr → effective = 20 cm/hr (strong, minimal attenuation)
+                //
+                // The 6 cm/hr early-flood-rise that Bug #1 in the review flagged?
+                // It now passes through as 1 cm/hr — small but VISIBLE on the forecast
+                // line, which is exactly what an early warning system should show.
+                if (Math.abs(rawSlope) > NOISE_DEADBAND_CM_HR) {
+                    activeRateCmHr = rawSlope > 0
+                        ? rawSlope - NOISE_DEADBAND_CM_HR
+                        : rawSlope + NOISE_DEADBAND_CM_HR;
+                }
+                // else: activeRateCmHr stays 0 (pure noise, flat forecast)
+            }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeRange]);
 
-    // Rise rate indicator
-    const RiseIndicator = () => {
-        if (riseRate > 1) return <TrendingUp className="w-4 h-4 text-red-500" />;
-        if (riseRate < -1) return <TrendingDown className="w-4 h-4 text-blue-400" />;
-        return <Minus className="w-4 h-4 text-zinc-500" />;
-    };
+        // --- FORECAST TIMESTEPS ---
+        const rangeStepConfig: Record<ForecastRange, number[]> = {
+            '30m': [5 / 60, 10 / 60, 15 / 60, 20 / 60, 25 / 60, 30 / 60],
+            '1h': [10 / 60, 20 / 60, 30 / 60, 40 / 60, 50 / 60, 1.0],
+            '3h': [0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
+            '6h': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            '12h': [2.0, 4.0, 6.0, 8.0, 10.0, 12.0],
+            '24h': [4.0, 8.0, 12.0, 16.0, 20.0, 24.0],
+        };
 
-    const riseLabel = riseRate > 1 ? `↑ ${riseRate} cm/hr` : riseRate < -1 ? `↓ ${Math.abs(riseRate)} cm/hr` : '→ Stable';
-    const riseColor = riseRate > 5 ? 'text-red-500' : riseRate > 1 ? 'text-orange-400' : riseRate < -1 ? 'text-blue-400' : 'text-zinc-500';
+        const steps = rangeStepConfig[forecastRange];
 
-    // Determine gradient color from the latest chart data point (for demo) or current level
-    const latestLevel = chartData.length > 0 ? chartData[chartData.length - 1].water_level : currentWaterLevel;
-    const gradientColor = latestLevel >= 120 ? '#EF4444' : latestLevel >= 80 ? '#F97316' : '#10B981';
+        // --- ASYMPTOTIC DAMPED HYDROLOGICAL PROJECTION ---
+        steps.forEach((stepHours) => {
+            const futureTime = new Date(lastPt.timestamp + stepHours * 3600 * 1000);
 
-    // Custom tooltip
+            // Damped forecast: h_pred = h0 + m * τ * (1 - e^(-Δt / τ))
+            //
+            // At short Δt (e.g. 30 min): e^(-0.5/4) ≈ 0.88, so factor ≈ 0.12
+            //   → nearly linear: h_pred ≈ h0 + m * 0.5 (tracks real rate closely)
+            //
+            // At long Δt (e.g. 24h):  e^(-24/4) ≈ 0.0025, so factor ≈ 0.997
+            //   → asymptote: h_pred ≈ h0 + m * 4.0 (max delta = rate × τ)
+            //   → Even at 100 cm/hr, max delta = 100 * 4 = +400cm (not 2400cm!)
+            const dampedDelta = activeRateCmHr * DAMPING_TAU_HOURS * (1 - Math.exp(-stepHours / DAMPING_TAU_HOURS));
+            const predictedCm = Math.max(0, Math.round(lastPt.level + dampedDelta));
+
+            const labelStr = stepHours < 1
+                ? `+${Math.round(stepHours * 60)}m (Pred)`
+                : `+${stepHours}h (Pred)`;
+
+            combined.push({
+                time: futureTime.toISOString(),
+                timeLabel: labelStr,
+                live_level: null,
+                projected_level: predictedCm,
+                isProjection: true,
+            });
+        });
+
+        return combined;
+    }, [liveHistory, forecastRange]);
+
+    // --- DISPLAY RATE (for the header badge) ---
+    const calculatedRateCmHr = useMemo(() => {
+        if (liveHistory.length < 2) return 0;
+        const first = liveHistory[0];
+        const last = liveHistory[liveHistory.length - 1];
+        const hours = (last.timestamp - first.timestamp) / (3600 * 1000);
+        return hours > 0.001 ? (last.level - first.level) / hours : 0;
+    }, [liveHistory]);
+
+    // Color Palette
+    const greenColor = '#10B981';
+    const cyanColor = '#06B6D4';
+
+    // Custom Tooltip
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (!active || !payload?.length) return null;
-        const val = payload[0].value;
-        const color = val >= 120 ? '#EF4444' : val >= 80 ? '#F97316' : '#10B981';
+        const entry = payload.find((p: any) => p.value !== null && p.value !== undefined) || payload[0];
+        const val = entry.value;
+        const isPred = label?.includes('Pred');
         return (
-            <div className="rounded-xl p-3 shadow-xl text-xs" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                <p className="font-bold text-[10px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-                <p className="font-bold text-sm" style={{ color }}>
-                    {val} <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>cm</span>
+            <div className="rounded-xl p-3 shadow-xl text-xs bg-zinc-900 border border-zinc-800">
+                <p className="font-bold text-[10px] uppercase tracking-widest mb-1 text-zinc-400">
+                    {label} {isPred ? `🔮 DAMPED MODEL (${forecastRange.toUpperCase()})` : '● ESP32 SONAR'}
+                </p>
+                <p className={`font-bold text-sm ${isPred ? 'text-cyan-400' : 'text-emerald-400'}`}>
+                    {val} <span className="text-[10px] font-medium text-zinc-400">cm</span>
                 </p>
             </div>
         );
     };
 
+    const availableRanges: ForecastRange[] = ['30m', '1h', '3h', '6h', '12h', '24h'];
+
     return (
-        <div className="rounded-2xl p-4 relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+        <div className="rounded-2xl p-4 relative overflow-hidden bg-zinc-900/60 border border-zinc-800/80">
             {/* Header */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
-                    <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                        Water Level Trend
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                        HYDROLOGICAL WAVE FORECAST (DAMPED OLS)
                     </p>
-                    {isLiveDemo && (
-                        <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 animate-pulse">
-                            ● LIVE DEMO
-                        </span>
-                    )}
-                    {!isLiveDemo && (
-                        <div className={`flex items-center gap-1 text-[9px] font-bold ${riseColor}`}>
-                            <RiseIndicator />
-                            {riseLabel}
-                        </div>
-                    )}
+                    <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-400">
+                        {calculatedRateCmHr > 1 ? (
+                            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : calculatedRateCmHr < -1 ? (
+                            <TrendingDown className="w-3.5 h-3.5 text-blue-400" />
+                        ) : (
+                            <Minus className="w-3.5 h-3.5 text-zinc-500" />
+                        )}
+                        {calculatedRateCmHr > 0 ? `+${calculatedRateCmHr.toFixed(1)}` : calculatedRateCmHr.toFixed(1)} cm/hr
+                    </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    {[6, 12, 24].map(h => (
+
+                {/* Range Selector Bar */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-500 mr-1 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> Forecast Range:
+                    </span>
+                    {availableRanges.map((rng) => (
                         <button
-                            key={h}
-                            onClick={() => setTimeRange(h)}
-                            className="text-[8px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg transition-colors"
-                            style={timeRange === h
-                                ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
-                                : { color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
-                            }
-                        >{h}h</button>
-                    ))}
-                    {/* Live Demo toggle */}
-                    <button
-                        onClick={isLiveDemo ? stopLiveDemo : startLiveDemo}
-                        className={`text-[8px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg transition-colors flex items-center gap-1 ${
-                            isLiveDemo ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'
-                        }`}
-                    >
-                        {isLiveDemo ? <><Square className="w-2.5 h-2.5" /> Stop</> : <><Play className="w-2.5 h-2.5" /> Demo</>}
-                    </button>
-                    {!isLiveDemo && (
-                        <button
-                            onClick={fetchReadings}
-                            className="text-[8px] font-bold px-1.5 py-1 rounded-lg transition-colors"
-                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-default)' }}
+                            key={rng}
+                            onClick={() => setForecastRange(rng)}
+                            className={`text-[8px] font-bold uppercase px-2.5 py-1 rounded-lg transition-all ${
+                                forecastRange === rng
+                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                                    : 'text-zinc-400 border border-zinc-800 hover:text-white hover:bg-zinc-800/50'
+                            }`}
                         >
-                            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                            {rng} {rng === '6h' ? '⭐' : ''}
                         </button>
-                    )}
+                    ))}
                 </div>
             </div>
 
             {/* Chart */}
-            {chartData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 rounded-xl gap-2" style={{ border: '1px dashed var(--border-default)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                        {isLoading ? 'Loading readings...' : 'No readings yet'}
+            {combinedChartData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-44 rounded-xl gap-2 border border-dashed border-zinc-800">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        WAITING FOR ESP32 HARDWARE PING...
                     </p>
-                    <button
-                        onClick={startLiveDemo}
-                        className="text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10"
-                    >
-                        <Play className="w-3 h-3" /> Start Live Demo
-                    </button>
+                    <span className="text-[9px] text-zinc-500">Every 5-second pulse from your ESP32 sonar will plot live points &amp; project future waves</span>
                 </div>
             ) : (
-                <div className="h-44">
+                <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                        <AreaChart data={combinedChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>
-                                <linearGradient id="waterGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={gradientColor} stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor={gradientColor} stopOpacity={0.02} />
+                                <linearGradient id="liveWaterGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={greenColor} stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor={greenColor} stopOpacity={0.02} />
+                                </linearGradient>
+                                <linearGradient id="cyanProjectionGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={cyanColor} stopOpacity={0.35} />
+                                    <stop offset="95%" stopColor={cyanColor} stopOpacity={0.02} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                             <XAxis
                                 dataKey="timeLabel"
-                                tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+                                tick={{ fontSize: 9, fill: '#A1A1AA' }}
                                 tickLine={false}
                                 axisLine={false}
-                                interval={Math.floor(chartData.length / 6)}
                             />
                             <YAxis
-                                tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+                                tick={{ fontSize: 9, fill: '#A1A1AA' }}
                                 tickLine={false}
                                 axisLine={false}
-                                domain={[0, (dataMax: number) => Math.max(150, Math.ceil(dataMax / 20) * 20)]}
+                                domain={[0, (dataMax: number) => Math.max(200, Math.ceil(dataMax / 50) * 50)]}
                                 unit=" cm"
                             />
                             <Tooltip content={<CustomTooltip />} />
-                            {/* Danger threshold line at 120cm */}
+
+                            {/* Danger & Warning threshold lines */}
                             <ReferenceLine y={120} stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: 'DANGER 120cm', position: 'right', fill: '#EF4444', fontSize: 8 }} />
-                            {/* Warning threshold line at 80cm */}
                             <ReferenceLine y={80} stroke="#F97316" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: 'WARN 80cm', position: 'right', fill: '#F97316', fontSize: 8 }} />
+
+                            {/* Live Real Hardware Data Line (Solid Emerald Green) */}
                             <Area
                                 type="monotone"
-                                dataKey="water_level"
-                                stroke={gradientColor}
-                                strokeWidth={2}
-                                fill="url(#waterGradient)"
-                                dot={false}
-                                activeDot={{ r: 4, stroke: gradientColor, strokeWidth: 2, fill: 'var(--bg-card)' }}
-                                animationDuration={isLiveDemo ? 300 : 800}
-                                isAnimationActive={!isLiveDemo}
+                                dataKey="live_level"
+                                stroke={greenColor}
+                                strokeWidth={2.5}
+                                fill="url(#liveWaterGradient)"
+                                dot={{ r: 4, fill: greenColor, stroke: '#09090B', strokeWidth: 1.5 }}
+                                activeDot={{ r: 6, stroke: greenColor, strokeWidth: 2, fill: '#FFFFFF' }}
+                                isAnimationActive={true}
+                                animationDuration={300}
+                                connectNulls={false}
+                            />
+
+                            {/* Projected Damped Wave Forecast Line (Dotted Cyan) */}
+                            <Area
+                                type="monotone"
+                                dataKey="projected_level"
+                                stroke={cyanColor}
+                                strokeWidth={2.5}
+                                strokeDasharray="4 4"
+                                fill="url(#cyanProjectionGradient)"
+                                dot={{ r: 4, fill: cyanColor, stroke: '#09090B', strokeWidth: 1.5 }}
+                                activeDot={{ r: 6, stroke: cyanColor, strokeWidth: 2, fill: '#FFFFFF' }}
+                                isAnimationActive={true}
+                                animationDuration={300}
+                                connectNulls={true}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
-                </div>
-            )}
-
-            {/* Rise rate warning banner */}
-            {riseRate > 5 && !isLiveDemo && (
-                <div className="mt-3 p-2.5 rounded-xl flex items-center gap-2 animate-pulse" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                    <TrendingUp className="w-4 h-4 text-red-500 shrink-0" />
-                    <p className="text-[10px] font-bold text-red-400">
-                         EARLY WARNING: Water rising {riseRate} cm/hr — monitor closely
-                    </p>
                 </div>
             )}
         </div>

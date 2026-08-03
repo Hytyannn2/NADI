@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users } from 'lucide-react';
+import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useGame } from '../context/GameContext';
 import { useXP } from '../hooks/useXP';
 import { useTheme } from '../context/ThemeContext';
@@ -67,6 +68,11 @@ export default function InfraView() {
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
+
+    const [manualDescription, setManualDescription] = useState('');
+    const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+    const [shareModalAnomaly, setShareModalAnomaly] = useState<Anomaly | null>(null);
+    const [copiedToast, setCopiedToast] = useState(false);
 
     const { completeQuest, incrementStat } = useGame();
     const { addXp } = useXP();
@@ -423,7 +429,9 @@ export default function InfraView() {
                 className="mb-6 flex justify-between items-end"
             >
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>NADI Infra</h2>
+                    <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                        NADI Aduan Desk
+                    </h2>
                     <p className="text-xs font-medium mt-1 relative inline-block" style={{ color: 'var(--text-muted)' }}>
                         {detector.isCalibrating ? (
                             <span className="flex items-center gap-2">
@@ -432,7 +440,7 @@ export default function InfraView() {
                             </span>
                         ) : (
                             <>
-                                Smart pothole detection
+                                Unified Civic Infrastructure Reporting & Pothole Suite
                                 <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
                             </>
                         )}
@@ -447,6 +455,102 @@ export default function InfraView() {
                     {dashcam.isDashcamEnabled ? <Video className="w-4 h-4 text-red-500" /> : <VideoOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />}
                     {dashcam.isDashcamEnabled ? '' : 'Cam'}
                 </button>
+            </motion.div>
+
+            {/* === AMBIENT VOICE ADUAN INPUT BOX === */}
+            <motion.div
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="mb-6 p-4 rounded-2xl border relative overflow-hidden"
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+            >
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
+                        <Sparkles className="w-3.5 h-3.5" /> Buat Aduan Suara / Teks
+                    </span>
+                    <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Dialek Kelantan Tuned
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={manualDescription}
+                        onChange={(e) => setManualDescription(e.target.value)}
+                        placeholder="Cakap atau taip aduan (cth: Pothole dalam dekat Hospital Kubang Kerian)..."
+                        className="flex-1 text-xs rounded-xl px-3.5 py-3 outline-none transition-all"
+                        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && manualDescription.trim()) {
+                                const newA: Anomaly = {
+                                    id: `aduan-${Date.now()}`,
+                                    lat: 6.0833,
+                                    lng: 102.2500,
+                                    zDropped: 2.5,
+                                    verifications: 1,
+                                    status: 'pending',
+                                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    aiAnalysis: {
+                                        severityScore: 3,
+                                        severityLabel: 'Manual Aduan Warga',
+                                        damageType: 'Aduan Infrastruktur',
+                                        estimatedWidth: '0.8m',
+                                        estimatedDepth: '5cm',
+                                        repairMethod: 'Tampalan Asfalt',
+                                        repairCostMYR: 'RM 150 - RM 300',
+                                        priorityScore: 75,
+                                        riskAssessment: manualDescription.trim(),
+                                        nearestRoadType: 'Jalan Awam',
+                                        recommendedAction: 'Penilaian Tapak'
+                                    }
+                                };
+                                setAnomalies(prev => [newA, ...prev]);
+                                setManualDescription('');
+                                incrementStat('reports');
+                                addXp(25);
+                            }
+                        }}
+                    />
+                    <GlobalVoiceMic
+                        onTranscript={(text) => setManualDescription(prev => (prev ? `${prev} ${text}` : text))}
+                        size="md"
+                    />
+                    <button
+                        onClick={() => {
+                            if (!manualDescription.trim()) return;
+                            const newA: Anomaly = {
+                                id: `aduan-${Date.now()}`,
+                                lat: 6.0833,
+                                lng: 102.2500,
+                                zDropped: 2.5,
+                                verifications: 1,
+                                status: 'pending',
+                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                aiAnalysis: {
+                                    severityScore: 3,
+                                    severityLabel: 'Manual Aduan Warga',
+                                    damageType: 'Aduan Infrastruktur',
+                                    estimatedWidth: '0.8m',
+                                    estimatedDepth: '5cm',
+                                    repairMethod: 'Tampalan Asfalt',
+                                    repairCostMYR: 'RM 150 - RM 300',
+                                    priorityScore: 75,
+                                    riskAssessment: manualDescription.trim(),
+                                    nearestRoadType: 'Jalan Awam',
+                                    recommendedAction: 'Penilaian Tapak'
+                                }
+                            };
+                            setAnomalies(prev => [newA, ...prev]);
+                            setManualDescription('');
+                            incrementStat('reports');
+                            addXp(25);
+                        }}
+                        disabled={!manualDescription.trim()}
+                        className="px-4 py-3 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all disabled:opacity-50"
+                        style={{ background: 'var(--accent)' }}
+                    >
+                        <Send className="w-3.5 h-3.5" /> Hantar
+                    </button>
+                </div>
             </motion.div>
 
             {/* === DRIVING HUD — only visible when actually moving === */}
@@ -647,6 +751,13 @@ export default function InfraView() {
                                             >
                                                 <Camera className="w-4 h-4" /> Photo
                                             </button>
+                                            <button
+                                                onClick={() => setShareModalAnomaly(a)}
+                                                className="flex items-center gap-1.5 px-4 py-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
+                                                title="Jana Kad Viral TikTok / FB untuk Tekan PBT"
+                                            >
+                                                <Share2 className="w-4 h-4" /> Viral Card
+                                            </button>
                                             {a.aiAnalysis && (
                                                 <button onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
                                                     className="ml-auto p-3 text-zinc-400 hover:text-zinc-200 transition-colors"
@@ -715,6 +826,75 @@ export default function InfraView() {
                     )}
                 </div>
             </div>
+
+            {/* === VIRAL SHARE CARD MODAL === */}
+            <AnimatePresence>
+                {shareModalAnomaly && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="bg-[#0A0A0C] border-2 border-red-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+                                    🚨 PUBLIC SLA PRESSURE CARD
+                                </span>
+                                <button
+                                    onClick={() => setShareModalAnomaly(null)}
+                                    className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Ticket Card Image Preview */}
+                            <div className="bg-gradient-to-br from-red-950/40 via-zinc-900 to-black border border-red-500/30 rounded-2xl p-5 mb-4 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 px-3 py-1 bg-red-600 text-[10px] font-black uppercase tracking-widest text-white rounded-bl-xl shadow-md">
+                                    HARI KE-14 UNRESOLVED
+                                </div>
+                                <h3 className="text-sm font-black text-red-400 mb-1 uppercase">ADUAN INFRASTRUKTUR WAKAF</h3>
+                                <p className="text-[10px] text-zinc-400 mb-3 font-mono">TICKET ID: #{shareModalAnomaly.id.slice(-6)}</p>
+                                
+                                <div className="space-y-2 text-xs mb-3">
+                                    <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
+                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Lokasi Koordinat</span>
+                                        <span className="font-mono text-zinc-200 font-bold">{shareModalAnomaly.lat}°, {shareModalAnomaly.lng}°</span>
+                                    </div>
+                                    <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
+                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Keterangan Risiko</span>
+                                        <span className="text-zinc-300">{shareModalAnomaly.aiAnalysis?.riskAssessment || 'Kerosakan jalan teruk, berisiko bahaya kemalangan.'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest text-center border-t border-zinc-800 pt-2">
+                                    NADI CIVIC SYSTEM • DISAHKAN WARGA
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => {
+                                        const caption = `🚨 ADUAN INFRASTRUKTUR TERBENGKALAIS KELANTAN!\n\n📍 Lokasi: ${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°\n⚠️ Status: Belum Dibaiki (Ticket #${shareModalAnomaly.id.slice(-6)})\n\nSila ambil tindakan segera! #KelantanFixOurRoads #NADI #PBTKelantan #AduanWarga`;
+                                        navigator.clipboard.writeText(caption);
+                                        setCopiedToast(true);
+                                        setTimeout(() => setCopiedToast(false), 2000);
+                                    }}
+                                    className="w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all"
+                                >
+                                    <Share2 className="w-4 h-4" /> {copiedToast ? '✓ Kapsyen Disalin!' : 'Salin Kapsyen TikTok/FB'}
+                                </button>
+                                <p className="text-[9px] text-zinc-500 text-center">
+                                    Kongsi di TikTok / FB dengan hashtag di atas untuk beri tekanan SLA kepada pihak berkuasa tempatan.
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

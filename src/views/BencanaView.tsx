@@ -119,9 +119,39 @@ export default function BencanaView() {
         return 0;
     };
 
-    // Real-time Supabase Subscription for LoRaWAN
+    // Real-time Supabase Subscription & API Polling for LoRaWAN / ESP32 Sensor
     useEffect(() => {
-        // Fetch initial sensor data
+        // Poll local API endpoint for real-time ESP32 sensor updates
+        const fetchLatestSensor = () => {
+            fetch('/api/bencana/sensors')
+                .then(res => res.json())
+                .then(resData => {
+                    if (resData.success && resData.sensors && resData.sensors.length > 0) {
+                        const target = resData.sensors.find((s: any) => s.name === 'Sungai Kelantan Node A') || resData.sensors[0];
+                        if (target) {
+                            setSensorData({
+                                id: target.id ?? null,
+                                status: target.status || 'safe',
+                                water_level: target.water_level ?? 0,
+                                battery_pct: target.battery_pct ?? null,
+                                rssi_dbm: target.rssi_dbm ?? null,
+                                temperature_c: target.temperature_c ?? null,
+                                humidity_pct: target.humidity_pct ?? null,
+                                pressure_hpa: target.pressure_hpa ?? null,
+                                rise_rate_cm_hr: target.rise_rate_cm_hr ?? 0,
+                                last_reading: target.last_reading ?? null,
+                                is_online: target.is_online ?? true,
+                            });
+                        }
+                    }
+                })
+                .catch(() => {});
+        };
+
+        fetchLatestSensor();
+        const pollInterval = setInterval(fetchLatestSensor, 3000);
+
+        // Fetch initial sensor data from Supabase DB
         supabase.from('nadi_bencana_sensors').select('*').eq('name', 'Sungai Kelantan Node A').single()
             .then(({ data }) => {
                 if (data) {
@@ -164,6 +194,7 @@ export default function BencanaView() {
             .subscribe();
 
         return () => {
+            clearInterval(pollInterval);
             supabase.removeChannel(channel);
         };
     }, [supabase]);
@@ -455,7 +486,7 @@ export default function BencanaView() {
                                                     <Droplets className="w-3 h-3 inline mr-1" />Water Level
                                                 </p>
                                                 <p className={`text-4xl font-bold tracking-tight leading-none ${sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                                    {sensorData.water_level > 0 ? sensorData.water_level : '—'}
+                                                    {sensorData.water_level !== null && sensorData.water_level !== undefined ? (sensorData.water_level < 10 ? (sensorData.water_level * 100).toFixed(0) : sensorData.water_level.toFixed(0)) : '—'}
                                                     <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-muted)' }}>cm</span>
                                                 </p>
                                                 {/* Rise rate indicator */}
@@ -556,6 +587,7 @@ export default function BencanaView() {
                                     sensorId={sensorData.id}
                                     currentWaterLevel={sensorData.water_level}
                                     riseRate={sensorData.rise_rate_cm_hr}
+                                    unit="m"
                                 />
 
                                 {/* Online status + last seen */}
@@ -917,7 +949,7 @@ export default function BencanaView() {
                                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                         <Droplets className={`w-4 h-4 mb-1 ${sensorStatus === 'danger' ? 'text-red-500' : 'text-blue-400'}`} />
                                         <p className={`text-xl font-bold ${sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                            {sensorData.water_level > 0 ? sensorData.water_level : '—'}
+                                            {sensorData.water_level !== null && sensorData.water_level !== undefined ? Math.round(sensorData.water_level < 10 ? sensorData.water_level * 100 : sensorData.water_level) : '—'}
                                         </p>
                                         <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Water (cm)</p>
                                     </div>
@@ -989,6 +1021,7 @@ export default function BencanaView() {
                                 sensorId={sensorData.id}
                                 currentWaterLevel={sensorData.water_level}
                                 riseRate={sensorData.rise_rate_cm_hr}
+                                unit="m"
                             />
 
                             {/* Thresholds + Info */}

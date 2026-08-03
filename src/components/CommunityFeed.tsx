@@ -6,7 +6,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useGame } from '@/src/context/GameContext';
 import { useXP } from '@/src/hooks/useXP';
 
-interface Post { id: string; content: string; author: string; author_avatar?: string; type: string; timestamp: number; upvotes: number; user_id?: string; }
+interface Post { id: string; content: string; author: string; author_avatar?: string; type: string; timestamp: number; upvotes: number; user_id?: string; replies?: any[]; comments?: number; }
 
 export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClose: () => void; initialTab?: 'feed' | 'whistle' }) {
     const [tab, setTab] = useState<'feed' | 'whistle'>(initialTab);
@@ -34,6 +34,11 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
     const { incrementStat, completeQuest } = useGame();
     const { addXp } = useXP();
 
+    const [replyingPostId, setReplyingPostId] = useState<string | null>(null);
+    const [replyText, setReplyText] = useState('');
+    const [submittingReply, setSubmittingReply] = useState(false);
+    const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+
     useEffect(() => {
         fetch('/api/community').then(r => r.json()).then(d => { if (d.success) setPosts(d.posts); }).catch(() => {}).finally(() => setLoading(false));
     }, []);
@@ -46,6 +51,44 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                 setPosts(prev => prev.filter(p => p.id !== postId));
             }
         } catch {}
+    };
+
+    const handleLike = async (postId: string) => {
+        if (likedPosts[postId]) return;
+        setLikedPosts(prev => ({ ...prev, [postId]: true }));
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, upvotes: (p.upvotes || 0) + 1 } : p));
+        try {
+            await fetch('/api/community', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, action: 'like' })
+            });
+        } catch {}
+    };
+
+    const handleSendReply = async (postId: string) => {
+        if (!replyText.trim() || submittingReply) return;
+        setSubmittingReply(true);
+        try {
+            const res = await fetch('/api/community', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, action: 'reply', content: replyText })
+            });
+            const d = await res.json();
+            if (d.success && d.reply) {
+                setPosts(prev => prev.map(p => {
+                    if (p.id === postId) {
+                        const existing = Array.isArray(p.replies) ? p.replies : [];
+                        return { ...p, replies: [...existing, d.reply], comments: d.commentsCount };
+                    }
+                    return p;
+                }));
+                setReplyText('');
+            }
+        } catch {} finally {
+            setSubmittingReply(false);
+        }
     };
 
     const handlePost = async () => {
@@ -201,17 +244,93 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-600">{timeAgo(p.timestamp)}</span>
-                                                    {(p.user_id === user?.id || p.author === (user?.user_metadata?.full_name || user?.email?.split('@')[0])) && (
-                                                        <button onClick={() => handleDeletePost(p.id)} title="Delete post" className="text-zinc-600 hover:text-red-400 p-1">
+                                                    {Boolean(user?.id && p.user_id === user.id) && (
+                                                        <button onClick={() => handleDeletePost(p.id)} title="Delete post" className="text-zinc-600 hover:text-red-400 p-1 transition-colors">
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
-                                            <p className="text-sm text-zinc-400 mb-3 leading-relaxed">{p.content}</p>
-                                            <button className="flex items-center gap-1.5 text-zinc-600 hover:text-[#C5A367] transition-colors text-[9px] font-bold">
-                                                <ThumbsUp className="w-3 h-3" /> {p.upvotes}
-                                            </button>
+                                            <p className="text-sm text-zinc-300 mb-3 leading-relaxed">{p.content}</p>
+
+                                            {/* Action bar: Like & Reply */}
+                                            <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-xs">
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        onClick={() => handleLike(p.id)}
+                                                        className={`flex items-center gap-1.5 transition-colors text-[10px] font-bold ${likedPosts[p.id] ? 'text-red-400' : 'text-zinc-500 hover:text-red-400'}`}
+                                                    >
+                                                        <ThumbsUp className={`w-3.5 h-3.5 ${likedPosts[p.id] ? 'fill-red-400' : ''}`} />
+                                                        <span>{p.upvotes || 0}</span>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => setReplyingPostId(replyingPostId === p.id ? null : p.id)}
+                                                        className={`flex items-center gap-1.5 transition-colors text-[10px] font-bold ${replyingPostId === p.id ? 'text-[#C5A367]' : 'text-zinc-500 hover:text-[#C5A367]'}`}
+                                                    >
+                                                        <MessageSquare className="w-3.5 h-3.5" />
+                                                        <span>Balas {p.replies?.length ? `(${p.replies.length})` : ''}</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Threaded Reply Drawer */}
+                                            <AnimatePresence>
+                                                {replyingPostId === p.id && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        className="mt-3 pt-3 border-t border-zinc-800/80 space-y-3 overflow-hidden"
+                                                    >
+                                                        {/* Threaded Replies List */}
+                                                        {Array.isArray(p.replies) && p.replies.length > 0 && (
+                                                            <div className="space-y-2 pl-3 border-l-2 border-zinc-800">
+                                                                {p.replies.map((reply: any, idx: number) => (
+                                                                    <div key={reply.id || idx} className="bg-zinc-900/70 rounded-xl p-2.5 border border-zinc-800/60">
+                                                                        <div className="flex items-center justify-between mb-1">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-5 h-5 rounded-full overflow-hidden border border-zinc-700 bg-zinc-800 shrink-0 flex items-center justify-center">
+                                                                                    <img
+                                                                                        src={reply.author_avatar || (reply.user_id === user?.id && userAvatar ? userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.author || 'Warga')}&background=0F766E&color=fff`)}
+                                                                                        alt={reply.author}
+                                                                                        className="w-full h-full object-cover"
+                                                                                    />
+                                                                                </div>
+                                                                                <span className="text-[11px] font-bold text-zinc-300">{reply.author}</span>
+                                                                            </div>
+                                                                            <span className="text-[8px] text-zinc-600 font-mono">
+                                                                                {timeAgo(reply.timestamp || Date.now())}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-xs text-zinc-400 pl-7 leading-relaxed">{reply.content}</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Reply Input */}
+                                                        <div className="flex gap-2 items-center bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+                                                            <input
+                                                                type="text"
+                                                                value={replyText}
+                                                                onChange={e => setReplyText(e.target.value)}
+                                                                onKeyDown={e => { if (e.key === 'Enter' && replyText.trim() && !submittingReply) handleSendReply(p.id); }}
+                                                                placeholder={`Balas kepada @${p.author}...`}
+                                                                className="flex-1 bg-transparent text-xs text-white placeholder:text-zinc-600 outline-none px-2"
+                                                            />
+                                                            <button
+                                                                onClick={() => handleSendReply(p.id)}
+                                                                disabled={!replyText.trim() || submittingReply}
+                                                                className="px-3 py-1.5 rounded-lg bg-[#C5A367] text-slate-950 font-bold text-[10px] uppercase tracking-wider disabled:opacity-40 flex items-center gap-1 shrink-0"
+                                                            >
+                                                                {submittingReply ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                                                Balas
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </motion.div>
                                     ))}
                                 </div>

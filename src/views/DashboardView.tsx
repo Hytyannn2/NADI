@@ -347,7 +347,7 @@ export default function DashboardView() {
                 </div>
 
                 {/* Flood alert */}
-                {Boolean(weather?.rainMm && weather.rainMm > 5) && (
+                {Boolean(weather?.floodRisk === 'High' || (weather?.rainMm && weather.rainMm >= 10.0)) && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -468,7 +468,7 @@ export default function DashboardView() {
                                             <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
                                                 {formatTime(post.timestamp || Date.now())}
                                             </span>
-                                            {(post.user_id === user?.id || post.author === userName) && (
+                                            {Boolean(user?.id && post.user_id === user.id) && (
                                                 <button
                                                     onClick={() => handleDeletePost(post.id)}
                                                     title="Padam mesej ini"
