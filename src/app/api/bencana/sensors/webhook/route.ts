@@ -36,9 +36,10 @@ function safeCompare(a: string, b: string): boolean {
  *   URL: https://your-domain.vercel.app/api/bencana/sensors/webhook
  *   Optional: Add X-Webhook-Secret header for auth
  */
-// In-memory cache for webhook replay protection and rate limiting
+// In-memory cache for webhook replay protection, rate limiting, and alert cooldowns
 const usedNonces = new Map<string, number>();
 const webhookRateLimit = new Map<string, { count: number; expires: number }>();
+const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
 
 function cleanExpiredNonces() {
     const now = Date.now();
@@ -262,26 +263,54 @@ export async function POST(request: Request) {
             console.warn('[Webhook] Rise rate calculation failed (non-fatal):', rateErr);
         }
 
-        // Step 4: Send Telegram alert if danger or warning
+        // Step 4: Send Telegram alert with 30-min cooldown guard to prevent spam
         let telegramSent = false;
         if ((status === 'danger' || status === 'warning') && waterLevel !== null) {
-            // Get sensor name/location for the alert message
-            const { data: sensorInfo } = await supabase
-                .from('nadi_bencana_sensors')
-                .select('name, location')
-                .eq('id', sensorId)
-                .single();
+            const cooldownRecord = telegramAlertCooldowns.get(sensorId);
+            const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+            const isStatusEscalation = cooldownRecord && cooldownRecord.lastStatus === 'warning' && status === 'danger';
+            const isCooldownExpired = !cooldownRecord || (now - cooldownRecord.lastSent) > COOLDOWN_MS;
 
-            telegramSent = await sendTelegramAlert({
-                sensorName: sensorInfo?.name || deviceId || `Sensor ${devEui.slice(-4)}`,
-                location: sensorInfo?.location || 'Unknown',
-                waterLevel,
-                status,
-                riseRate,
-                batteryPct,
-                temperatureC,
-                rssiDbm: rssiDbm,
-            });
+            if (isCooldownExpired || isStatusEscalation) {
+                // Fetch sensor name and location
+                const { data: sensorInfo } = await supabase
+                    .from('nadi_bencana_sensors')
+                    .select('name, location')
+                    .eq('id', sensorId)
+                    .single();
+
+                const sensorName = sensorInfo?.name || deviceId || `Sensor ${devEui.slice(-4)}`;
+                const location = sensorInfo?.location || 'Unknown';
+
+                // Calculate predicted time to reach danger (1.80m = 180cm) if rising
+                let timeToDanger: string | undefined = undefined;
+                if (riseRate > 0 && waterLevel < 1.80) {
+                    const cmRemaining = (1.80 - waterLevel) * 100;
+                    const hoursRemaining = cmRemaining / riseRate;
+                    if (hoursRemaining > 0 && hoursRemaining < 48) {
+                        timeToDanger = `${hoursRemaining.toFixed(1)} jam / hours`;
+                    }
+                }
+
+                // Non-blocking background dispatch to prevent TTN webhook timeouts
+                sendTelegramAlert({
+                    sensorName,
+                    location,
+                    waterLevel,
+                    status,
+                    riseRate,
+                    batteryPct,
+                    temperatureC,
+                    rssiDbm,
+                    timeToDanger,
+                }).then(sent => {
+                    if (sent) {
+                        telegramAlertCooldowns.set(sensorId, { lastSent: now, lastStatus: status });
+                    }
+                }).catch(err => console.error('[Webhook] Telegram alert dispatch failed:', err));
+
+                telegramSent = true;
+            }
         }
 
         return NextResponse.json({

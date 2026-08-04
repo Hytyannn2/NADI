@@ -881,18 +881,18 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                           borderColor: password.length >= 8 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(30, 41, 59, 0.8)',
                           color: password.length >= 8 ? '#34d399' : '#64748b',
                         }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.2 }}
                         className="px-2 py-0.5 rounded-md border flex items-center gap-1 overflow-hidden"
                       >
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence initial={false}>
                           {password.length >= 8 && (
                             <motion.span
                               key="check-1"
                               initial={{ scale: 0, opacity: 0, width: 0 }}
                               animate={{ scale: 1, opacity: 1, width: 'auto' }}
                               exit={{ scale: 0, opacity: 0, width: 0 }}
-                              transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                              className="flex items-center shrink-0"
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                              className="flex items-center shrink-0 overflow-hidden"
                             >
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             </motion.span>
@@ -908,18 +908,18 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                           borderColor: /[A-Z]/.test(password) ? 'rgba(16, 185, 129, 0.4)' : 'rgba(30, 41, 59, 0.8)',
                           color: /[A-Z]/.test(password) ? '#34d399' : '#64748b',
                         }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.2 }}
                         className="px-2 py-0.5 rounded-md border flex items-center gap-1 overflow-hidden"
                       >
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence initial={false}>
                           {/[A-Z]/.test(password) && (
                             <motion.span
                               key="check-2"
                               initial={{ scale: 0, opacity: 0, width: 0 }}
                               animate={{ scale: 1, opacity: 1, width: 'auto' }}
                               exit={{ scale: 0, opacity: 0, width: 0 }}
-                              transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                              className="flex items-center shrink-0"
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                              className="flex items-center shrink-0 overflow-hidden"
                             >
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             </motion.span>
@@ -935,18 +935,18 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                           borderColor: /[0-9]/.test(password) ? 'rgba(16, 185, 129, 0.4)' : 'rgba(30, 41, 59, 0.8)',
                           color: /[0-9]/.test(password) ? '#34d399' : '#64748b',
                         }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.2 }}
                         className="px-2 py-0.5 rounded-md border flex items-center gap-1 overflow-hidden"
                       >
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence initial={false}>
                           {/[0-9]/.test(password) && (
                             <motion.span
                               key="check-3"
                               initial={{ scale: 0, opacity: 0, width: 0 }}
                               animate={{ scale: 1, opacity: 1, width: 'auto' }}
                               exit={{ scale: 0, opacity: 0, width: 0 }}
-                              transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                              className="flex items-center shrink-0"
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                              className="flex items-center shrink-0 overflow-hidden"
                             >
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             </motion.span>

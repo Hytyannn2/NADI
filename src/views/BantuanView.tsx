@@ -108,7 +108,7 @@ export default function BantuanView() {
     const debouncedVolSearchQuery = useDebounce(volSearchQuery, 300);
 
     // Local P2P SOS Volunteering
-    const { data: localJobsData, isLoading: localJobsLoading, mutate: mutateLocalJobs } = useSWR(activeTab === 'volunteer' ? '/api/bencana/jobs' : null, fetcher);
+    const { data: localJobsData, isLoading: localJobsLoading, mutate: mutateLocalJobs } = useSWR(activeTab === 'volunteer' ? '/api/bantuan/jobs' : null, fetcher);
     const localJobs: VolunteerJob[] = localJobsData?.jobs || [];
     const [showJobForm, setShowJobForm] = useState(false);
     const [selectedProgram, setSelectedProgram] = useState<AidProgram | null>(null);
@@ -135,7 +135,7 @@ export default function BantuanView() {
 
     const handleAcceptJob = async (jobId: string) => {
         try {
-            const res = await fetch('/api/bencana/jobs', {
+            const res = await fetch('/api/bantuan/jobs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'accept', jobId }),
@@ -155,7 +155,7 @@ export default function BantuanView() {
     const handleCancelJob = async (jobId: string) => {
         if (!confirm(t('bencana.cancel_confirm'))) return;
         try {
-            const res = await fetch('/api/bencana/jobs', {
+            const res = await fetch('/api/bantuan/jobs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'cancel', jobId }),
@@ -174,7 +174,7 @@ export default function BantuanView() {
         if (!jobForm.name || !jobForm.req) return;
         setIsSubmittingJob(true);
         try {
-            const res = await fetch('/api/bencana/jobs', {
+            const res = await fetch('/api/bantuan/jobs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'submit', ...jobForm }),

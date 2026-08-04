@@ -23,8 +23,17 @@ const inMemorySensors: Record<string, any> = {
     "Sungai Kelantan Node A": {
         id: "node-a-01",
         name: "Sungai Kelantan Node A",
+        // JPS co-location reference
+        jps_station_id: "0730671WL",
+        jps_station_name: "Sg. Kelantan di Tambatan D'Raja (F1)",
+        district: "Kota Bharu",
+        // Official JPS thresholds (metres)
+        threshold_normal: 1.00,
+        threshold_alert: 3.00,
+        threshold_warning: 4.00,
+        threshold_danger: 5.00,
         status: "safe",
-        water_level: 0.40,
+        water_level: 0.39,
         battery_pct: 100,
         rssi_dbm: -68,
         temperature_c: 28.5,
@@ -50,12 +59,38 @@ export async function GET() {
             } catch (e) { /* fallback to memory */ }
         }
 
-        // Merge DB data with in-memory telemetry
+        // Merge DB data with in-memory telemetry and apply 30s staleness watchdog
         const mergedMap = new Map();
         Object.values(inMemorySensors).forEach(s => mergedMap.set(s.name, s));
         dbSensors.forEach(s => mergedMap.set(s.name, { ...mergedMap.get(s.name), ...s }));
 
-        return NextResponse.json({ success: true, sensors: Array.from(mergedMap.values()) });
+        const now = Date.now();
+        const sensorsList = Array.from(mergedMap.values()).map((s: any) => {
+            const lastReadingTs = s.last_reading ? new Date(s.last_reading).getTime() : 0;
+            const isStale = !lastReadingTs || (now - lastReadingTs) > 30000;
+
+            // Harmonize JPS 'normal' -> 'safe' and 'alert' -> 'warning' for UI consistency
+            let status = s.status;
+            if (status === 'normal') status = 'safe';
+            if (status === 'alert') status = 'warning';
+
+            if (isStale) {
+                return {
+                    ...s,
+                    is_online: false,
+                    // If stale, unconditionally force offline status (unless explicitly hardware fault)
+                    status: s.status === 'sensor_fault' ? 'sensor_fault' : 'offline'
+                };
+            }
+
+            return {
+                ...s,
+                status,
+                is_online: true
+            };
+        });
+
+        return NextResponse.json({ success: true, sensors: sensorsList });
     } catch (err) {
         console.error('Sensors GET error:', err);
         return NextResponse.json({ success: true, sensors: Object.values(inMemorySensors) });
@@ -124,36 +159,33 @@ export async function POST(request: Request) {
                     process.env.SUPABASE_SERVICE_ROLE_KEY
                 );
 
-                let { data, error } = await supabase
+                // ATOMIC UPSERT: 1 round-trip, zero race conditions
+                const { data, error } = await supabase
                     .from('nadi_bencana_sensors')
-                    .update(updatePayload)
-                    .eq('name', name)
+                    .upsert({ name, ...updatePayload }, { onConflict: 'name' })
                     .select()
-                    .maybeSingle();
-
-                if (!data) {
-                    const upsertRes = await supabase
-                        .from('nadi_bencana_sensors')
-                        .upsert({ name, ...updatePayload }, { onConflict: 'name' })
-                        .select()
-                        .maybeSingle();
-                    data = upsertRes.data;
-                    error = upsertRes.error;
-                }
+                    .single();
 
                 if (error) {
                     console.warn('Supabase DB notice:', error.message);
                 } else if (updatePayload.water_level !== undefined && data) {
-                    await supabase
-                        .from('nadi_bencana_sensor_readings')
-                        .insert({
-                            sensor_id: data.id,
-                            water_level: updatePayload.water_level,
-                            battery_pct: updatePayload.battery_pct ?? null,
-                            temperature_c: updatePayload.temperature_c ?? null,
-                            humidity_pct: updatePayload.humidity_pct ?? null,
-                            pressure_hpa: updatePayload.pressure_hpa ?? null,
-                        });
+                    // Non-blocking background history insert
+                    (async () => {
+                        try {
+                            await supabase
+                                .from('nadi_bencana_sensor_readings')
+                                .insert({
+                                    sensor_id: data.id,
+                                    water_level: updatePayload.water_level,
+                                    battery_pct: updatePayload.battery_pct ?? null,
+                                    temperature_c: updatePayload.temperature_c ?? null,
+                                    humidity_pct: updatePayload.humidity_pct ?? null,
+                                    pressure_hpa: updatePayload.pressure_hpa ?? null,
+                                });
+                        } catch (err) {
+                            console.warn('History insert warning:', err);
+                        }
+                    })();
                 }
 
                 if (data) {

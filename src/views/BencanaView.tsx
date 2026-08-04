@@ -1,6 +1,7 @@
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useGame } from '@/src/context/GameContext';
@@ -30,6 +31,7 @@ import { useWeather } from '@/src/hooks/useWeather';
 import { createClient } from '@/src/lib/supabase/client';
 import useSWR from 'swr';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kelantanPpsCenters';
+import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanStations';
 
 export interface FloodZone {
     district: string;
@@ -62,9 +64,9 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
 }
 
 export default function BencanaView() {
-    const { t } = useLanguage();
+    const { t, lang } = useLanguage();
+    const isMs = lang === 'ms';
     const [activeTab, setActiveTab] = useState<'map' | 'sensors' | 'zones'>('map');
-    const [showDashboard, setShowDashboard] = useState(false);
 
     const { completeQuest } = useGame();
     const { addXp } = useXP();
@@ -75,7 +77,7 @@ export default function BencanaView() {
     // LoRaWAN sensor data — full telemetry from hardware + BME280
     interface SensorData {
         id: string | null;
-        status: 'safe' | 'warning' | 'danger';
+        status: 'safe' | 'warning' | 'danger' | 'offline' | 'sensor_fault' | string;
         water_level: number;
         battery_pct: number | null;
         rssi_dbm: number | null;
@@ -92,12 +94,14 @@ export default function BencanaView() {
         rise_rate_cm_hr: 0, last_reading: null, is_online: false,
     });
     const sensorStatus = sensorData.status;
-    const sensorLabels = {
-        safe: { text: t('bencana.sensor_safe'), style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
-        warning: { text: t('bencana.sensor_warning'), style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
-        danger: { text: t('bencana.sensor_danger'), style: 'bg-red-500/20 text-red-500 border border-red-500/30' },
+    const sensorLabels: Record<string, { text: string; style: string }> = {
+        safe: { text: t('bencana.sensor_safe') || 'LVL 1: SELAMAT', style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
+        warning: { text: t('bencana.sensor_warning') || 'LVL 2: AMARAN', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
+        danger: { text: t('bencana.sensor_danger') || 'LVL 3: BAHAYA', style: 'bg-red-500/20 text-red-500 border border-red-500/30' },
+        offline: { text: isMs ? 'TERPUTUS' : 'OFFLINE', style: 'bg-zinc-800 text-zinc-400 border border-zinc-700' },
+        sensor_fault: { text: isMs ? 'SENSOR ROSAK' : 'HARDWARE FAULT', style: 'bg-red-500/20 text-red-400 border border-red-500/40' },
     };
-    const currentSensor = sensorLabels[sensorStatus];
+    const currentSensor = sensorLabels[sensorStatus] || sensorLabels.offline;
 
     // Helper: format "last seen" as relative time
     const formatLastSeen = (iso: string | null) => {
@@ -122,6 +126,12 @@ export default function BencanaView() {
     // Real-time Supabase Subscription & API Polling for LoRaWAN / ESP32 Sensor
     useEffect(() => {
         // Poll local API endpoint for real-time ESP32 sensor updates
+        const calcIsOnline = (lastReading: any, rawIsOnline: any, rawStatus: any) => {
+            const lastReadingTs = lastReading ? new Date(lastReading).getTime() : 0;
+            const isStale = !lastReadingTs || (Date.now() - lastReadingTs) > 30000;
+            return rawIsOnline !== false && !isStale && rawStatus !== 'sensor_fault' && rawStatus !== 'offline';
+        };
+
         const fetchLatestSensor = () => {
             fetch('/api/bencana/sensors')
                 .then(res => res.json())
@@ -129,9 +139,10 @@ export default function BencanaView() {
                     if (resData.success && resData.sensors && resData.sensors.length > 0) {
                         const target = resData.sensors.find((s: any) => s.name === 'Sungai Kelantan Node A') || resData.sensors[0];
                         if (target) {
+                            const online = calcIsOnline(target.last_reading, target.is_online, target.status);
                             setSensorData({
                                 id: target.id ?? null,
-                                status: target.status || 'safe',
+                                status: online ? (target.status || 'safe') : 'offline',
                                 water_level: target.water_level ?? 0,
                                 battery_pct: target.battery_pct ?? null,
                                 rssi_dbm: target.rssi_dbm ?? null,
@@ -140,7 +151,7 @@ export default function BencanaView() {
                                 pressure_hpa: target.pressure_hpa ?? null,
                                 rise_rate_cm_hr: target.rise_rate_cm_hr ?? 0,
                                 last_reading: target.last_reading ?? null,
-                                is_online: target.is_online ?? true,
+                                is_online: online,
                             });
                         }
                     }
@@ -155,9 +166,10 @@ export default function BencanaView() {
         supabase.from('nadi_bencana_sensors').select('*').eq('name', 'Sungai Kelantan Node A').single()
             .then(({ data }) => {
                 if (data) {
+                    const online = calcIsOnline(data.last_reading, data.is_online, data.status);
                     setSensorData({
                         id: data.id ?? null,
-                        status: data.status || 'safe',
+                        status: online ? (data.status || 'safe') : 'offline',
                         water_level: data.water_level ?? 0,
                         battery_pct: data.battery_pct ?? null,
                         rssi_dbm: data.rssi_dbm ?? null,
@@ -166,7 +178,7 @@ export default function BencanaView() {
                         pressure_hpa: data.pressure_hpa ?? null,
                         rise_rate_cm_hr: data.rise_rate_cm_hr ?? 0,
                         last_reading: data.last_reading ?? null,
-                        is_online: data.is_online ?? false,
+                        is_online: online,
                     });
                 }
             });
@@ -176,9 +188,10 @@ export default function BencanaView() {
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_bencana_sensors' }, (payload) => {
                 if (payload.new) {
                     const d = payload.new;
+                    const online = calcIsOnline(d.last_reading, d.is_online, d.status);
                     setSensorData({
                         id: d.id ?? null,
-                        status: d.status || 'safe',
+                        status: online ? (d.status || 'safe') : 'offline',
                         water_level: d.water_level ?? 0,
                         battery_pct: d.battery_pct ?? null,
                         rssi_dbm: d.rssi_dbm ?? null,
@@ -187,7 +200,7 @@ export default function BencanaView() {
                         pressure_hpa: d.pressure_hpa ?? null,
                         rise_rate_cm_hr: d.rise_rate_cm_hr ?? 0,
                         last_reading: d.last_reading ?? null,
-                        is_online: d.is_online ?? false,
+                        is_online: online,
                     });
                 }
             })
@@ -234,8 +247,37 @@ export default function BencanaView() {
     const [selectedType, setSelectedType] = useState<string>('All');
     const [sortBy, setSortBy] = useState<'nearest' | 'capacity' | 'name'>('nearest');
     const [searchPps, setSearchPps] = useState<string>('');
+    const [searchJps, setSearchJps] = useState<string>('');
     const [displayLimit, setDisplayLimit] = useState<number>(24);
     const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
+    const [showSosModal, setShowSosModal] = useState<boolean>(false);
+    const [mounted, setMounted] = useState<boolean>(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const handleSosClick = (e: React.MouseEvent) => {
+        const isMobileOrTablet = typeof window !== 'undefined' && (
+            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+            (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
+        );
+        if (!isMobileOrTablet) {
+            e.preventDefault();
+            setShowSosModal(true);
+        }
+    };
+
+    useEffect(() => {
+        if (showSosModal) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [showSosModal]);
 
     const { data: bencanaData } = useSWR('bencana_data', fetchBencanaData, { revalidateOnFocus: false });
     const floodZones: FloodZone[] = bencanaData?.zones || [];
@@ -309,348 +351,275 @@ export default function BencanaView() {
     return (
         <div className="p-6 h-full flex flex-col relative z-0" style={{ color: 'var(--text-primary)' }}>
 
-
-
+            {/* Simple Clean Header */}
             <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="mb-6"
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl backdrop-blur-xl relative overflow-hidden border shadow-xl"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(9, 9, 11, 0.98) 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
             >
-                <h2 className="text-2xl font-bold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>{t('bencana.title')}</h2>
-                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                    {t('bencana.subtitle')} · {locationLabel === 'Locating...' ? 'Malaysia' : locationLabel === 'Location Access Denied' ? 'Kuala Lumpur (Fallback)' : locationLabel}
-                </p>
+                <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            LIVE
+                        </span>
+                        <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                            {locationLabel === 'Locating...' ? 'Kelantan, Malaysia' : locationLabel}
+                        </span>
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-white">
+                        {t('bencana.title')}
+                    </h2>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                        Pantau paras air & cuaca kawasan anda
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2 relative z-10 shrink-0">
+                    <button
+                        onClick={() => {
+                            setActiveTab('map');
+                            setTimeout(() => {
+                                const ppsElement = document.getElementById('pps-section');
+                                if (ppsElement) {
+                                    ppsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }
+                            }, 120);
+                        }}
+                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-all flex items-center gap-1.5 active:scale-95"
+                    >
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Pusat Pemindahan (PPS)</span>
+                    </button>
+                    <a
+                        href="tel:999"
+                        onClick={handleSosClick}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg border border-red-500/50 transition-all flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+                    >
+                        <Phone className="w-3.5 h-3.5 animate-bounce" />
+                        <span>SOS 999</span>
+                    </a>
+                </div>
             </motion.div>
 
-            {/* Environmental Dashboard */}
+            {/* Environmental & Weather Dashboard */}
             {isWeatherLoading ? (
-                <div className="mb-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <div className="h-28 skeleton"></div>
-                        <div className="h-28 skeleton"></div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="h-20 skeleton"></div>
-                        <div className="h-20 skeleton"></div>
-                        <div className="h-20 skeleton"></div>
-                    </div>
+                <div className="mb-5 space-y-3">
+                    <div className="h-32 skeleton rounded-3xl" />
                 </div>
             ) : weather && (
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
-                    className="mb-5"
+                    initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
+                    className="mb-5 space-y-3"
                 >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        {/* Primary Weather Card */}
-                        <div className="rounded-2xl p-4 flex flex-col justify-between" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Cloud className="w-5 h-5 text-blue-400" />
-                                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Weather</span>
+                    {/* Environmental Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+
+                        {/* Main Weather Card */}
+                        <div
+                            className="lg:col-span-5 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden border shadow-xl backdrop-blur-md"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                                borderColor: 'rgba(59, 130, 246, 0.2)',
+                            }}
+                        >
+                            <div className="flex items-start justify-between relative z-10">
+                                <div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1 mb-1">
+                                        <Cloud className="w-3.5 h-3.5" /> {isMs ? 'CUACA' : 'WEATHER'}
+                                    </span>
+                                    <h3 className="text-3xl font-bold text-white tracking-tight leading-none">
+                                        {weather.temp}°<span className="text-xl font-normal text-zinc-400">C</span>
+                                    </h3>
+                                    <p className="text-xs text-zinc-300 mt-1">
+                                        {isMs ? 'Rasa seperti' : 'Feels like'} <strong className="text-white">{weather.feelsLike}°C</strong>
+                                    </p>
                                 </div>
-                                <span className="text-2xl font-light text-white">{weather.temp}°C</span>
-                            </div>
-                            <div>
-                                <p className="text-xs text-zinc-400">Feels like {weather.feelsLike}°C</p>
+                                <div className="p-3 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400">
+                                    <SunMedium className="w-7 h-7" />
+                                </div>
                             </div>
                         </div>
 
-                        {/* AQI Card */}
-                        <div className="rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl -translate-y-8 translate-x-8 ${weather.aqi > 100 ? 'bg-orange-500/20' : weather.aqi > 50 ? 'bg-yellow-500/10' : 'bg-emerald-500/10'}`}></div>
-                            <div className="flex items-start justify-between mb-2 relative z-10">
-                                <div className="flex items-center gap-2">
-                                    <Activity className={`w-5 h-5 ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-yellow-400' : 'text-emerald-400'}`} />
-                                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Air Quality</span>
-                                </div>
-                                <div className="text-right">
-                                    <span className={`text-2xl font-light leading-none block ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-yellow-400' : 'text-emerald-400'}`}>{weather.aqi} <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">AQI</span></span>
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${weather.aqi > 100 ? 'text-orange-500' : weather.aqi > 50 ? 'text-yellow-500' : 'text-emerald-500'}`}>{weather.aqi <= 50 ? 'Safe (<50)' : weather.aqi <= 100 ? 'Moderate (51-100)' : 'Unsafe (>100)'}</span>
+                        {/* Air Quality (AQI) Tile */}
+                        <div
+                            className="lg:col-span-7 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden border shadow-xl backdrop-blur-md"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.8) 0%, rgba(9, 9, 11, 0.95) 100%)',
+                                borderColor: 'rgba(255, 255, 255, 0.08)',
+                            }}
+                        >
+                            <div className="flex items-start justify-between relative z-10 mb-3">
+                                <div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1 mb-1">
+                                        <Activity className="w-3.5 h-3.5" /> {isMs ? 'KUALITI UDARA' : 'AIR QUALITY'}
+                                    </span>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-3xl font-bold ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                            {weather.aqi} <span className="text-xs text-zinc-400 font-normal">AQI</span>
+                                        </span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                                            weather.aqi > 100 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : weather.aqi > 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                        }`}>
+                                            {weather.aqi <= 50 ? (isMs ? 'BAIK' : 'GOOD') : weather.aqi <= 100 ? (isMs ? 'SEDERHANA' : 'MODERATE') : (isMs ? 'TIDAK SIHAT' : 'UNHEALTHY')}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-1 text-[10px] text-zinc-400 relative z-10 mt-1">
-                                <div className="flex justify-between items-center">
-                                    <span>PM2.5: <strong className={weather.pm25 > 35.4 ? 'text-orange-400' : weather.pm25 > 12 ? 'text-yellow-400' : 'text-emerald-400'}>{weather.pm25}</strong> µg/m³</span>
-                                    <span className="text-[8px] opacity-60">Avg Safe: &lt;12</span>
+
+                            <div className="grid grid-cols-2 gap-3 relative z-10">
+                                <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
+                                    <span className="text-zinc-400 font-medium">PM2.5</span>
+                                    <strong className={weather.pm25 > 12 ? 'text-amber-400' : 'text-emerald-400'}>{weather.pm25} µg/m³</strong>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <span>PM10: <strong className={weather.pm10 > 154 ? 'text-orange-400' : weather.pm10 > 54 ? 'text-yellow-400' : 'text-emerald-400'}>{weather.pm10}</strong> µg/m³</span>
-                                    <span className="text-[8px] opacity-60">Avg Safe: &lt;54</span>
+                                <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
+                                    <span className="text-zinc-400 font-medium">PM10</span>
+                                    <strong className={weather.pm10 > 54 ? 'text-amber-400' : 'text-emerald-400'}>{weather.pm10} µg/m³</strong>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            <Droplets className="w-4 h-4 text-blue-400 mb-1.5" />
-                            <span className="text-sm font-bold text-white">{weather.rainMm}<span className="text-[10px] text-zinc-400 ml-0.5">mm</span></span>
-                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Rain</span>
-                        </div>
-                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            <Wind className="w-4 h-4 text-teal-400 mb-1.5" />
-                            <span className="text-sm font-bold text-white">{weather.windSpeed}<span className="text-[10px] text-zinc-400 ml-0.5">km/h</span></span>
-                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Wind</span>
-                        </div>
-                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            <div className="w-4 h-4 rounded-full flex items-center justify-center mb-1.5" style={{ background: weather.floodRisk === 'High' ? 'rgba(239,68,68,0.2)' : weather.floodRisk === 'Moderate' ? 'rgba(249,115,22,0.2)' : 'rgba(16,185,129,0.2)' }}>
-                                <AlertTriangle className={`w-2.5 h-2.5 ${weather.floodRisk === 'High' ? 'text-red-500' : weather.floodRisk === 'Moderate' ? 'text-orange-500' : 'text-emerald-500'}`} />
+                    {/* 3 Simple Parameters: Rain, Wind, Flood Risk */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                            <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 shrink-0">
+                                <Droplets className="w-5 h-5" />
                             </div>
-                            <span className={`text-sm font-bold ${weather.floodRisk === 'High' ? 'text-red-500' : weather.floodRisk === 'Moderate' ? 'text-orange-500' : 'text-emerald-500'}`}>{weather.floodRisk}</span>
-                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Flood Risk</span>
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{isMs ? 'Hujan' : 'Rain'}</span>
+                                <span className="text-base font-bold text-white">{weather.rainMm} <span className="text-xs font-normal text-zinc-400">mm</span></span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                            <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 shrink-0">
+                                <Wind className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{isMs ? 'Angin' : 'Wind'}</span>
+                                <span className="text-base font-bold text-white">{weather.windSpeed} <span className="text-xs font-normal text-zinc-400">km/h</span></span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                            <div className={`p-2.5 rounded-xl border shrink-0 ${weather.floodRisk === 'High' ? 'bg-red-500/20 text-red-400 border-red-500/40' : weather.floodRisk === 'Moderate' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'}`}>
+                                <AlertTriangle className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{isMs ? 'Risiko Banjir' : 'Flood Risk'}</span>
+                                <span className={`text-base font-bold ${weather.floodRisk === 'High' ? 'text-red-400' : weather.floodRisk === 'Moderate' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                    {weather.floodRisk === 'High' ? (isMs ? 'TINGGI' : 'HIGH') : weather.floodRisk === 'Moderate' ? (isMs ? 'SEDERHANA' : 'MODERATE') : (isMs ? 'RENDAH' : 'LOW')}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
             )}
 
-            {/* LoRaWAN Sensor Status */}
+            {/* River Sensor Status Strip */}
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-                className="mb-5 p-4 rounded-2xl shadow-sm relative overflow-hidden"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+                initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
+                className="mb-6 p-4 rounded-3xl border shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/90 border-zinc-800"
             >
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Radio className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                        <span className="font-bold text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{t('bencana.lorawan')}</span>
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-400 shrink-0">
+                        <Radio className="w-4 h-4 animate-pulse" />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold px-3 py-1.5 rounded-full tracking-widest uppercase shadow-sm transition-colors ${currentSensor.style}`}>
-                            {sensorStatus === 'danger'
-                                ? `Water Level: ${(sensorData.water_level / 100).toFixed(1)}m (CRITICAL)`
-                                : sensorData.water_level > 0
-                                    ? `${sensorData.water_level} cm · ${currentSensor.text}`
-                                    : currentSensor.text}
-                        </span>
-                        
-                        <button 
-                            onClick={async () => {
-                                const isDanger = sensorStatus === 'danger';
-                                const newStatus = isDanger ? 'safe' : 'danger';
-                                const newWaterLevel = isDanger ? 2.1 : 148;
-                                const newBattery = isDanger ? null : 73;
-                                const newTemp = isDanger ? null : 31.2;
-                                const newHumidity = isDanger ? null : 89;
-                                const newPressure = isDanger ? null : 1008.3;
-                                const newRiseRate = isDanger ? 0 : 8.2;
-                                setSensorData(prev => ({
-                                    ...prev,
-                                    status: newStatus,
-                                    water_level: newWaterLevel,
-                                    battery_pct: newBattery,
-                                    temperature_c: newTemp,
-                                    humidity_pct: newHumidity,
-                                    pressure_hpa: newPressure,
-                                    rise_rate_cm_hr: newRiseRate,
-                                    rssi_dbm: isDanger ? null : -67,
-                                    last_reading: new Date().toISOString(),
-                                    is_online: true,
-                                }));
-                                await fetch('/api/bencana/sensors', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        name: 'Sungai Kelantan Node A',
-                                        status: newStatus,
-                                        water_level: newWaterLevel,
-                                        battery_pct: newBattery,
-                                        temperature_c: newTemp,
-                                        humidity_pct: newHumidity,
-                                        pressure_hpa: newPressure,
-                                        rise_rate_cm_hr: newRiseRate,
-                                    }),
-                                });
-                            }} 
-                            className={`text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-colors border ${sensorStatus === 'danger' ? 'bg-red-500 text-white border-red-600 animate-pulse' : 'text-gray-500 border-gray-600 hover:text-white'}`}
-                        >
-                            {sensorStatus === 'danger' ? 'Stop Simulation' : 'Simulate Hardware'}
-                        </button>
-
-                        <button onClick={() => setShowDashboard(!showDashboard)} className="text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-colors" style={{ color: 'var(--accent)', border: '1px solid var(--border-default)' }}>
-                            {showDashboard ? 'Hide' : 'Dashboard'}
-                        </button>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-white">{isMs ? 'Pengesan Paras Air' : 'River Water Level Sensor'}</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Sungai Kelantan Node A
+                        </p>
                     </div>
                 </div>
 
-                <AnimatePresence>
-                    {showDashboard && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="mt-4 pt-4 space-y-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+                <div className="flex items-center gap-2.5 shrink-0">
+                    <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase transition-colors border ${currentSensor.style}`}>
+                        {sensorData.is_online === false || sensorData.status === 'offline' || sensorData.status === 'sensor_fault'
+                            ? currentSensor.text
+                            : sensorData.water_level > 0
+                                ? `${sensorData.water_level < 10 ? Math.round(sensorData.water_level * 100) : Math.round(sensorData.water_level)} cm · ${currentSensor.text}`
+                                : currentSensor.text}
+                    </span>
 
-                                {/* Water Level Gauge + Device Health */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <div className="md:col-span-2 rounded-2xl p-5 relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                        {sensorStatus === 'danger' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
-                                        <div className="flex items-end justify-between relative z-10">
-                                            <div>
-                                                <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-                                                    <Droplets className="w-3 h-3 inline mr-1" />Water Level
-                                                </p>
-                                                <p className={`text-4xl font-bold tracking-tight leading-none ${sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                                    {sensorData.water_level !== null && sensorData.water_level !== undefined ? (sensorData.water_level < 10 ? (sensorData.water_level * 100).toFixed(0) : sensorData.water_level.toFixed(0)) : '—'}
-                                                    <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-muted)' }}>cm</span>
-                                                </p>
-                                                {/* Rise rate indicator */}
-                                                <div className="flex items-center gap-2 mt-1.5">
-                                                    <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                                        {sensorStatus === 'danger' ? ' Above danger threshold (120cm)'
-                                                            : sensorStatus === 'warning' ? ' Approaching warning level (80cm)'
-                                                            : sensorData.water_level > 0 ? ' Normal range' : 'No reading yet'}
-                                                    </p>
-                                                    {sensorData.rise_rate_cm_hr !== 0 && (
-                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                                                            sensorData.rise_rate_cm_hr > 5 ? 'bg-red-500/15 text-red-400'
-                                                            : sensorData.rise_rate_cm_hr > 0 ? 'bg-orange-500/15 text-orange-400'
-                                                            : 'bg-blue-500/15 text-blue-400'
-                                                        }`}>
-                                                            {sensorData.rise_rate_cm_hr > 0 ? '↑' : '↓'} {Math.abs(sensorData.rise_rate_cm_hr)} cm/hr
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {/* Visual gauge bar */}
-                                            <div className="flex flex-col items-center gap-1">
-                                                <div className="w-6 h-24 rounded-full relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                                                    <motion.div
-                                                        className={`absolute bottom-0 left-0 right-0 rounded-full ${sensorStatus === 'danger' ? 'bg-red-500' : sensorStatus === 'warning' ? 'bg-orange-400' : 'bg-emerald-400'}`}
-                                                        initial={{ height: '0%' }}
-                                                        animate={{ height: `${Math.min(100, Math.max(2, (sensorData.water_level / 200) * 100))}%` }}
-                                                        transition={{ duration: 1, ease: 'easeOut' }}
-                                                    />
-                                                    {/* Danger threshold line at 120/200 = 60% */}
-                                                    <div className="absolute left-0 right-0 border-t border-dashed border-red-500/50" style={{ bottom: '60%' }} />
-                                                </div>
-                                                <span className="text-[8px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Max 200</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Device Health */}
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex-1 rounded-2xl p-3.5 flex flex-col justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                            <Battery className={`w-4 h-4 mb-1.5 ${sensorData.battery_pct !== null && sensorData.battery_pct < 20 ? 'text-red-500' : 'text-emerald-400'}`} />
-                                            <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-                                                {sensorData.battery_pct !== null ? `${sensorData.battery_pct}%` : '—'}
-                                            </p>
-                                            <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Battery</p>
-                                        </div>
-                                        <div className="flex-1 rounded-2xl p-3.5 flex flex-col justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                            <div className="flex items-center gap-2 mb-1.5">
-                                                <Signal className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                                                <SignalBars rssi={sensorData.rssi_dbm} />
-                                            </div>
-                                            <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                                                {sensorData.rssi_dbm !== null ? `${sensorData.rssi_dbm} dBm` : '—'}
-                                            </p>
-                                            <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Signal</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Environmental Cards (from BME280 sensor data) */}
-                                {(sensorData.temperature_c !== null || sensorData.humidity_pct !== null || sensorData.pressure_hpa !== null) && (
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                            <Thermometer className="w-4 h-4 text-orange-400 mb-1.5" />
-                                            <span className="text-sm font-bold text-white">
-                                                {sensorData.temperature_c !== null ? sensorData.temperature_c.toFixed(1) : '—'}
-                                                <span className="text-[10px] text-zinc-400 ml-0.5">°C</span>
-                                            </span>
-                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Sensor Temp</span>
-                                        </div>
-                                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                            <Droplets className="w-4 h-4 text-blue-400 mb-1.5" />
-                                            <span className="text-sm font-bold text-white">
-                                                {sensorData.humidity_pct !== null ? sensorData.humidity_pct : '—'}
-                                                <span className="text-[10px] text-zinc-400 ml-0.5">%</span>
-                                            </span>
-                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1">Humidity</span>
-                                        </div>
-                                        <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center relative overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                            {/* Pressure drop glow if below 1009 hPa (storm indicator) */}
-                                            {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 && (
-                                                <div className="absolute inset-0 bg-orange-500/5 animate-pulse" />
-                                            )}
-                                            <Gauge className="w-4 h-4 text-purple-400 mb-1.5 relative z-10" />
-                                            <span className={`text-sm font-bold relative z-10 ${sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? 'text-orange-400' : 'text-white'}`}>
-                                                {sensorData.pressure_hpa !== null ? sensorData.pressure_hpa.toFixed(1) : '—'}
-                                                <span className="text-[10px] text-zinc-400 ml-0.5">hPa</span>
-                                            </span>
-                                            <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-1 relative z-10">
-                                                {sensorData.pressure_hpa !== null && sensorData.pressure_hpa < 1009 ? ' Low Pressure' : 'Pressure'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* 24-Hour Trend Chart */}
-                                <SensorTrendChart
-                                    sensorId={sensorData.id}
-                                    currentWaterLevel={sensorData.water_level}
-                                    riseRate={sensorData.rise_rate_cm_hr}
-                                    unit="m"
-                                    status={sensorData.status}
-                                    lastReadingTime={sensorData.last_reading}
-                                    isOnline={sensorData.is_online}
-                                />
-
-                                {/* Online status + last seen */}
-                                <div className="flex items-center gap-2 rounded-xl p-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                                    <Clock className="w-3.5 h-3.5" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }} />
-                                    <span className="text-[9px] font-bold" style={{ color: sensorData.is_online ? '#10B981' : 'var(--text-muted)' }}>
-                                        {sensorData.is_online ? ' Online' : ' Offline'}
-                                    </span>
-                                    <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                        · Last seen: {formatLastSeen(sensorData.last_reading)}
-                                    </span>
-                                    <span className="ml-auto text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                        Sensor: Sungai Kelantan Node A
-                                    </span>
-                                </div>
-
-                                {/* Thresholds Reference */}
-                                <div className="flex items-center gap-4 text-[9px] font-medium px-1" style={{ color: 'var(--text-muted)' }}>
-                                    <span> Safe: &lt;80cm</span>
-                                    <span> Warning: 80-119cm</span>
-                                    <span> Danger: ≥120cm</span>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                    <button
+                        onClick={() => setActiveTab(activeTab === 'sensors' ? 'map' : 'sensors')}
+                        className="text-xs font-bold px-4 py-2 rounded-xl transition-all duration-300 ease-out shadow-md active:scale-95 flex items-center justify-center border"
+                        style={activeTab === 'sensors'
+                            ? { background: 'var(--accent)', color: '#000', borderColor: 'var(--accent)' }
+                            : { background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-primary)', borderColor: 'rgba(255, 255, 255, 0.15)' }
+                        }
+                    >
+                        <div className="flex items-center justify-center">
+                            <span
+                                className={`transition-all duration-300 ease-out flex items-center overflow-hidden shrink-0 ${
+                                    activeTab === 'sensors'
+                                        ? 'w-4 opacity-100 scale-100 mr-1.5'
+                                        : 'w-0 opacity-0 scale-0 mr-0'
+                                }`}
+                            >
+                                <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
+                            </span>
+                            <span>Sensors</span>
+                        </div>
+                    </button>
+                </div>
             </motion.div>
 
 
 
-            {/* Evacuation Status */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="flex items-center gap-3 p-4 rounded-2xl mb-5"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-sm)' }}
-            >
-                <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{t('bencana.evacuation')}</span>
-                <span className="ml-auto text-[10px] font-medium px-2.5 py-1 rounded-lg" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>{t('bencana.standby')}</span>
-            </motion.div>
+
 
             {/* Tab Toggle: Map / Sensors / Flood Zones */}
             <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-                className="flex p-1 rounded-2xl mb-5"
-                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
+                initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                className="flex p-1.5 rounded-3xl mb-6 backdrop-blur-xl border shadow-xl"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(20, 20, 23, 0.8) 0%, rgba(9, 9, 11, 0.95) 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                }}
             >
                 {([
-                    { key: 'map' as const, label: ' Map' },
-                    { key: 'sensors' as const, label: ' Sensors' },
-                    { key: 'zones' as const, label: ' Flood Zones' },
-                ]).map(tab => (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                        className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
-                        style={activeTab === tab.key
-                            ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }
-                            : { color: 'var(--text-muted)' }
-                        }
-                    >{tab.label}</button>
-                ))}
+                    { key: 'map' as const, label: isMs ? 'Peta Interaktif & PPS' : 'Interactive Map & PPS', icon: MapPin },
+                    { key: 'sensors' as const, label: isMs ? 'Sensor IoT & Ramalan' : 'IoT Sensors & Forecast', icon: Radio },
+                    { key: 'zones' as const, label: isMs ? 'Kawasan Berisiko Banjir' : 'High Risk Flood Zones', icon: ShieldAlert },
+                ]).map(tab => {
+                    const IconComponent = tab.icon;
+                    const isActive = activeTab === tab.key;
+                    return (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className="flex-1 py-3 px-3 text-xs font-bold rounded-2xl transition-all flex items-center justify-center gap-2 relative active:scale-98"
+                            style={isActive
+                                ? {
+                                    background: 'linear-gradient(135deg, rgba(39, 39, 42, 0.9) 0%, rgba(24, 24, 27, 0.95) 100%)',
+                                    color: '#FFFFFF',
+                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                }
+                                : { color: 'var(--text-muted)' }
+                            }
+                        >
+                            <IconComponent className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'opacity-60'}`} />
+                            <span className="hidden sm:inline">{tab.label}</span>
+                            <span className="sm:hidden">{tab.key.toUpperCase()}</span>
+                            {isActive && (
+                                <motion.div
+                                    layoutId="activeTabGlow"
+                                    className="absolute bottom-1 w-6 h-0.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]"
+                                />
+                            )}
+                        </button>
+                    );
+                })}
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -712,7 +681,7 @@ export default function BencanaView() {
                             </div>
 
                             {/* Official Kelantan Evacuation Centers (PPS) */}
-                            <div className="space-y-4">
+                            <div id="pps-section" className="space-y-4">
                                 {/* Section Header & Sleek Glassmorphic Search Bar */}
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                                     <div>
@@ -1030,24 +999,138 @@ export default function BencanaView() {
                                 isOnline={sensorData.is_online}
                             />
 
-                            {/* Thresholds + Info */}
-                            <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                                <p className="text-[9px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                                    <BarChart3 className="w-3 h-3" /> Threshold Reference
-                                </p>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
-                                        <p className="text-[10px] font-bold text-emerald-400">SAFE</p>
-                                        <p className="text-[8px] text-emerald-400/60">&lt; 80 cm</p>
+                            {/* Official JPS Threshold Benchmark — Tambatan D'Raja */}
+                            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                                        <Gauge className="w-3.5 h-3.5 text-emerald-400" />
+                                        Official JPS Benchmark — Sg. Kelantan di Tambatan D'Raja (0730671WL)
+                                    </span>
+                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 w-fit">
+                                        JPS InfoBanjir Verified
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 block">Normal</span>
+                                        <span className="text-sm font-extrabold text-emerald-300">{TAMBATAN_DRAJA.normal.toFixed(2)} m</span>
                                     </div>
-                                    <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249, 115, 22, 0.15)' }}>
-                                        <p className="text-[10px] font-bold text-orange-400">WARNING</p>
-                                        <p className="text-[8px] text-orange-400/60">80 — 119 cm</p>
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 block">Waspada</span>
+                                        <span className="text-sm font-extrabold text-amber-300">{TAMBATAN_DRAJA.alert.toFixed(2)} m</span>
                                     </div>
-                                    <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-                                        <p className="text-[10px] font-bold text-red-500">DANGER</p>
-                                        <p className="text-[8px] text-red-500/60">≥ 120 cm</p>
+                                    <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-orange-400 block">Amaran</span>
+                                        <span className="text-sm font-extrabold text-orange-300">{TAMBATAN_DRAJA.warning.toFixed(2)} m</span>
                                     </div>
+                                    <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 block">Bahaya</span>
+                                        <span className="text-sm font-extrabold text-red-300">{TAMBATAN_DRAJA.danger.toFixed(2)} m</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Official JPS Telemetry Stations — 31 Stations Across Kelantan */}
+                            <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+                                            <Radio className="w-4 h-4 text-emerald-400" />
+                                            Stesen Telemetri Sungai JPS Kelantan ({JPS_KELANTAN_STATIONS.length} Stesen Rasmi)
+                                        </h3>
+                                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                            Paras air sungai terkini dan threshold amaran rasmi Jabatan Pengairan dan Saliran
+                                        </p>
+                                    </div>
+                                    <div className="relative w-full md:w-72">
+                                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+                                        <input
+                                            type="text"
+                                            placeholder="Cari stesen (e.g. Tambatan D'Raja)..."
+                                            value={searchJps}
+                                            onChange={(e) => setSearchJps(e.target.value)}
+                                            className="w-full pl-9 pr-8 py-1.5 rounded-xl text-xs border focus:outline-none text-white placeholder-zinc-500 shadow-inner"
+                                            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                                        />
+                                        {searchJps && (
+                                            <button onClick={() => setSearchJps('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 hover:text-white" style={{ color: 'var(--text-muted)' }}>
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {JPS_KELANTAN_STATIONS.filter(st =>
+                                        !searchJps ||
+                                        st.name.toLowerCase().includes(searchJps.toLowerCase()) ||
+                                        st.district.toLowerCase().includes(searchJps.toLowerCase()) ||
+                                        st.id.toLowerCase().includes(searchJps.toLowerCase())
+                                    ).map((st) => {
+                                        const isTambatan = st.id === '0730671WL';
+                                        const sb = (() => {
+                                            if (st.level === null) return { text: 'TIADA DATA', cls: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
+                                            if (st.level >= st.danger) return { text: 'BAHAYA', cls: 'bg-red-500/20 text-red-400 border-red-500/40' };
+                                            if (st.level >= st.warning) return { text: 'AMARAN', cls: 'bg-orange-500/20 text-orange-400 border-orange-500/40' };
+                                            if (st.level >= st.alert) return { text: 'WASPADA', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
+                                            return { text: 'NORMAL', cls: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' };
+                                        })();
+
+                                        return (
+                                            <div
+                                                key={st.id}
+                                                className={`p-3.5 rounded-2xl border transition-all ${
+                                                    isTambatan
+                                                        ? 'bg-emerald-950/20 border-emerald-500/40 shadow-md ring-1 ring-emerald-500/30'
+                                                        : 'hover:border-zinc-700'
+                                                }`}
+                                                style={isTambatan ? {} : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                                            >
+                                                <div className="flex items-start justify-between gap-2 mb-2">
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <h4 className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{st.name}</h4>
+                                                            {isTambatan && (
+                                                                <span className="text-[8px] font-bold px-1.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                                                    NODE A
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{st.district} · {st.id}</p>
+                                                    </div>
+                                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${sb.cls}`}>
+                                                        {sb.text}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-xs p-2 rounded-xl border mb-2" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+                                                    <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Paras Air:</span>
+                                                    <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                                                        {st.level !== null ? `${st.level.toFixed(2)} m` : '—'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-4 gap-1 text-[8px] text-center font-bold">
+                                                    <div className="p-1 rounded border text-zinc-400" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+                                                        <span className="block text-[7px] text-zinc-500">NORMAL</span>
+                                                        {st.normal.toFixed(1)}m
+                                                    </div>
+                                                    <div className="p-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                                        <span className="block text-[7px] text-amber-500/60">ALERT</span>
+                                                        {st.alert.toFixed(1)}m
+                                                    </div>
+                                                    <div className="p-1 rounded bg-orange-500/10 border border-orange-500/20 text-orange-400">
+                                                        <span className="block text-[7px] text-orange-500/60">WARNING</span>
+                                                        {st.warning.toFixed(1)}m
+                                                    </div>
+                                                    <div className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400">
+                                                        <span className="block text-[7px] text-red-500/60">DANGER</span>
+                                                        {st.danger.toFixed(1)}m
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </motion.div>
@@ -1117,6 +1200,73 @@ export default function BencanaView() {
 
                 </AnimatePresence>
             </div>
+
+            {/* Desktop Emergency Hotline Modal Portal */}
+            {mounted && showSosModal && createPortal(
+                <AnimatePresence>
+                    {showSosModal && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                            onClick={() => setShowSosModal(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full max-w-md p-6 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl text-white relative overflow-hidden"
+                            >
+                                <button
+                                    onClick={() => setShowSosModal(false)}
+                                    className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-full bg-zinc-800 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+
+                                <div className="flex items-center gap-3 mb-5">
+                                    <div className="p-3 rounded-2xl bg-red-500/20 text-red-500 border border-red-500/30 shrink-0">
+                                        <Phone className="w-6 h-6 animate-pulse" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold">Talian Kecemasan Malaysia</h3>
+                                        <p className="text-xs text-zinc-400">Panggilan Darurat & Kecemasan Bencana 24-Jam</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2.5 text-xs">
+                                    <div className="p-3.5 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between shadow-sm">
+                                        <div>
+                                            <span className="font-bold text-white block">MERS 999 (Polis, Ambulans, Hospital)</span>
+                                            <span className="text-[10px] text-zinc-400">Talian Utama Semua Kecemasan</span>
+                                        </div>
+                                        <a href="tel:999" className="px-3.5 py-1.5 rounded-xl font-bold bg-red-600 text-white text-xs hover:bg-red-500 transition-colors shrink-0">999</a>
+                                    </div>
+
+                                    <div className="p-3.5 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between shadow-sm">
+                                        <div>
+                                            <span className="font-bold text-white block">Bomba & Penyelamat</span>
+                                            <span className="text-[10px] text-zinc-400">Penyelamatan Banjir & Kebakaran</span>
+                                        </div>
+                                        <a href="tel:994" className="px-3.5 py-1.5 rounded-xl font-bold bg-amber-600 text-white text-xs hover:bg-amber-500 transition-colors shrink-0">994</a>
+                                    </div>
+
+                                    <div className="p-3.5 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between shadow-sm">
+                                        <div>
+                                            <span className="font-bold text-white block">Pertahanan Awam (APM)</span>
+                                            <span className="text-[10px] text-zinc-400">Bantuan Skuad Bencana Banjir</span>
+                                        </div>
+                                        <a href="tel:991" className="px-3.5 py-1.5 rounded-xl font-bold bg-blue-600 text-white text-xs hover:bg-blue-500 transition-colors shrink-0">991</a>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 }

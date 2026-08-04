@@ -116,11 +116,11 @@ export default function SensorTrendChart({
         latestCmRef.current = currentCm;
     }, [currentCm]);
 
-    // Heartbeat interval: append a reading every 5 seconds regardless of level changes
+    // Heartbeat interval: append a reading every 5 seconds only when hardware is actively online
     useEffect(() => {
         const appendReading = () => {
             const level = latestCmRef.current;
-            if (level <= 0) return;
+            if (level <= 0 || isSensorOffline) return;
 
             const now = Date.now();
             const timeLabel = new Date(now).toLocaleTimeString([], {
