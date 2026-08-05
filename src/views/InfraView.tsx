@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info } from 'lucide-react';
+import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useGame } from '../context/GameContext';
@@ -10,6 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDetector';
 import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
+import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 
 interface AiAnalysis {
     severityScore: number;
@@ -962,13 +963,13 @@ export default function InfraView() {
                                     </div>
                                 )}
 
-                                {/* 4. Action Buttons Footer Row (Gated Viral Card for Physical Infra Only) */}
+                                {/* 4. Action Buttons Footer Row */}
                                 <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 flex-wrap gap-2">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <button
                                             onClick={() => analyzeAnomaly(a.id)}
                                             disabled={a.isAnalyzing}
-                                            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
+                                            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
                                         >
                                             {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                                             AI Analyze
@@ -976,19 +977,28 @@ export default function InfraView() {
                                         <button
                                             onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
                                             disabled={a.isAnalyzing}
-                                            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
+                                            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
                                         >
                                             <Camera className="w-3.5 h-3.5" /> Photo
                                         </button>
                                         {/* Gate Viral Card: ONLY show for physical infrastructure issues */}
                                         {isPothole ? (
-                                            <button
-                                                onClick={() => setShareModalAnomaly(a)}
-                                                className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
-                                                title="Jana Kad Eskalasi Awam"
-                                            >
-                                                <Share2 className="w-3.5 h-3.5" /> Kad Eskalasi Awam
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={() => setShareModalAnomaly(a)}
+                                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
+                                                    title="Jana Kad Eskalasi Awam"
+                                                >
+                                                    <Share2 className="w-3.5 h-3.5" /> Kad Eskalasi Awam
+                                                </button>
+                                                <button
+                                                    onClick={() => generateAduanPdf(a)}
+                                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
+                                                    title="Jana Borang Aduan Rasmi PBT (PDF)"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5 text-purple-400" /> Export PDF
+                                                </button>
+                                            </>
                                         ) : (
                                             <button
                                                 onClick={() => {
