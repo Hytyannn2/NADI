@@ -59,7 +59,7 @@ export default function App() {
   const { xp, level, showLevelUp, xpToNext } = useXP();
 
   // === UI State ===
-  const [activeTab, setActiveTab] = useState<TabId>('utama');
+  const [activeTab, setActiveTab] = useState<TabId>('aduan');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);

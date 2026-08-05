@@ -1,37 +1,41 @@
 import { NextResponse } from 'next/server';
-
-/**
- * POST /api/dialect/feedback
- * 
- * Receives user corrections from the Suara view and forwards them
- * to the Python dialect engine for learning.
- * 
- * Also stores in localStorage on the client side for the session,
- * but the real persistence happens in the Python engine's files.
- * 
- * Body:
- *   dialectText: string — What user said in dialect
- *   correctMeaning: string — Correct Standard Malay/English
- *   region: string — Dialect region (kelantan, terengganu, etc.)
- *   rawVoice: string — Original voice transcript
- *   reportId: string — The report this correction belongs to
- */
+import { createClient } from '@supabase/supabase-js';
 
 const DIALECT_ENGINE_URL = process.env.DIALECT_ENGINE_URL || 'http://localhost:8100';
+
+function getSupabaseAdmin() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    return createClient(url, key);
+}
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { dialectText, correctMeaning, region, rawVoice, reportId } = body;
+        const { dialectText, correctMeaning, region, rawVoice, reportId, isPositive } = body;
 
-        if (!dialectText?.trim() || !correctMeaning?.trim()) {
+        if (!dialectText?.trim()) {
             return NextResponse.json(
-                { success: false, error: 'Both dialect text and correct meaning are required.' },
+                { success: false, error: 'Dialect text is required.' },
                 { status: 400 }
             );
         }
 
-        // Forward to Python dialect engine
+        const supabase = getSupabaseAdmin();
+
+        // 1. Store feedback persistently in Supabase DB for AI prompt enrichment
+        try {
+            await supabase.from('nadi_dialect_feedback').insert({
+                dialect_text: dialectText.trim(),
+                correct_meaning: correctMeaning ? correctMeaning.trim() : null,
+                region: region || 'kelantan',
+                is_positive: isPositive ?? true,
+            });
+        } catch (dbErr) {
+            console.warn('[dialect/feedback] Supabase insert warning:', dbErr);
+        }
+
+        // 2. Forward to Python dialect engine if active
         let engineResult = null;
         try {
             const res = await fetch(`${DIALECT_ENGINE_URL}/feedback`, {
@@ -39,11 +43,12 @@ export async function POST(request: Request) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     dialect_text: dialectText.trim(),
-                    correct_meaning: correctMeaning.trim(),
-                    region: region || 'unknown',
+                    correct_meaning: (correctMeaning || '').trim(),
+                    region: region || 'kelantan',
                     raw_voice: rawVoice || '',
+                    is_positive: isPositive ?? true,
                 }),
-                signal: AbortSignal.timeout(10000),
+                signal: AbortSignal.timeout(5000),
             });
 
             if (res.ok) {
@@ -51,14 +56,12 @@ export async function POST(request: Request) {
                 engineResult = data.result;
             }
         } catch (engineError) {
-            // Dialect engine may not be running — that's okay
-            // We still store the feedback locally
-            console.warn('[dialect/feedback] Engine not reachable, storing locally only:', engineError);
+            console.warn('[dialect/feedback] Python engine offline, saved to Supabase DB:', engineError);
         }
 
         return NextResponse.json({
             success: true,
-            message: 'Terima kasih! Your feedback helps NADI understand dialects better.',
+            message: 'Feedback received and persisted for AI learning!',
             engineResult,
             reportId,
         });

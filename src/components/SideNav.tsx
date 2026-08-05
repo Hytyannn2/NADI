@@ -69,11 +69,11 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
                     transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', repeatDelay: 1 }}
                   />
                 )}
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative z-10" style={{ background: isActive ? 'transparent' : 'var(--accent)' }}>
-                  <Icon className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative z-10" style={{ background: isActive ? 'transparent' : 'var(--bg-card)' }}>
+                  <Icon className="w-5 h-5" style={{ color: isActive ? 'white' : 'var(--text-secondary)' }} />
                 </div>
                 <div className="text-left relative z-10">
-                  <span className={`text-sm font-bold block ${isActive ? 'text-white' : ''}`} style={{ color: isActive ? 'white' : 'var(--text-primary)' }}>{tab.name}</span>
+                  <span className={`text-sm font-bold block ${isActive ? 'text-white' : ''}`} style={{ color: isActive ? 'white' : 'var(--text-secondary)' }}>{tab.name}</span>
                 </div>
               </motion.button>
             );

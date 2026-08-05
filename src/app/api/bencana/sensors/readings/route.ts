@@ -16,7 +16,8 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const sensorId = searchParams.get('sensor_id');
         const hours = parseInt(searchParams.get('hours') || '24', 10);
-        const limit = parseInt(searchParams.get('limit') || '144', 10);
+        const rawLimit = parseInt(searchParams.get('limit') || '144', 10);
+        const limit = Math.min(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 144, 1000);
 
         if (!sensorId) {
             return NextResponse.json({ success: false, error: 'sensor_id is required' }, { status: 400 });
@@ -36,17 +37,20 @@ export async function GET(request: Request) {
             .select('water_level, battery_pct, temperature_c, humidity_pct, pressure_hpa, rssi_dbm, flags, recorded_at')
             .eq('sensor_id', sensorId)
             .gte('recorded_at', since)
-            .order('recorded_at', { ascending: true })
+            .order('recorded_at', { ascending: false })
             .limit(limit);
 
         if (error) throw error;
+
+        // Reverse array in JS so the frontend trend chart renders chronologically (oldest -> newest, left -> right)
+        const chronologicalReadings = (readings || []).slice().reverse();
 
         return NextResponse.json({
             success: true,
             sensor_id: sensorId,
             hours,
-            count: readings?.length || 0,
-            readings: readings || [],
+            count: chronologicalReadings.length,
+            readings: chronologicalReadings,
         });
     } catch (err: any) {
         console.error('[Readings API] Error:', err);

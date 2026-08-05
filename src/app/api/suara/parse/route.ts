@@ -2,8 +2,33 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkSuaraLimit } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 
 const DIALECT_ENGINE_URL = process.env.DIALECT_ENGINE_URL || 'http://localhost:8100';
+
+async function getLearnedDbFeedback(): Promise<string> {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+        if (!url || !key) return '';
+        const supabase = createClient(url, key);
+
+        const { data } = await supabase
+            .from('nadi_dialect_feedback')
+            .select('dialect_text, correct_meaning')
+            .eq('is_positive', false)
+            .not('correct_meaning', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (data && data.length > 0) {
+            return data.map(item => `"${item.dialect_text}" -> "${item.correct_meaning}"`).join('\n');
+        }
+    } catch {
+        // Fail silently
+    }
+    return '';
+}
 
 /**
  * Fetch dialect context from the Python engine.
@@ -58,8 +83,16 @@ export async function POST(request: Request) {
             );
         }
 
-        // Fetch dialect context from the engine (non-blocking, with timeout)
-        const dialectContext = await getDialectContext(dialectRegion);
+        // Fetch dialect context from engine AND learned feedback from database
+        const [engineContext, learnedFeedback] = await Promise.all([
+            getDialectContext(dialectRegion),
+            getLearnedDbFeedback()
+        ]);
+
+        const dialectContext = [
+            engineContext,
+            learnedFeedback ? `LEARNED CITIZEN CORRECTIONS (Verified by users):\n${learnedFeedback}` : ''
+        ].filter(Boolean).join('\n\n');
 
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
@@ -71,19 +104,28 @@ export async function POST(request: Request) {
         const prompt = `
 You are an NLP model for NADI Civic OS trained to understand local Malaysian dialects (e.g., Kelantanese/Kecek Kelate, Terengganu, Kedah, Sabah, Sarawak) and parse civic complaints.
 ${dialectSection}
-Extract the intent and location from the following user report. Also provide a translation into ${targetLanguage || 'English'}.
+Extract the intent and location from the following user report. Also provide a translation into standard Malay (${targetLanguage || 'Malay'}).
+
+CRITICAL RULES:
+- If the report specifies a real physical infrastructure issue (e.g. pothole, broken streetlight, blocked drain, water leak, trash dump), set "intent" to a clean 2-4 word Malay title (e.g. "Jalan Berlubang", "Lampu Jalan Rosak", "Longkang Tersumbat").
+- If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga" and set "location" to "Kota Bharu". DO NOT invent or hallucinate unmentioned physical damage like "overgrown vegetation" or "sinkhole".
+- In "simplifiedTranslation", provide an accurate standard Malay translation of what the user actually said.
+- In "userIntendedMeaning", explain the EXACT intent or metaphorical meaning of the user's dialect expression (e.g. "Ungkapan kelesuan/stres (Kiasan Kelantan: 'sakit kepala') — Tiada kerosakan fizikal" or "Aduan kerosakan fizikal jalan raya").
+- In "confidenceScore", provide an integer between 70 and 98 representing NLP parsing confidence.
 
 User says: "${inputText}"
 
 Respond strictly with a JSON object in this format:
 {
-  "intent": "Short description of issue (e.g. Broken Streetlight, Pothole)",
-  "location": "Extracted location name",
-  "coordinates": {"lat": 1.23, "lng": 101.45},
+  "intent": "Short title in Malay (e.g. Jalan Berlubang, Lampu Jalan Rosak, Aduan Warga)",
+  "location": "Extracted location name or 'Kota Bharu'",
+  "coordinates": {"lat": 6.0833, "lng": 102.2500},
   "urgency": "Low, Medium, or High",
-  "simplifiedTranslation": "Translation of the issue into ${targetLanguage || 'English'}",
+  "simplifiedTranslation": "Standard Malay translation of user input",
+  "userIntendedMeaning": "Detailed explanation of what the user actually intended by their speech",
   "detectedDialect": "The dialect region detected (kelantan/terengganu/kedah/sabah/sarawak/standard/unknown)",
-  "dialectWords": ["list", "of", "dialect", "words", "found"]
+  "dialectWords": ["list", "of", "dialect", "words", "found"],
+  "confidenceScore": 88
 }
 `;
         let data;
@@ -94,6 +136,12 @@ Respond strictly with a JSON object in this format:
                 response_format: { type: 'json_object' }
             });
             data = JSON.parse(chatCompletion.choices[0]?.message?.content || '{}');
+
+            // Dynamic fallback for confidenceScore if missing or static
+            if (!data.confidenceScore || data.confidenceScore === 94) {
+                const dialectCount = (data.dialectWords || []).length;
+                data.confidenceScore = Math.min(98, Math.max(72, 78 + dialectCount * 5 + (data.userIntendedMeaning ? 6 : 0)));
+            }
         } catch (error: any) {
             if (error?.status === 429) {
                 return NextResponse.json(

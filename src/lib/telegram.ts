@@ -24,6 +24,7 @@ interface TelegramAlertData {
     batteryPct?: number | null;
     temperatureC?: number | null;
     rssiDbm?: number | null;
+    timeToDanger?: string;
 }
 
 /**

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles } from 'lucide-react';
+import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useGame } from '../context/GameContext';
@@ -49,6 +49,16 @@ interface Anomaly {
     speedKmh?: number;
     cluster?: ClusterInfo | null;
     snapshotBase64?: string;
+    title?: string;
+    source?: 'sensor' | 'voice' | 'text' | 'dashcam';
+    originalText?: string;
+    translatedText?: string;
+    locationName?: string;
+    urgency?: 'Low' | 'Medium' | 'High';
+    detectedDialect?: string;
+    dialectWords?: string[];
+    userIntendedMeaning?: string;
+    feedbackGiven?: 'up' | 'down';
 }
 
 // Device fingerprint (persistent per browser)
@@ -64,12 +74,13 @@ function getDeviceFingerprint(): string {
 
 export default function InfraView() {
     const { formatTime } = useTheme();
-    const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
+    const [filter, setFilter] = useState<'all' | 'potholes' | 'civic' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
 
     const [manualDescription, setManualDescription] = useState('');
+    const [isParsingVoice, setIsParsingVoice] = useState(false);
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
     const [shareModalAnomaly, setShareModalAnomaly] = useState<Anomaly | null>(null);
     const [copiedToast, setCopiedToast] = useState(false);
@@ -78,18 +89,180 @@ export default function InfraView() {
     const { addXp } = useXP();
     const supabase = createClient();
 
+    const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
+    const [feedbackCorrectText, setFeedbackCorrectText] = useState('');
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
+
+    const handleSendAduan = async () => {
+        const textToProcess = manualDescription.trim();
+        if (!textToProcess || isParsingVoice) return;
+
+        setIsParsingVoice(true);
+        let resData: any = null;
+
+        try {
+            const res = await fetch('/api/suara/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inputText: textToProcess,
+                    targetLanguage: 'ms',
+                    dialectRegion: 'kelantan'
+                })
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.data) {
+                    resData = json.data;
+                }
+            }
+        } catch (err) {
+            console.warn('Suara AI parse notice:', err);
+        } finally {
+            setIsParsingVoice(false);
+        }
+
+        const intent = resData?.intent || 'Aduan Infrastruktur';
+        const locName = resData?.location || 'Kota Bharu';
+        const translation = resData?.simplifiedTranslation || textToProcess;
+        const dialect = resData?.detectedDialect || 'kelantan';
+        const urgency = (resData?.urgency || 'Medium') as 'Low' | 'Medium' | 'High';
+        const intendedMeaning = resData?.userIntendedMeaning || translation;
+        const parsedConfidence = resData?.confidenceScore
+            ? Number(resData.confidenceScore)
+            : Math.min(98, Math.max(72, 78 + (resData?.dialectWords?.length || 0) * 4));
+
+        const newA: Anomaly = {
+            id: `aduan-${Date.now()}`,
+            lat: resData?.coordinates?.lat || 6.0833,
+            lng: resData?.coordinates?.lng || 102.2500,
+            zDropped: 0,
+            verifications: 1,
+            status: 'pending',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            title: `${intent} @ ${locName}`,
+            source: 'voice',
+            originalText: textToProcess,
+            translatedText: translation,
+            userIntendedMeaning: intendedMeaning,
+            locationName: locName,
+            urgency: urgency,
+            detectedDialect: dialect,
+            dialectWords: resData?.dialectWords || [],
+            confidenceScore: parsedConfidence,
+            aiAnalysis: {
+                severityScore: urgency === 'High' ? 4 : urgency === 'Medium' ? 3 : 2,
+                severityLabel: `Aduan Dialek ${dialect.toUpperCase()}`,
+                damageType: intent,
+                estimatedWidth: '—',
+                estimatedDepth: '—',
+                repairMethod: 'Penilaian & Tindakan PBT',
+                repairCostMYR: 'Mengikut Skop Kerosakan',
+                priorityScore: urgency === 'High' ? 88 : urgency === 'Medium' ? 68 : 48,
+                riskAssessment: intendedMeaning,
+                nearestRoadType: locName,
+                recommendedAction: 'Penugasan Skuad Tapak'
+            }
+        };
+
+        setAnomalies(prev => [newA, ...prev]);
+        setManualDescription('');
+        incrementStat('reports');
+        addXp(25);
+
+        try {
+            const deviceFp = getDeviceFingerprint();
+            await supabase.from('nadi_infra_reports').insert({
+                lat: String(newA.lat),
+                lng: String(newA.lng),
+                z_dropped: 0,
+                confidence_score: parsedConfidence,
+                device_fingerprint: deviceFp,
+                status: 'pending',
+                ai_analysis: newA.aiAnalysis,
+            });
+        } catch (dbErr) {
+            console.warn('DB insert error:', dbErr);
+        }
+    };
+
+    const handleSendFeedback = async (skipCorrection = false) => {
+        if (!feedbackModalAnomaly || isSubmittingFeedback) return;
+        setIsSubmittingFeedback(true);
+
+        const correction = skipCorrection ? '' : feedbackCorrectText.trim();
+
+        try {
+            const res = await fetch('/api/dialect/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dialectText: feedbackModalAnomaly.originalText || feedbackModalAnomaly.title || '',
+                    correctMeaning: correction,
+                    region: feedbackModalAnomaly.detectedDialect || 'kelantan',
+                    rawVoice: feedbackModalAnomaly.originalText || '',
+                    reportId: feedbackModalAnomaly.id,
+                    isPositive: false
+                })
+            });
+
+            if (res.ok) {
+                setAnomalies(prev => prev.map(item => item.id === feedbackModalAnomaly.id ? {
+                    ...item,
+                    feedbackGiven: 'down',
+                    translatedText: correction || item.translatedText,
+                    userIntendedMeaning: correction ? `Dikemaskini Warga: "${correction}"` : item.userIntendedMeaning
+                } : item));
+
+                if (!skipCorrection && correction) {
+                    addXp(10);
+                }
+
+                setFeedbackSuccessToast(true);
+                setTimeout(() => {
+                    setFeedbackSuccessToast(false);
+                    setFeedbackModalAnomaly(null);
+                }, 1500);
+            }
+        } catch (err) {
+            console.warn('Feedback submit error:', err);
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
+
     // === NEW: Sensor Fusion Hook ===
     const detector = usePotholeDetector();
 
     // === NEW: Dashcam Hook ===
     const dashcam = useDashcam();
 
-    const filteredAnomalies = anomalies.filter(a => filter === 'all' || a.status === filter);
-    const totalDetected = anomalies.length;
+    function isPotholeReport(a: Anomaly): boolean {
+        if (a.zDropped && a.zDropped > 0) return true;
+        if (a.source === 'sensor' || a.source === 'dashcam') return true;
+        
+        const text = `${a.title || ''} ${a.originalText || ''} ${a.translatedText || ''} ${a.aiAnalysis?.damageType || ''}`.toLowerCase();
+        const keywords = ['pothole', 'lubang', 'berlubang', 'pecah', 'sinkhole', 'kelebok', 'lerek', 'perok'];
+        return keywords.some(kw => text.includes(kw));
+    }
+
+    const potholeAnomalies = anomalies.filter(isPotholeReport);
+    const civicAnomalies = anomalies.filter(a => !isPotholeReport(a));
+
+    const totalPotholes = potholeAnomalies.length;
+    const totalCivic = civicAnomalies.length;
     const totalVerified = anomalies.filter(a => a.status === 'verified').length;
     const avgConfidence = anomalies.length > 0
         ? Math.round(anomalies.reduce((sum, a) => sum + (a.confidenceScore || 0), 0) / anomalies.length)
         : 0;
+
+    const filteredAnomalies = anomalies.filter(a => {
+        if (filter === 'potholes') return isPotholeReport(a);
+        if (filter === 'civic') return !isPotholeReport(a);
+        if (filter === 'verified') return a.status === 'verified';
+        return true;
+    });
 
     // === AUTO-START: Detection runs always-on like Life360 ===
     useEffect(() => {
@@ -292,6 +465,11 @@ export default function InfraView() {
                     confidenceScore: anomaly.confidenceScore,
                     speedKmh: anomaly.speedKmh,
                     clusterSize: anomaly.cluster?.uniqueDevices || 1,
+                    title: anomaly.title,
+                    originalText: anomaly.originalText,
+                    translatedText: anomaly.translatedText,
+                    locationName: anomaly.locationName,
+                    source: anomaly.source,
                 }),
             });
             const data = await res.json();
@@ -460,14 +638,13 @@ export default function InfraView() {
             {/* === AMBIENT VOICE ADUAN INPUT BOX === */}
             <motion.div
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="mb-6 p-4 rounded-2xl border relative overflow-hidden"
-                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+                className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-[#0D0D10] via-[#121217] to-[#0D0D10] border border-zinc-800/80 shadow-2xl relative overflow-hidden"
             >
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
-                        <Sparkles className="w-3.5 h-3.5" /> Buat Aduan Suara / Teks
+                <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#C5A367]">
+                        <Sparkles className="w-3.5 h-3.5 text-[#C5A367]" /> Buat Aduan Suara / Teks
                     </span>
-                    <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                         Dialek Kelantan Tuned
                     </span>
                 </div>
@@ -477,122 +654,71 @@ export default function InfraView() {
                         value={manualDescription}
                         onChange={(e) => setManualDescription(e.target.value)}
                         placeholder="Cakap atau taip aduan (cth: Pothole dalam dekat Hospital Kubang Kerian)..."
-                        className="flex-1 text-xs rounded-xl px-3.5 py-3 outline-none transition-all"
-                        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                        className="flex-1 text-xs rounded-xl px-4 py-3 bg-[#050507] border border-zinc-800/80 text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#C5A367]/50 transition-all"
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' && manualDescription.trim()) {
-                                const newA: Anomaly = {
-                                    id: `aduan-${Date.now()}`,
-                                    lat: 6.0833,
-                                    lng: 102.2500,
-                                    zDropped: 2.5,
-                                    verifications: 1,
-                                    status: 'pending',
-                                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                                    aiAnalysis: {
-                                        severityScore: 3,
-                                        severityLabel: 'Manual Aduan Warga',
-                                        damageType: 'Aduan Infrastruktur',
-                                        estimatedWidth: '0.8m',
-                                        estimatedDepth: '5cm',
-                                        repairMethod: 'Tampalan Asfalt',
-                                        repairCostMYR: 'RM 150 - RM 300',
-                                        priorityScore: 75,
-                                        riskAssessment: manualDescription.trim(),
-                                        nearestRoadType: 'Jalan Awam',
-                                        recommendedAction: 'Penilaian Tapak'
-                                    }
-                                };
-                                setAnomalies(prev => [newA, ...prev]);
-                                setManualDescription('');
-                                incrementStat('reports');
-                                addXp(25);
+                            if (e.key === 'Enter') {
+                                handleSendAduan();
                             }
                         }}
+                        disabled={isParsingVoice}
                     />
                     <GlobalVoiceMic
                         onTranscript={(text) => setManualDescription(prev => (prev ? `${prev} ${text}` : text))}
                         size="md"
                     />
                     <button
-                        onClick={() => {
-                            if (!manualDescription.trim()) return;
-                            const newA: Anomaly = {
-                                id: `aduan-${Date.now()}`,
-                                lat: 6.0833,
-                                lng: 102.2500,
-                                zDropped: 2.5,
-                                verifications: 1,
-                                status: 'pending',
-                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                                aiAnalysis: {
-                                    severityScore: 3,
-                                    severityLabel: 'Manual Aduan Warga',
-                                    damageType: 'Aduan Infrastruktur',
-                                    estimatedWidth: '0.8m',
-                                    estimatedDepth: '5cm',
-                                    repairMethod: 'Tampalan Asfalt',
-                                    repairCostMYR: 'RM 150 - RM 300',
-                                    priorityScore: 75,
-                                    riskAssessment: manualDescription.trim(),
-                                    nearestRoadType: 'Jalan Awam',
-                                    recommendedAction: 'Penilaian Tapak'
-                                }
-                            };
-                            setAnomalies(prev => [newA, ...prev]);
-                            setManualDescription('');
-                            incrementStat('reports');
-                            addXp(25);
-                        }}
-                        disabled={!manualDescription.trim()}
-                        className="px-4 py-3 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all disabled:opacity-50"
-                        style={{ background: 'var(--accent)' }}
+                        onClick={handleSendAduan}
+                        disabled={!manualDescription.trim() || isParsingVoice}
+                        className="px-5 py-3 rounded-xl text-xs font-bold text-black bg-gradient-to-r from-[#C5A367] to-[#E5C387] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md active:scale-95 shrink-0"
                     >
-                        <Send className="w-3.5 h-3.5" /> Hantar
+                        {isParsingVoice ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Prosès AI...
+                            </>
+                        ) : (
+                            <>
+                                <Send className="w-3.5 h-3.5" /> Hantar
+                            </>
+                        )}
                     </button>
                 </div>
             </motion.div>
 
-            {/* === DRIVING HUD — only visible when actually moving === */}
+            {/* === DRIVING HUD — only visible when user is moving and telemetry is valid === */}
             <AnimatePresence>
-                {detector.currentSpeed > 0 && !detector.isCalibrating && (
+                {detector.currentSpeed > 0 && detector.currentSpeed <= 180 && !detector.isCalibrating && (
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="mb-6 bg-gradient-to-r from-[#0A0A0C] to-[#0f1a14] border border-zinc-800 rounded-2xl p-4 shadow-xl"
+                        className="mb-6 bg-gradient-to-r from-[#0A0A0C] via-[#0f1a14] to-[#0A0A0C] border border-zinc-800 rounded-2xl p-4 shadow-xl flex items-center justify-between"
                     >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                {/* Speed */}
-                                <div className="text-center">
-                                    <div className="text-2xl font-light text-white font-mono tracking-tight">{detector.currentSpeed}</div>
-                                    <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">km/h</div>
+                        <div className="flex items-center gap-4">
+                            <div className="text-center">
+                                <div className="text-2xl font-light text-white font-mono tracking-tight">
+                                    {Math.min(180, Math.max(0, Math.round(detector.currentSpeed || 0)))}
                                 </div>
-                                <div className="w-px h-8 bg-zinc-800"></div>
-                                {/* Detections */}
-                                <div className="text-center">
-                                    <div className="text-2xl font-light text-[#C5A367] font-mono tracking-tight">{detector.detectionCount}</div>
-                                    <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Hits</div>
-                                </div>
+                                <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">km/h</div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                {/* Dashcam Status */}
-                                {dashcam.isDashcamEnabled && (
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                                        <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">REC</span>
-                                    </div>
-                                )}
+                            <div className="w-px h-8 bg-zinc-800"></div>
+                            <div className="text-center">
+                                <div className="text-2xl font-light text-[#C5A367] font-mono tracking-tight">{detector.detectionCount}</div>
+                                <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Hits</div>
                             </div>
                         </div>
+                        {dashcam.isDashcamEnabled && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">REC</span>
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
 
             {/* Motion Error */}
             {detector.motionError && (
-                <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
+                <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
                      {detector.motionError}
                 </div>
             )}
@@ -604,44 +730,70 @@ export default function InfraView() {
                 </div>
             )}
 
-            {/* === STATS === */}
+            {/* === STATS (Bento Grid - Hick's Law Clean Layout) === */}
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-                className="grid grid-cols-3 gap-3 mb-6"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6"
             >
-                <div className="bg-[#0f1a14] text-white p-4 rounded-2xl relative overflow-hidden shadow-xl border border-[#10B981]/20">
-                    <div className="absolute -inset-4 bg-gradient-to-br from-[#10B981]/10 to-transparent blur-2xl"></div>
-                    <Activity className="w-4 h-4 text-[#C5A367] mb-2 opacity-90 relative z-10" />
-                    <div className="text-3xl font-light mb-0.5 text-[#FAFAFA] relative z-10 tracking-tight">{totalDetected}</div>
-                    <div className="text-[9px] text-[#10B981]/70 font-bold uppercase tracking-widest relative z-10">Detected</div>
+                {/* Card 1 */}
+                <div className="bg-gradient-to-br from-[#0c1c14] to-[#050B08] p-4 rounded-2xl border border-emerald-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/90 block mb-1">
+                            Lubang Dikesan
+                        </span>
+                        <div className="text-2xl font-black text-white font-mono tracking-tight">{totalPotholes}</div>
+                        <span className="text-[9px] text-zinc-500 font-medium">Sensori & Visual Akselerometer</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <Activity className="w-5 h-5" />
+                    </div>
                 </div>
-                <div className="bg-gradient-to-br from-[#1A1C16] to-[#0A0A0C] border border-[#C5A367]/20 text-white p-4 rounded-2xl relative overflow-hidden shadow-xl">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#C5A367]/10 rounded-full blur-2xl -translate-y-8 translate-x-8"></div>
-                    <Check className="w-4 h-4 text-[#C5A367] mb-2 relative z-10" />
-                    <div className="text-3xl font-light mb-0.5 text-white relative z-10 tracking-tight">{totalVerified}</div>
-                    <div className="text-[9px] text-[#C5A367]/80 font-bold uppercase tracking-widest relative z-10">Verified</div>
+
+                {/* Card 2 */}
+                <div className="bg-gradient-to-br from-[#1c170c] to-[#0B0905] p-4 rounded-2xl border border-[#C5A367]/30 shadow-lg relative overflow-hidden flex items-center justify-between">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A367] block mb-1">
+                            Aduan Suara Warga
+                        </span>
+                        <div className="text-2xl font-black text-white font-mono tracking-tight">{totalCivic}</div>
+                        <span className="text-[9px] text-zinc-500 font-medium">Analisis Suara & Dialek</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-[#C5A367]/10 border border-[#C5A367]/20 flex items-center justify-center text-[#C5A367]">
+                        <Mic className="w-5 h-5" />
+                    </div>
                 </div>
-                <div className="bg-[#0A0A0C] border border-zinc-800 text-white p-4 rounded-2xl relative overflow-hidden shadow-xl">
-                    <Shield className="w-4 h-4 text-blue-400 mb-2 relative z-10" />
-                    <div className="text-3xl font-light mb-0.5 text-white relative z-10 tracking-tight">{avgConfidence}<span className="text-lg text-zinc-500">%</span></div>
-                    <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest relative z-10">Confidence</div>
+
+                {/* Card 3 */}
+                <div className="bg-gradient-to-br from-[#10121c] to-[#05060B] p-4 rounded-2xl border border-purple-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 block mb-1">
+                            Disahkan Rakyat
+                        </span>
+                        <div className="text-2xl font-black text-white font-mono tracking-tight flex items-baseline gap-1">
+                            {totalVerified} <span className="text-xs font-mono font-medium text-purple-300">({avgConfidence}%)</span>
+                        </div>
+                        <span className="text-[9px] text-zinc-500 font-medium">Pengesahan Komuniti</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                        <Shield className="w-5 h-5" />
+                    </div>
                 </div>
             </motion.div>
-
-
 
             {/* === ANOMALY LIST === */}
             <div className="flex-1 pb-10">
                 <motion.h3
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-                    className="text-xs uppercase font-bold tracking-widest text-zinc-400 mb-6 flex items-center justify-between px-1"
+                    className="text-xs uppercase font-bold tracking-widest text-zinc-400 mb-6 flex items-center justify-between px-1 flex-wrap gap-2"
                 >
-                    <span>Pothole Reports</span>
-                    <div className="flex gap-2">
-                        {(['all', 'pending', 'verified'] as const).map((f) => (
+                    <span className="text-zinc-200 font-bold">Aduan Sivik & Infrastruktur</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                        {(['all', 'potholes', 'civic', 'verified'] as const).map((f) => (
                             <button key={f} onClick={() => setFilter(f)}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] border transition-all ${filter === f ? 'bg-zinc-800 border-zinc-600 text-zinc-200' : 'bg-transparent border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
-                            >{f.toUpperCase()}</button>
+                                className={`px-3.5 py-1.5 rounded-xl text-[10px] border transition-all ${filter === f ? 'bg-zinc-800 border-zinc-600 text-zinc-100 font-bold shadow-md' : 'bg-zinc-950 border-zinc-800/80 text-zinc-500 hover:text-zinc-300'}`}
+                            >
+                                {f === 'all' ? 'SEMUA' : f === 'potholes' ? 'POTHOLES' : f === 'civic' ? 'ADUAN WARGA' : 'VERIFIED'}
+                            </button>
                         ))}
                     </div>
                 </motion.h3>
@@ -650,126 +802,217 @@ export default function InfraView() {
                     <AnimatePresence>
                         {filteredAnomalies.map((a, i) => {
                             const conf = confidenceColor(a.confidenceScore || 0);
+                            const isPothole = isPotholeReport(a);
+
                             return (
                             <motion.div
                                 key={a.id}
-                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                transition={{ delay: 0.05 * i, type: "spring", stiffness: 300, damping: 24 }}
-                                className="bg-[#121214] rounded-3xl border border-zinc-800 shadow-xl relative overflow-hidden transition-all hover:bg-[#1A1A1E]"
+                                initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.05 }}
+                                className="bg-gradient-to-b from-[#0F0F13] to-[#0A0A0C] border border-zinc-800/90 rounded-3xl p-5 shadow-2xl space-y-4 hover:border-zinc-700/80 transition-all"
                             >
-                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${a.status === 'verified' ? 'bg-[#C5A367] shadow-[0_0_10px_rgba(197,163,103,0.8)]' : 'bg-red-900/50'}`}></div>
-
-                                <div className="p-5 flex gap-4">
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${a.status === 'verified' ? 'bg-[#C5A367]/10 text-[#C5A367] border-[#C5A367]/20' : 'bg-[#1a0505] text-red-500 border-red-900/40'}`}>
-                                        {a.status === 'verified' ? <Check className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="font-mono text-[10px] bg-[#0A0A0C] text-zinc-400 px-3 py-1.5 rounded-md border border-zinc-800/80 uppercase font-bold tracking-widest">
-                                                ID: {a.id.slice(-4)}
-                                            </span>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{a.time}</span>
+                                {/* 1. Header Row */}
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-inner ${a.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/10' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                                            {a.status === 'verified' ? <Check className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                                         </div>
-                                        <h4 className="font-serif text-lg text-white mb-2 mt-2">{typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, {typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°</h4>
-                                        
-                                        {/* === Sensor Fusion Badges === */}
-                                        <div className="flex flex-wrap gap-1.5 mb-3">
-                                            {/* Confidence Score */}
-                                            {a.confidenceScore != null && a.confidenceScore > 0 && (
-                                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border ${conf.text} ${conf.bg} ${conf.border}`}>
-                                                    <Shield className="w-3 h-3 inline mr-1" />{conf.label} {a.confidenceScore}%
-                                                </span>
-                                            )}
-                                            {/* Speed */}
-                                            {a.speedKmh != null && a.speedKmh > 0 && (
-                                                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border bg-blue-500/10 border-blue-500/20 text-blue-400">
-                                                    <Gauge className="w-3 h-3 inline mr-1" />{a.speedKmh} km/h
-                                                </span>
-                                            )}
-                                            {/* Dashcam indicator */}
-                                            {a.snapshotBase64 && (
-                                                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
-                                                     Frame
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Cluster Verification Progress */}
-                                        {a.cluster && (
-                                            <div className="mb-3 bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                <div className="flex items-center justify-between mb-1.5">
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1">
-                                                        <Users className="w-3 h-3" /> Crowdsource Cluster
-                                                    </span>
-                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${a.cluster.isVerified ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-zinc-800 text-zinc-400'}`}>
-                                                        {a.cluster.isVerified ? ' Verified' : `${a.cluster.isUrban ? 'Urban' : 'Rural'}`}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all ${a.cluster.isVerified ? 'bg-[#10B981]' : 'bg-[#C5A367]'}`}
-                                                            style={{ width: `${Math.min(100, (a.cluster.uniqueDevices / a.cluster.threshold) * 100)}%` }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-[10px] font-mono text-zinc-400">
-                                                        {a.cluster.uniqueDevices}/{a.cluster.threshold}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest border-t border-zinc-800/50 pt-3">
-                                            <span className="text-red-400 bg-[#1a0505] border border-red-900/30 px-3 py-1.5 rounded-md">Z: {a.zDropped.toFixed(1)}g</span>
-                                            <span className={a.verifications >= 15 ? 'text-[#C5A367]' : 'text-zinc-400'}>
-                                                {a.verifications}/15 VERIFICATIONS
+                                        <div>
+                                            <h4 className="font-serif text-base font-bold text-white leading-snug">
+                                                {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Kota Bharu'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
+                                            </h4>
+                                            <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
+                                                TICKET ID: #{a.id.slice(-4)} • {a.time}
                                             </span>
                                         </div>
-
-                                        {/* Dashcam Snapshot Preview */}
-                                        {a.snapshotBase64 && (
-                                            <div className="mt-3 rounded-2xl overflow-hidden border border-zinc-800 h-28">
-                                                <img src={a.snapshotBase64.startsWith('data:') ? a.snapshotBase64 : `data:image/jpeg;base64,${a.snapshotBase64}`} alt="Dashcam capture" className="w-full h-full object-cover" />
-                                            </div>
-                                        )}
-
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-2 mt-4">
-                                            <button
-                                                onClick={() => analyzeAnomaly(a.id)}
-                                                disabled={a.isAnalyzing}
-                                                className="flex items-center gap-1.5 px-4 py-3 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
-                                            >
-                                                {a.isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                                                AI Analyze
-                                            </button>
-                                            <button
-                                                onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
-                                                disabled={a.isAnalyzing}
-                                                className="flex items-center gap-1.5 px-4 py-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
-                                            >
-                                                <Camera className="w-4 h-4" /> Photo
-                                            </button>
-                                            <button
-                                                onClick={() => setShareModalAnomaly(a)}
-                                                className="flex items-center gap-1.5 px-4 py-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
-                                                title="Jana Kad Viral TikTok / FB untuk Tekan PBT"
-                                            >
-                                                <Share2 className="w-4 h-4" /> Viral Card
-                                            </button>
-                                            {a.aiAnalysis && (
-                                                <button onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
-                                                    className="ml-auto p-3 text-zinc-400 hover:text-zinc-200 transition-colors"
-                                                >
-                                                    {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                                                </button>
-                                            )}
-                                        </div>
                                     </div>
+                                    
+                                    {/* Verification status pill — High Contrast Emerald */}
+                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${a.status === 'verified' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-bold' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                                        {a.status === 'verified' ? '✓ Verified' : 'Pending'}
+                                    </span>
                                 </div>
 
-                                {/* AI Analysis Result */}
+                                {/* 2. Metadata Badges Strip */}
+                                <div className="flex flex-wrap gap-2">
+                                    {a.source === 'voice' ? (
+                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                                            <Mic className="w-3 h-3" /> Aduan Suara
+                                        </span>
+                                    ) : (
+                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-red-500/10 border-red-500/20 text-red-400">
+                                            G-Impact: {a.zDropped ? a.zDropped.toFixed(1) : '2.5'}g
+                                        </span>
+                                    )}
+                                    {a.urgency && (
+                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                                            a.urgency === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-400' : a.urgency === 'Medium' ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                                        }`}>
+                                            Keutamaan: {a.urgency === 'High' ? 'Tinggi' : a.urgency === 'Medium' ? 'Sederhana' : 'Rendah'}
+                                        </span>
+                                    )}
+                                    {a.confidenceScore != null && a.confidenceScore > 0 && (
+                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${conf.text} ${conf.bg} ${conf.border}`}>
+                                            <Shield className="w-3 h-3 inline mr-1" />Keyakinan AI {a.confidenceScore}%
+                                        </span>
+                                    )}
+                                    {a.detectedDialect && (
+                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                            Dialek {a.detectedDialect}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* 3. Speech & Dialect AI Box */}
+                                {a.originalText && (
+                                    <div className="p-4 rounded-2xl bg-[#050507] border border-zinc-800/80 space-y-3 shadow-inner">
+                                        {/* Intent-Aware Non-Infra Banner Guard */}
+                                        {!isPothole && (
+                                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[10px] font-medium">
+                                                <Info className="w-4 h-4 text-blue-400 shrink-0" />
+                                                <span>NLP mengesan ini BUKAN aduan infrastruktur fizikal (Ungkapan Peribadi / Dialek).</span>
+                                            </div>
+                                        )}
+
+                                        {/* Teks Asal Quote */}
+                                        <div>
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">
+                                                💬 Teks Asal (Warga)
+                                            </span>
+                                            <p className="text-xs text-zinc-100 font-medium italic bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/50">
+                                                "{a.originalText}"
+                                            </p>
+                                        </div>
+
+                                        {/* Maksud / Niat Sebenar NLP */}
+                                        {a.userIntendedMeaning && (
+                                            <div className="pt-2 border-t border-zinc-800/80">
+                                                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-1">
+                                                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Maksud / Niat Sebenar (NLP Analysis)
+                                                </span>
+                                                <p className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
+                                                    {a.userIntendedMeaning}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Dialect Words Badges */}
+                                        {a.dialectWords && a.dialectWords.length > 0 && (
+                                            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                                <span className="text-[8px] uppercase font-bold text-zinc-500">Kata Dialek:</span>
+                                                {a.dialectWords.map((w, idx) => (
+                                                    <span key={idx} className="text-[8px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                                        {w}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Interactive Feedback Loop */}
+                                        <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                                                Adakah Terjemahan AI Tepat?
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                {a.feedbackGiven === 'up' ? (
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
+                                                        <Check className="w-3 h-3 text-emerald-400" /> Disahkan Tepat
+                                                    </span>
+                                                ) : a.feedbackGiven === 'down' ? (
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
+                                                        ⚠️ Feedback Dihantar
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={async () => {
+                                                                setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' } : x));
+                                                                try {
+                                                                    await fetch('/api/dialect/feedback', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({
+                                                                            dialectText: a.originalText || a.title || '',
+                                                                            correctMeaning: a.translatedText || '',
+                                                                            region: a.detectedDialect || 'kelantan',
+                                                                            reportId: a.id,
+                                                                            isPositive: true
+                                                                        })
+                                                                    });
+                                                                } catch {}
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 text-xs transition-all active:scale-95 font-bold min-h-[38px]"
+                                                            title="Terjemahan tepat!"
+                                                        >
+                                                            👍 <span className="text-[10px] font-bold uppercase">Tepat</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setFeedbackModalAnomaly(a);
+                                                                setFeedbackCorrectText(a.translatedText || a.originalText || '');
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs transition-all active:scale-95 font-bold min-h-[38px]"
+                                                            title="Terjemahan kurang tepat / Ajar AI"
+                                                        >
+                                                            👎 <span className="text-[10px] font-bold uppercase">Salah</span>
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 4. Action Buttons Footer Row (Gated Viral Card for Physical Infra Only) */}
+                                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 flex-wrap gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => analyzeAnomaly(a.id)}
+                                            disabled={a.isAnalyzing}
+                                            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
+                                        >
+                                            {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                            AI Analyze
+                                        </button>
+                                        <button
+                                            onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
+                                            disabled={a.isAnalyzing}
+                                            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
+                                        >
+                                            <Camera className="w-3.5 h-3.5" /> Photo
+                                        </button>
+                                        {/* Gate Viral Card: ONLY show for physical infrastructure issues */}
+                                        {isPothole ? (
+                                            <button
+                                                onClick={() => setShareModalAnomaly(a)}
+                                                className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
+                                                title="Jana Kad Eskalasi Awam"
+                                            >
+                                                <Share2 className="w-3.5 h-3.5" /> Kad Eskalasi Awam
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    setFeedbackModalAnomaly(a);
+                                                    setFeedbackCorrectText(a.userIntendedMeaning || a.originalText || '');
+                                                }}
+                                                className="flex items-center gap-1.5 px-4 py-2.5 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
+                                                title="Bantu AI Belajar Dialek"
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Dialek Info
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {a.aiAnalysis && (
+                                        <button onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
+                                            className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                        >
+                                            {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* AI Analysis Result (Clean N/A Hiding) */}
                                 <AnimatePresence>
                                     {a.aiAnalysis && a.expanded && (
                                         <motion.div
@@ -783,9 +1026,11 @@ export default function InfraView() {
                                                     </div>
                                                 )}
                                                 <div className="flex flex-wrap gap-2">
-                                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border ${severityColor(a.aiAnalysis.severityScore)}`}>
-                                                        {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Sev {a.aiAnalysis.severityScore}/5)
-                                                    </span>
+                                                    {a.aiAnalysis.severityScore > 0 && (
+                                                        <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border ${severityColor(a.aiAnalysis.severityScore)}`}>
+                                                            {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Tahap {a.aiAnalysis.severityScore}/5)
+                                                        </span>
+                                                    )}
                                                     {a.aiAnalysis.nearestRoadType && (
                                                         <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-zinc-800/50 border-zinc-700 text-zinc-300">
                                                             {a.aiAnalysis.nearestRoadType}
@@ -797,18 +1042,31 @@ export default function InfraView() {
                                                         </span>
                                                     )}
                                                 </div>
+                                                
+                                                {/* Hide N/A Size & Cost fields for non-physical/null values */}
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {a.aiAnalysis.estimatedWidth && <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50"><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Size</span><span className="text-xs text-zinc-300 font-medium">{a.aiAnalysis.estimatedWidth} × {a.aiAnalysis.estimatedDepth}</span></div>}
-                                                    {a.aiAnalysis.repairCostMYR && <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50"><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Est. Cost</span><span className="text-xs text-[#C5A367] font-medium">{a.aiAnalysis.repairCostMYR}</span></div>}
+                                                    {a.aiAnalysis.estimatedWidth && a.aiAnalysis.estimatedWidth !== 'N/A' && (
+                                                        <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
+                                                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Saiz</span>
+                                                            <span className="text-xs text-zinc-300 font-medium">{a.aiAnalysis.estimatedWidth} × {a.aiAnalysis.estimatedDepth}</span>
+                                                        </div>
+                                                    )}
+                                                    {a.aiAnalysis.repairCostMYR && a.aiAnalysis.repairCostMYR !== 'RM 0' && a.aiAnalysis.repairCostMYR !== 'N/A' && (
+                                                        <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
+                                                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Anggaran Kos</span>
+                                                            <span className="text-xs text-[#C5A367] font-medium">{a.aiAnalysis.repairCostMYR}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
+
                                                 {a.aiAnalysis.riskAssessment && (
                                                     <p className="text-xs text-zinc-300 font-medium leading-relaxed bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                        <span className="text-zinc-100 font-bold">Risk: </span>{a.aiAnalysis.riskAssessment}
+                                                        <span className="text-zinc-100 font-bold">Risiko: </span>{a.aiAnalysis.riskAssessment}
                                                     </p>
                                                 )}
                                                 {a.aiAnalysis.repairMethod && (
                                                     <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-                                                        <span className="text-zinc-300 font-bold">Fix: </span>{a.aiAnalysis.repairMethod}
+                                                        <span className="text-zinc-300 font-bold">Cadangan Pembaikan: </span>{a.aiAnalysis.repairMethod}
                                                     </p>
                                                 )}
                                             </div>
@@ -840,7 +1098,7 @@ export default function InfraView() {
                             {/* Header */}
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
-                                    🚨 PUBLIC SLA PRESSURE CARD
+                                    🚨 KAD ESKALASI AWAM (SLA)
                                 </span>
                                 <button
                                     onClick={() => setShareModalAnomaly(null)}
@@ -855,17 +1113,23 @@ export default function InfraView() {
                                 <div className="absolute top-0 right-0 px-3 py-1 bg-red-600 text-[10px] font-black uppercase tracking-widest text-white rounded-bl-xl shadow-md">
                                     HARI KE-14 UNRESOLVED
                                 </div>
-                                <h3 className="text-sm font-black text-red-400 mb-1 uppercase">ADUAN INFRASTRUKTUR WAKAF</h3>
+                                <h3 className="text-sm font-black text-red-400 mb-1 uppercase">
+                                    {shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'ADUAN INFRASTRUKTUR'}
+                                </h3>
                                 <p className="text-[10px] text-zinc-400 mb-3 font-mono">TICKET ID: #{shareModalAnomaly.id.slice(-6)}</p>
                                 
                                 <div className="space-y-2 text-xs mb-3">
                                     <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
-                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Lokasi Koordinat</span>
-                                        <span className="font-mono text-zinc-200 font-bold">{shareModalAnomaly.lat}°, {shareModalAnomaly.lng}°</span>
+                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Lokasi / Kawasan</span>
+                                        <span className="font-mono text-zinc-200 font-bold">
+                                            {shareModalAnomaly.locationName ? `${shareModalAnomaly.locationName} (${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°)` : `${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°`}
+                                        </span>
                                     </div>
                                     <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
-                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Keterangan Risiko</span>
-                                        <span className="text-zinc-300">{shareModalAnomaly.aiAnalysis?.riskAssessment || 'Kerosakan jalan teruk, berisiko bahaya kemalangan.'}</span>
+                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Keterangan Aduan & Terjemahan</span>
+                                        <span className="text-zinc-300">
+                                            {shareModalAnomaly.translatedText || shareModalAnomaly.aiAnalysis?.riskAssessment || shareModalAnomaly.originalText || 'Kerosakan jalan teruk, berisiko bahaya kemalangan.'}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -878,7 +1142,10 @@ export default function InfraView() {
                             <div className="space-y-2">
                                 <button
                                     onClick={() => {
-                                        const caption = `🚨 ADUAN INFRASTRUKTUR TERBENGKALAIS KELANTAN!\n\n📍 Lokasi: ${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°\n⚠️ Status: Belum Dibaiki (Ticket #${shareModalAnomaly.id.slice(-6)})\n\nSila ambil tindakan segera! #KelantanFixOurRoads #NADI #PBTKelantan #AduanWarga`;
+                                        const issueTitle = shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'Aduan Warga';
+                                        const loc = shareModalAnomaly.locationName ? `${shareModalAnomaly.locationName} (${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°)` : `${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°`;
+                                        const quote = shareModalAnomaly.originalText ? `"${shareModalAnomaly.originalText}"` : `"${shareModalAnomaly.translatedText || ''}"`;
+                                        const caption = `🚨 ADUAN SIVIK TERBENGKALAI — KELANTAN!\n\n📌 Issue: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Aduan Warga: ${quote}\n⚠️ Status: Belum Dibaiki (Ticket #${shareModalAnomaly.id.slice(-6)})\n\nSila ambil tindakan segera! #KelantanFixOurRoads #NADI #PBTKelantan #AduanWarga`;
                                         navigator.clipboard.writeText(caption);
                                         setCopiedToast(true);
                                         setTimeout(() => setCopiedToast(false), 2000);
@@ -890,6 +1157,83 @@ export default function InfraView() {
                                 <p className="text-[9px] text-zinc-500 text-center">
                                     Kongsi di TikTok / FB dengan hashtag di atas untuk beri tekanan SLA kepada pihak berkuasa tempatan.
                                 </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* === DIALECT AI FEEDBACK LOOP MODAL === */}
+            <AnimatePresence>
+                {feedbackModalAnomaly && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="bg-[#0A0A0C] border-2 border-purple-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> BANTU AI BELAJAR DIALEK
+                                </span>
+                                <button
+                                    onClick={() => setFeedbackModalAnomaly(null)}
+                                    className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <p className="text-xs text-zinc-400 mb-3">
+                                Adakah terjemahan AI dialek kurang tepat? Masukkan maksud sebenar untuk melatih enjin AI NADI:
+                            </p>
+
+                            <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
+                                <span className="text-[9px] text-zinc-500 font-bold uppercase block">Ayat Asal Warga ({feedbackModalAnomaly.detectedDialect || 'Kelantan'}):</span>
+                                <span className="text-xs text-emerald-400 font-medium">"{feedbackModalAnomaly.originalText || feedbackModalAnomaly.title}"</span>
+                            </div>
+
+                            <div className="space-y-1 mb-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[9px] text-zinc-400 font-bold uppercase block">Maksud Sebenar (Opsional):</label>
+                                    <span className="text-[9px] text-purple-400 font-mono font-bold">+10 XP</span>
+                                </div>
+                                <textarea
+                                    value={feedbackCorrectText}
+                                    onChange={(e) => setFeedbackCorrectText(e.target.value)}
+                                    rows={3}
+                                    placeholder="Taip maksud sebenar di sini (opsional)... Cth: Sakit kepala / kelesuan fikiran (kiasan Kelantan)..."
+                                    className="w-full text-xs rounded-xl p-3 bg-zinc-950 border border-zinc-800 text-zinc-200 outline-none focus:border-purple-500 transition-colors"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => handleSendFeedback(false)}
+                                    disabled={!feedbackCorrectText.trim() || isSubmittingFeedback}
+                                    className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-purple-500 transition-all disabled:opacity-50"
+                                >
+                                    {isSubmittingFeedback ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Menghantar Ke Dialect Engine...
+                                        </>
+                                    ) : feedbackSuccessToast ? (
+                                        <>✓ AI Berjaya Di-kemaskini!</>
+                                    ) : (
+                                        <>
+                                            <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI (+10 XP)
+                                        </>
+                                    )}
+                                </button>
+
+                                <button
+                                    onClick={() => handleSendFeedback(true)}
+                                    disabled={isSubmittingFeedback}
+                                    className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all"
+                                >
+                                    Langkau (Cuma Hantar Feedback 👎)
+                                </button>
                             </div>
                         </motion.div>
                     </div>
