@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'motion/react';
+import Link from 'next/link';
 import { useLanguage } from '@/src/context/LanguageContext';
 
 interface Tab {
@@ -110,14 +111,21 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
       </div>
       
       {/* ===== PROFESSIONAL FOOTER ===== */}
-      <div className="mt-auto p-3.5 rounded-2xl border transition-all" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}>
-        <div className="flex items-center justify-between mb-1">
+      <div className="mt-auto p-3.5 rounded-2xl border transition-all space-y-2" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}>
+        <div className="flex items-center justify-between">
           <span className="text-xs font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>NADI</span>
           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>v{pkg.version}</span>
         </div>
         <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
           Platform Digital Komuniti & Respon Warga
         </p>
+        <div className="pt-2 border-t flex items-center justify-between text-[9px] font-semibold text-zinc-400" style={{ borderColor: 'var(--border-default)' }}>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privasi</Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-white transition-colors">Terma</Link>
+          <span>•</span>
+          <Link href="/llms.txt" target="_blank" className="hover:text-white transition-colors">LLMs.txt</Link>
+        </div>
       </div>
     </nav>
   );

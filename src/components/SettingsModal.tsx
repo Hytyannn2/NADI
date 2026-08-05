@@ -1,6 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Globe, Sun, Moon, LogOut, Award, Eye, Monitor, Baseline, Activity, Palette, Clock, Volume2, RefreshCw, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import Link from 'next/link';
+import { X, Globe, Sun, Moon, LogOut, Award, Eye, Monitor, Baseline, Activity, Palette, Clock, Volume2, RefreshCw, LayoutGrid, SlidersHorizontal, ShieldCheck, Scale } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { useTheme, THEMES, FontSize, ColorblindMode, ThemeId, ClockFormat, AutoRefreshRate } from '@/src/context/ThemeContext';
@@ -338,6 +339,16 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
 
             {/* Footer Actions */}
             <div className="p-4 border-t flex flex-col gap-2 shrink-0" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between px-1 py-1 text-[10px] font-semibold text-[#C5A367]">
+                <Link href="/privacy" onClick={onClose} className="hover:underline flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Dasar Privasi
+                </Link>
+                <span className="text-zinc-600">•</span>
+                <Link href="/terms" onClick={onClose} className="hover:underline flex items-center gap-1">
+                  <Scale className="w-3 h-3" /> Terma Perkhidmatan
+                </Link>
+              </div>
+
               <button onClick={() => { onReplayTutorial(); onClose(); }}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-colors"
                 style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
