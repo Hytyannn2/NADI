@@ -371,9 +371,9 @@ export default function BencanaView() {
                             {locationLabel === 'Locating...' ? 'Kelantan, Malaysia' : locationLabel}
                         </span>
                     </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-white">
+                    <h1 className="text-2xl font-bold tracking-tight text-white">
                         {t('bencana.title')}
-                    </h2>
+                    </h1>
                     <p className="text-xs text-zinc-400 mt-0.5">
                         Pantau paras air & cuaca kawasan anda
                     </p>

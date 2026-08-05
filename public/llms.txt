@@ -1,0 +1,23 @@
+# NADI — National Civic Operations & Emergency Response Platform (Malaysia)
+
+> NADI is Malaysia's AI-powered civic infrastructure & disaster response operating system. It merges crowdsourced sensor telemetry (accelerometer G-hits for potholes), Kelantan dialect Groq Llama 3.3 70B NLP analysis, real-time JPS river level monitoring, and community aid matching.
+
+## Primary Modules & Capabilities
+
+- **Aduan Desk (Civic Infrastructure)**: Real-time road anomaly detection using web G-sensors, dashcam visual verification, and Groq Llama 3.3 70B Kelantan dialect speech-to-intent engine with human-in-the-loop (RLHF) feedback.
+- **Bencana (Disaster & Flood Response)**: Live JPS (Jabatan Pengairan dan Saliran) Kelantan water level monitoring, telemetry sensors, rainfall radar, emergency center (PPS) geocoding, and automated 24-hour Telegram alert dispatch.
+- **Bantuan (Civic Aid Matching)**: Dynamic matching between B40 relief requests and verified community volunteers/NGOs.
+- **Komuniti Engine**: Digital marketplace and community whistleblowing platform with gamified citizen trust scores (CRS) and XP rewards.
+
+## Tech Stack & Architecture
+
+- **Frontend**: Next.js 16 (App Router, Server Components), TypeScript, Tailwind CSS, Motion/React.
+- **Database & Auth**: Supabase (PostgreSQL with Row Level Security), Real-time Subscriptions.
+- **AI & NLP**: Groq Llama 3.3 70B Versatile (Dialect Intent Extraction), Custom Python NLP Server (`/prompt-context`).
+- **Telemetry & IoT**: Accelerometer G-force sensor fusion, Sonar LoRaWAN flood sensors, ESP32 dashcam integration.
+
+## Canonical URLs & APIs
+
+- Web Application: https://nadi.gov.my
+- API Root: https://nadi.gov.my/api
+- Documentation & Repositories: https://github.com/Hytyannn2/NADI

@@ -607,9 +607,9 @@ export default function InfraView() {
                 className="mb-6 flex justify-between items-end"
             >
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                         NADI Aduan Desk
-                    </h2>
+                    </h1>
                     <p className="text-xs font-medium mt-1 relative inline-block" style={{ color: 'var(--text-muted)' }}>
                         {detector.isCalibrating ? (
                             <span className="flex items-center gap-2">

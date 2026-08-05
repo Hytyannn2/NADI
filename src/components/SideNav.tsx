@@ -23,11 +23,11 @@ export default function SideNav({ tabs, activeTab, onTabSwitch }: SideNavProps) 
   return (
     <nav className="hidden md:flex flex-col w-64 h-full fixed left-0 top-0 bottom-0 p-4 shrink-0 z-[100] border-r" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
       <div className="mb-8 px-4 mt-2">
-        <h1 className="text-3xl font-black tracking-tighter flex items-center gap-2">
+        <div className="text-3xl font-black tracking-tighter flex items-center gap-2">
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-[var(--accent)] to-blue-500">
             NADI
           </span>
-        </h1>
+        </div>
         <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: 'var(--text-muted)' }}>
           National Dashboard
         </p>
