@@ -11,6 +11,7 @@ import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDe
 import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
+import { speakDialect } from '@/src/lib/speech/speakDialect';
 
 interface AiAnalysis {
     severityScore: number;
@@ -876,9 +877,18 @@ export default function InfraView() {
 
                                         {/* Teks Asal Quote */}
                                         <div>
-                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">
-                                                💬 Teks Asal (Warga)
-                                            </span>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block">
+                                                    💬 Teks Asal (Warga)
+                                                </span>
+                                                <button
+                                                    onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
+                                                    className="flex items-center gap-1 text-[9px] font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95"
+                                                    title="Sintesis Suara AI (Web Speech TTS)"
+                                                >
+                                                    🔊 Dengar Sebutan
+                                                </button>
+                                            </div>
                                             <p className="text-xs text-zinc-100 font-medium italic bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/50">
                                                 "{a.originalText}"
                                             </p>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles, ClipboardList, ShoppingBag } from 'lucide-react';
+import { AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles, ClipboardList, ShoppingBag, Share2 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { useTheme, THEMES, type ThemeId, type FontSize } from '@/src/context/ThemeContext';
 import { useGame } from '@/src/context/GameContext';
+import { generateRankCard } from '@/src/lib/share/generateRankCard';
 
 import { useXP } from '@/src/hooks/useXP';
 import { useGreeting } from '@/src/hooks/useGreeting';
@@ -424,6 +425,25 @@ export default function App() {
 
                   {/* Actions */}
                   <div className="p-5">
+                    <button
+                      onClick={() => {
+                        generateRankCard({
+                          userName,
+                          userEmail,
+                          level,
+                          rank,
+                          xp,
+                          xpToNext,
+                          completedQuests,
+                          badgesCount: badges.filter(b => b.unlocked).length,
+                        });
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl mb-2 transition-all font-bold text-xs bg-gradient-to-r from-[#C5A367]/20 to-blue-500/20 text-[#C5A367] border border-[#C5A367]/40 hover:bg-[#C5A367]/30 active:scale-95"
+                    >
+                      <Share2 className="w-4 h-4 text-[#C5A367]" />
+                      <span>Kongsi Sijil Kad CRS</span>
+                    </button>
+
                     <button onClick={() => { setShowOnboarding(true); setShowProfile(false); }}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors"
                       style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}

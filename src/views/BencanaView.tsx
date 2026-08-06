@@ -1088,8 +1088,13 @@ export default function BencanaView() {
                                             >
                                                 <div className="flex items-start justify-between gap-2 mb-2">
                                                     <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                            <span className={`w-2 h-2 rounded-full shrink-0 ${st.level !== null && st.level >= st.danger ? 'bg-red-500 animate-ping' : st.level !== null && st.level >= st.warning ? 'bg-orange-500 animate-pulse' : st.level !== null && st.level >= st.alert ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                                                            <h4 className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                                                                {st.name}
+                                                            </h4>
+                                                        </div>
                                                         <div className="flex items-center gap-1.5">
-                                                            <h4 className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{st.name}</h4>
                                                             {isTambatan && (
                                                                 <span className="text-[8px] font-bold px-1.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
                                                                     NODE A
