@@ -7,7 +7,7 @@ import { GameProvider } from "@/src/context/GameContext";
 import { FamilyProvider } from "@/src/context/FamilyContext";
 import { GamificationProvider } from "@/src/components/Gamification";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi.gov.my";
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-kelantan.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),

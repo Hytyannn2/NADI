@@ -1,6 +1,7 @@
 export interface RankCardData {
   userName: string;
-  userEmail: string;
+  userEmail?: string;
+  mukimName?: string;
   level: number;
   rank: string;
   xp: number;
@@ -12,12 +13,16 @@ export interface RankCardData {
 export function generateRankCard(data: RankCardData) {
   const cardId = `CRS-RANK-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
+  // PII Protection: Mask email and strictly use display name / mukim area
+  const displayName = data.userName || 'Warga Prihatin NADI';
+  const mukimText = data.mukimName ? `Mukim ${data.mukimName}` : 'Kelantan Civics Node';
+
   const htmlContent = `
 <!DOCTYPE html>
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <title>KAD CRS NADIA - ${data.userName}</title>
+    <title>SIJIL KAD CRS NADI - ${displayName}</title>
     <style>
         @page { size: A5 landscape; margin: 0; }
         body {
@@ -161,10 +166,10 @@ export function generateRankCard(data: RankCardData) {
         </div>
 
         <div class="user-info">
-            <div class="avatar">${data.userName.charAt(0).toUpperCase()}</div>
+            <div class="avatar">${displayName.charAt(0).toUpperCase()}</div>
             <div class="user-details">
-                <h2>${data.userName}</h2>
-                <p>Tahap ${data.level} • Rank: <strong style="color: #C5A367;">${data.rank}</strong></p>
+                <h2>${displayName}</h2>
+                <p>Tahap ${data.level} • Rank: <strong style="color: #C5A367;">${data.rank}</strong> • ${mukimText}</p>
             </div>
         </div>
 

@@ -26,8 +26,28 @@ export interface PdfAnomalyData {
   } | null;
 }
 
+export function generatePayloadHash(ticket: { id: string; status: string; confidenceScore?: number; time?: string }): string {
+  // Deterministic string concatenation for client & server match
+  const payloadString = `${ticket.id}|${ticket.status}|${ticket.confidenceScore || 0}|${ticket.time || ''}`;
+  let hash = 0;
+  for (let i = 0; i < payloadString.length; i++) {
+    const char = payloadString.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16).padStart(8, '0');
+}
+
 export function generateAduanPdf(anomaly: PdfAnomalyData) {
   const ticketId = `NADI-2026-${anomaly.id.slice(-6).toUpperCase()}`;
+  const payloadHash = generatePayloadHash(anomaly);
+
+  // Dynamic Base URL Resolution (works seamlessly on http://localhost:3000 during live demo & in production)
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : 'https://nadi-kelantan.app');
+
+  const verificationUrl = `${baseUrl}/verify/${anomaly.id}?hash=${payloadHash}`;
+
   const nowStr = new Date().toLocaleDateString('ms-MY', {
     weekday: 'long',
     year: 'numeric',
@@ -49,7 +69,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <title>BORANG ADUAN RASMI - ${ticketId}</title>
+    <title>BORANG ADUAN DIGITAL NADI - ${ticketId}</title>
     <style>
         @page { size: A4; margin: 15mm; }
         body {
@@ -87,7 +107,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
             text-align: right;
         }
         .doc-title h1 {
-            font-size: 14px;
+            font-size: 13px;
             margin: 0;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -162,11 +182,11 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border: 2px dashed #D1D5DB;
+            border: 2px dashed #C5A367;
             border-radius: 8px;
             padding: 12px 16px;
             margin-top: 24px;
-            background: #FAFAFA;
+            background: #FFFDF5;
         }
         .signature-grid {
             display: grid;
@@ -204,7 +224,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
             <span class="logo-badge">Sistem Operasi Sivik & Respons Bencana</span>
         </div>
         <div class="doc-title">
-            <h1>Borang Aduan Rasmi PBT</h1>
+            <h1>Borang Aduan Digital (Pencegahan Pemalsuan)</h1>
             <div class="ticket-id">TIKET ID: ${ticketId}</div>
         </div>
     </div>
@@ -246,11 +266,11 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
             </tr>
             <tr>
                 <td style="padding: 4px 0; font-weight: bold;">Anggaran Saiz:</td>
-                <td style="padding: 4px 0;">Lehar: ${anomaly.aiAnalysis.estimatedWidth || '1.2m'} | Kedalaman: ${anomaly.aiAnalysis.estimatedDepth || '0.15m'}</td>
+                <td style="padding: 4px 0;">Lebar: ${anomaly.aiAnalysis.estimatedWidth || '1.2m'} | Kedalaman: ${anomaly.aiAnalysis.estimatedDepth || '0.15m'}</td>
             </tr>
             <tr>
                 <td style="padding: 4px 0; font-weight: bold;">Kaedah Pembaikan Disyorkan:</td>
-                <td style="padding: 4px 0;">${anomaly.aiAnalysis.repairMethod || 'Tampalan Asfalt Panas (Hot-mix asphalt patch)'}</td>
+                <td style="padding: 4px 0;">${anomaly.aiAnalysis.repairMethod || 'Tampalan Asfalt Panas (Hot-mix patch)'}</td>
             </tr>
             <tr>
                 <td style="padding: 4px 0; font-weight: bold;">Anggaran Kos Pembaikan (MYR):</td>
@@ -262,11 +282,11 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
 
     <div class="qr-section">
         <div>
-            <strong style="font-size: 11px; display: block; text-transform: uppercase;">Pengesahan Digital NADI</strong>
-            <span style="font-size: 10px; color: #4B5563;">Dokumen ini dijana secara automatik oleh Enjin Sivik NADI Malaysia. Imbas untuk semakan kesahihan tiket.</span>
+            <strong style="font-size: 11px; display: block; text-transform: uppercase;">Cap Jari Pengesahan Integriti NADI</strong>
+            <span style="font-size: 10px; color: #4B5563;">Imbas QR ini untuk menyemak ketepatan dokumen dengan pangkalan data rasmi NADI. Hash: ${payloadHash}</span>
         </div>
-        <div style="font-family: monospace; font-size: 10px; background: #000; color: #fff; padding: 8px 12px; border-radius: 4px; text-align: center;">
-            [ QR VERIFIED ]<br>${ticketId}
+        <div style="font-family: monospace; font-size: 9px; background: #050507; color: #C5A367; padding: 8px 12px; border-radius: 6px; text-align: center;">
+            [ IMBAS PENGESAHAN ]<br>${ticketId}<br><a href="${verificationUrl}" target="_blank" style="color: #6EE7B7; text-decoration: none;">Semak Pangkalan Data</a>
         </div>
     </div>
 
@@ -280,7 +300,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
     </div>
 
     <div class="footer-note">
-        Dokumen rasmi Platform Operasi Sivik & Respons Bencana Kebangsaan NADI • https://nadi.gov.my
+        Dokumen Pengesahan Integriti NADI Malaysia • ${baseUrl}
     </div>
 
     <script>
