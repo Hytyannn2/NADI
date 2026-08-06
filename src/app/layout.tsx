@@ -32,10 +32,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.jpg", type: "image/jpeg" },
+      { url: "/icon.jpg", type: "image/jpeg" },
     ],
-    apple: "/icon.svg",
+    apple: "/favicon.jpg",
   },
   openGraph: {
     title: "NADI — Sistem Operasi Sivik & Respons Bencana Kebangsaan",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/icon.svg",
+        url: "/favicon.jpg",
         width: 1200,
         height: 630,
         alt: "NADI — National Civic Operations Dashboard Logo",

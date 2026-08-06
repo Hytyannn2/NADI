@@ -385,14 +385,23 @@ export default function BantuanView() {
                 {chatJobName && <VolunteerChat jobName={chatJobName} onClose={() => setChatJobName(null)} />}
             </AnimatePresence>
 
+            {/* === STANDARDIZED HEADER === */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="mb-6"
+                className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
             >
-                <h2 className="text-2xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>{t('bantuan.title')}</h2>
-                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                    {t('bantuan.desc')}{locationName ? ` · ${locationName}` : ''}
-                </p>
+                <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            LIVE 📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : 'Kota Bharu, Kelantan'}
+                        </span>
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-white font-serif">NADI Bantuan & Sukarelawan</h2>
+                    <p className="text-xs font-medium text-zinc-400 mt-0.5">
+                        Program Bantuan Kebajikan & Peluang Sukarelawan · Kelantan
+                    </p>
+                </div>
             </motion.div>
 
             {/* Quick Stats */}
@@ -417,22 +426,27 @@ export default function BantuanView() {
                 </div>
             </motion.div>
 
-            {/* Tab Toggle */}
+            {/* Standardized Tab Toggle */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="flex p-1.5 rounded-2xl mb-6"
-                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
+                className="flex p-1.5 rounded-2xl mb-6 bg-[#0D0D10] border border-zinc-800/80 shadow-xl"
             >
                 <button
                     onClick={() => setActiveTab('programs')}
-                    className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
-                    style={activeTab === 'programs' ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' } : { color: 'var(--text-muted)' }}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${
+                        activeTab === 'programs'
+                            ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
+                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
+                    }`}
                 >{t('bantuan.tab_aid')}</button>
                 <button
                     onClick={() => setActiveTab('volunteer')}
-                    className="flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all"
-                    style={activeTab === 'volunteer' ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' } : { color: 'var(--text-muted)' }}
-                >{t('bantuan.tab_vol')} </button>
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${
+                        activeTab === 'volunteer'
+                            ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
+                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
+                    }`}
+                >{t('bantuan.tab_vol')}</button>
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -538,7 +552,7 @@ export default function BantuanView() {
                                                 onClick={() => setFilterEligStatus(prev => prev === 'eligible' ? 'all' : 'eligible')}
                                                 className="flex items-center gap-3 px-6 py-3.5 rounded-2xl text-base font-extrabold transition-all duration-300 shrink-0 border hover:-translate-y-1 hover:brightness-110 active:scale-95 shadow-md"
                                                 style={filterEligStatus === 'eligible'
-                                                    ? { background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%)', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' }
+                                                    ? { background: '#064E3B', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' }
                                                     : { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
                                                 }
                                             >

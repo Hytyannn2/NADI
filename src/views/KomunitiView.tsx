@@ -171,43 +171,49 @@ export default function KomunitiView() {
 
     return (
         <div className="p-5 max-w-2xl mx-auto">
-            {/* Header */}
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent-muted)' }}>
-                        <Users className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            {/* Standardized Header */}
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            LIVE 📍 Kota Bharu, Kelantan
+                        </span>
                     </div>
-                    <div>
-                        <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>NADI Komuniti</h1>
-                        <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Ekonomi Lokal Kelantan</p>
-                    </div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif">NADI Komuniti</h1>
+                    <p className="text-xs font-medium text-zinc-400 mt-0.5">Ekonomi & Peluang Kerja Lokal Kelantan</p>
                 </div>
 
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-                    style={{ background: 'var(--accent)' }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-black bg-[#C5A367] flex items-center gap-1.5 transition-all shadow-md active:scale-95 hover:brightness-110"
                 >
-                    <Plus className="w-4 h-4" /> {subTab === 'kerja' ? 'Iklan Kerja' : 'Daftar Peniaga'}
+                    <Plus className="w-4 h-4 text-black" /> {subTab === 'kerja' ? 'Iklan Kerja' : 'Daftar Peniaga'}
                 </button>
             </motion.div>
 
-            {/* Sub-tab Switcher */}
+            {/* Standardized Sub-tab Switcher */}
             <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="flex gap-2 mb-5 p-1 rounded-2xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
+                className="flex p-1.5 rounded-2xl mb-6 bg-[#0D0D10] border border-zinc-800/80 shadow-xl"
             >
                 <button
                     onClick={() => { setSubTab('kerja'); setSearchQuery(''); }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                    style={subTab === 'kerja' ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--text-muted)' }}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                        subTab === 'kerja'
+                            ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
+                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
+                    }`}
                 >
                     <Briefcase className="w-4 h-4" />
                     Kerja Bermaruah
                 </button>
                 <button
                     onClick={() => { setSubTab('niaga'); setSearchQuery(''); }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                    style={subTab === 'niaga' ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--text-muted)' }}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                        subTab === 'niaga'
+                            ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
+                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
+                    }`}
                 >
                     <ShoppingBag className="w-4 h-4" />
                     Niaga Lokal

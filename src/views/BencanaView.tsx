@@ -356,7 +356,7 @@ export default function BencanaView() {
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl backdrop-blur-xl relative overflow-hidden border shadow-xl"
                 style={{
-                    background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(9, 9, 11, 0.98) 100%)',
+                    background: '#0D0D10',
                     borderColor: 'rgba(255, 255, 255, 0.1)',
                 }}
             >
@@ -371,7 +371,7 @@ export default function BencanaView() {
                             {locationLabel === 'Locating...' ? 'Kelantan, Malaysia' : locationLabel}
                         </span>
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif">
                         {t('bencana.title')}
                     </h1>
                     <p className="text-xs text-zinc-400 mt-0.5">
@@ -612,9 +612,8 @@ export default function BencanaView() {
                             <span className="hidden sm:inline">{tab.label}</span>
                             <span className="sm:hidden">{tab.key.toUpperCase()}</span>
                             {isActive && (
-                                <motion.div
-                                    layoutId="activeTabGlow"
-                                    className="absolute bottom-1 w-6 h-0.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]"
+                                <div
+                                    className="absolute bottom-1 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]"
                                 />
                             )}
                         </button>

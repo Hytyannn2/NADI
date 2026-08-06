@@ -61,6 +61,29 @@ export default function App() {
 
   // === UI State ===
   const [activeTab, setActiveTab] = useState<TabId>('aduan');
+  const [sidebarWidth, setSidebarWidth] = useState<number>(260);
+  const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(false);
+
+  useEffect(() => {
+    const savedWidth = localStorage.getItem('nadi_sidebar_width');
+    if (savedWidth) {
+      const parsed = parseInt(savedWidth, 10);
+      if (!isNaN(parsed) && parsed >= 70 && parsed <= 420) {
+        setSidebarWidth(parsed);
+      }
+    }
+    const checkDesktop = () => {
+      setIsDesktopLayout(window.innerWidth >= 768);
+    };
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  const handleSidebarWidthChange = (newWidth: number) => {
+    setSidebarWidth(newWidth);
+    localStorage.setItem('nadi_sidebar_width', String(newWidth));
+  };
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -159,10 +182,21 @@ export default function App() {
       <div className="flex-1 w-full h-full relative flex flex-row overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
 
         {/* ===== SIDE NAVIGATION (DESKTOP) ===== */}
-        <SideNav tabs={tabs} activeTab={activeTab} onTabSwitch={handleTabSwitch} />
+        <SideNav
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabSwitch={handleTabSwitch}
+          sidebarWidth={sidebarWidth}
+          onWidthChange={handleSidebarWidthChange}
+        />
 
         {/* ===== RIGHT CONTENT AREA ===== */}
-        <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden md:pl-64">
+        <div
+          className="flex-1 relative flex flex-col min-w-0 overflow-hidden transition-none"
+          style={{
+            paddingLeft: isDesktopLayout ? `${sidebarWidth}px` : 0
+          }}
+        >
 
           {/* ===== HEADER ===== */}
           <header className="px-5 pt-5 pb-4 z-10 border-b shrink-0 flex justify-center" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>

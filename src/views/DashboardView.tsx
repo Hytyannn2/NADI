@@ -158,7 +158,7 @@ export default function DashboardView() {
                 animate={{ opacity: 1, y: 0 }}
                 className="relative rounded-2xl p-5 mb-5 overflow-hidden"
                 style={{
-                    background: `linear-gradient(135deg, ${rank.color}22, ${rank.color}08)`,
+                    background: '#0D0D10',
                     border: `1px solid ${rank.color}33`,
                 }}
             >

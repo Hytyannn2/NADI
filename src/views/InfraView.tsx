@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info, FileText } from 'lucide-react';
+import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info, FileText, Layers, AlertTriangle, ShieldCheck, Image as ImageIcon, Paperclip, X, UploadCloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useGame } from '../context/GameContext';
@@ -96,38 +96,126 @@ export default function InfraView() {
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
 
+    const [attachedPhotoBase64, setAttachedPhotoBase64] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const photoFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Desktop OS detection (Drag & Drop only applies to laptop/PC)
+    const isDesktop = typeof window !== 'undefined' && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        setAttachedPhotoBase64(event.target?.result as string);
+                    };
+                    reader.readAsDataURL(blob);
+                    e.preventDefault();
+                    break;
+                }
+            }
+        }
+    };
+
+    const handleAttachedPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setAttachedPhotoBase64(event.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        if (!isDesktop) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        if (!isDesktop) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        if (!isDesktop) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const file = e.dataTransfer?.files?.[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setAttachedPhotoBase64(event.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSendAduan = async () => {
         const textToProcess = manualDescription.trim();
-        if (!textToProcess || isParsingVoice) return;
+        const photoToProcess = attachedPhotoBase64;
+        if ((!textToProcess && !photoToProcess) || isParsingVoice) return;
 
         setIsParsingVoice(true);
         let resData: any = null;
+        let visionAnalysis: any = null;
 
         try {
-            const res = await fetch('/api/suara/parse', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    inputText: textToProcess,
-                    targetLanguage: 'ms',
-                    dialectRegion: 'kelantan'
-                })
-            });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.success && json.data) {
-                    resData = json.data;
+            if (textToProcess) {
+                const res = await fetch('/api/suara/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        inputText: textToProcess,
+                        targetLanguage: 'ms',
+                        dialectRegion: 'kelantan'
+                    })
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.success && json.data) resData = json.data;
+                }
+            }
+
+            if (photoToProcess) {
+                const cleanBase64 = photoToProcess.split(',')[1] || photoToProcess;
+                const vRes = await fetch('/api/infra/vision', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageBase64: cleanBase64,
+                        lat: resData?.coordinates?.lat || 6.0833,
+                        lng: resData?.coordinates?.lng || 102.2500,
+                        zDropped: 0
+                    })
+                });
+                if (vRes.ok) {
+                    const vJson = await vRes.json();
+                    if (vJson.success && vJson.analysis) visionAnalysis = vJson.analysis;
                 }
             }
         } catch (err) {
-            console.warn('Suara AI parse notice:', err);
+            console.warn('Aduan AI parse notice:', err);
         } finally {
             setIsParsingVoice(false);
         }
 
-        const intent = resData?.intent || 'Aduan Infrastruktur';
+        const intent = visionAnalysis?.damageType || resData?.intent || 'Aduan Gambar / Infrastruktur';
         const locName = resData?.location || 'Kota Bharu';
-        const translation = resData?.simplifiedTranslation || textToProcess;
+        const translation = resData?.simplifiedTranslation || textToProcess || visionAnalysis?.damageType || 'Aduan Gambar';
         const dialect = resData?.detectedDialect || 'kelantan';
         const urgency = (resData?.urgency || 'Medium') as 'Low' | 'Medium' | 'High';
         const intendedMeaning = resData?.userIntendedMeaning || translation;
@@ -141,11 +229,11 @@ export default function InfraView() {
             lng: resData?.coordinates?.lng || 102.2500,
             zDropped: 0,
             verifications: 1,
-            status: 'pending',
+            status: photoToProcess ? 'verified' : 'pending',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             title: `${intent} @ ${locName}`,
-            source: 'voice',
-            originalText: textToProcess,
+            source: photoToProcess ? 'dashcam' : 'voice',
+            originalText: textToProcess || 'Aduan bergambar',
             translatedText: translation,
             userIntendedMeaning: intendedMeaning,
             locationName: locName,
@@ -153,7 +241,20 @@ export default function InfraView() {
             detectedDialect: dialect,
             dialectWords: resData?.dialectWords || [],
             confidenceScore: parsedConfidence,
-            aiAnalysis: {
+            photoBase64: photoToProcess || undefined,
+            aiAnalysis: visionAnalysis ? {
+                severityScore: visionAnalysis.severityScore || (urgency === 'High' ? 4 : 3),
+                severityLabel: visionAnalysis.damageType || `Aduan Gambar ${dialect.toUpperCase()}`,
+                damageType: visionAnalysis.damageType || intent,
+                estimatedWidth: visionAnalysis.estimatedWidth || '—',
+                estimatedDepth: visionAnalysis.estimatedDepth || '—',
+                repairMethod: visionAnalysis.recommendedAction || 'Penilaian & Tindakan PBT',
+                repairCostMYR: 'Mengikut Skop Kerosakan',
+                priorityScore: visionAnalysis.priorityScore || 75,
+                riskAssessment: visionAnalysis.riskAssessment || intendedMeaning,
+                nearestRoadType: locName,
+                recommendedAction: visionAnalysis.recommendedAction || 'Penugasan Skuad Tapak'
+            } : {
                 severityScore: urgency === 'High' ? 4 : urgency === 'Medium' ? 3 : 2,
                 severityLabel: `Aduan Dialek ${dialect.toUpperCase()}`,
                 damageType: intent,
@@ -170,8 +271,9 @@ export default function InfraView() {
 
         setAnomalies(prev => [newA, ...prev]);
         setManualDescription('');
+        setAttachedPhotoBase64(null);
         incrementStat('reports');
-        addXp(25);
+        addXp(30);
 
         try {
             const deviceFp = getDeviceFingerprint();
@@ -181,8 +283,9 @@ export default function InfraView() {
                 z_dropped: 0,
                 confidence_score: parsedConfidence,
                 device_fingerprint: deviceFp,
-                status: 'pending',
+                status: newA.status,
                 ai_analysis: newA.aiAnalysis,
+                photo_url: photoToProcess || null,
             });
         } catch (dbErr) {
             console.warn('DB insert error:', dbErr);
@@ -609,53 +712,116 @@ export default function InfraView() {
                 className="mb-6 flex justify-between items-end"
             >
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                        NADI Aduan Desk
+                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif flex items-center gap-2">
+                        Pengesahan & Aduan Jalan
                     </h1>
                     <p className="text-xs font-medium mt-1 relative inline-block" style={{ color: 'var(--text-muted)' }}>
                         {detector.isCalibrating ? (
                             <span className="flex items-center gap-2">
                                 <Gauge className="w-3 h-3 text-[#C5A367] animate-pulse" />
-                                Calibrating sensors...
+                                Membaca sensor peranti...
                             </span>
                         ) : (
                             <>
-                                Unified Civic Infrastructure Reporting & Pothole Suite
+                                Sama-sama jaga keselamatan dan keselesaan jalan kita
                                 <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
                             </>
                         )}
                     </p>
                 </div>
-                {/* Dashcam Toggle — always available so user can enable before driving */}
+                {/* Upgraded High-Tech Camera Button */}
                 <button
                     onClick={handleToggleDashcam}
-                    className={`shrink-0 px-3 py-3 flex items-center justify-center gap-1.5 rounded-xl transition-all text-xs font-bold border focus:outline-none active:scale-95 ${dashcam.isDashcamEnabled ? 'bg-red-50 text-red-600 border-red-200' : ''}`}
-                    style={!dashcam.isDashcamEnabled ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : {}}
+                    className={`shrink-0 px-4 py-2.5 flex items-center justify-center gap-2 rounded-xl transition-all text-xs font-bold border shadow-lg focus:outline-none active:scale-95 ${
+                        dashcam.isDashcamEnabled
+                            ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/10'
+                            : 'bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-[#C5A367]/40'
+                    }`}
                 >
-                    {dashcam.isDashcamEnabled ? <Video className="w-4 h-4 text-red-500" /> : <VideoOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />}
-                    {dashcam.isDashcamEnabled ? '' : 'Cam'}
+                    {dashcam.isDashcamEnabled ? (
+                        <>
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                            <Video className="w-4 h-4 text-red-400" />
+                            <span>Kamera AR REC</span>
+                        </>
+                    ) : (
+                        <>
+                            <Video className="w-4 h-4 text-[#C5A367]" />
+                            <span>Kamera AR HUD</span>
+                        </>
+                    )}
                 </button>
             </motion.div>
 
-            {/* === AMBIENT VOICE ADUAN INPUT BOX === */}
+            {/* === AMBIENT VOICE & PHOTO ADUAN INPUT BOX (Supports Upload, Paste & PC Drag-and-Drop) === */}
+            <input
+                type="file"
+                accept="image/*"
+                ref={photoFileInputRef}
+                className="hidden"
+                onChange={handleAttachedPhotoSelect}
+            />
+
             <motion.div
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-[#0D0D10] via-[#121217] to-[#0D0D10] border border-zinc-800/80 shadow-2xl relative overflow-hidden"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onPaste={handlePaste}
+                className={`mb-6 p-4 rounded-2xl bg-[#0D0D10] border transition-all shadow-2xl relative overflow-hidden ${
+                    isDragging ? 'border-[#C5A367] bg-[#C5A367]/10 ring-2 ring-[#C5A367]/30' : 'border-zinc-800/80'
+                }`}
             >
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#C5A367]">
-                        <Sparkles className="w-3.5 h-3.5 text-[#C5A367]" /> Buat Aduan Suara / Teks
+                        <Sparkles className="w-3.5 h-3.5 text-[#C5A367]" /> Hantar Aduan Ringkas & Gambar
                     </span>
                     <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Dialek Kelantan Tuned
+                        Sokong Dialek · Gambar (Muat Naik, Tampal {isDesktop ? '& Drag & Drop' : ''})
                     </span>
                 </div>
+
+                {/* Desktop Drag & Drop Overlay Indicator */}
+                {isDragging && (
+                    <div className="mb-3 p-3 rounded-xl bg-[#C5A367]/20 border border-dashed border-[#C5A367] text-center flex items-center justify-center gap-2 text-xs font-bold text-[#C5A367] animate-pulse">
+                        <UploadCloud className="w-4 h-4" />
+                        <span>Lepaskan gambar di sini untuk memuat naik!</span>
+                    </div>
+                )}
+
+                {/* Attached Photo Thumbnail Preview */}
+                {attachedPhotoBase64 && (
+                    <div className="mb-3 p-2 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <img src={attachedPhotoBase64} alt="Lampiran Gambar" className="w-12 h-12 object-cover rounded-lg border border-zinc-800" />
+                            <div>
+                                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <ImageIcon className="w-3.5 h-3.5 text-[#C5A367]" /> Gambar Dilampirkan
+                                </p>
+                                <p className="text-[10px] text-zinc-400">Sedia dihantar untuk analisis Vision AI</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setAttachedPhotoBase64(null)}
+                            className="w-7 h-7 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center transition-all shrink-0"
+                            title="Padam Gambar"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex items-center gap-2">
                     <input
                         type="text"
                         value={manualDescription}
                         onChange={(e) => setManualDescription(e.target.value)}
-                        placeholder="Cakap atau taip aduan (cth: Pothole dalam dekat Hospital Kubang Kerian)..."
+                        placeholder={
+                            isDesktop
+                                ? "Cakap, taip aduan, tampal (Ctrl+V) atau seret gambar ke sini..."
+                                : "Cakap, taip aduan atau muat naik gambar jalan..."
+                        }
                         className="flex-1 text-xs rounded-xl px-4 py-3 bg-[#050507] border border-zinc-800/80 text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#C5A367]/50 transition-all"
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -664,14 +830,30 @@ export default function InfraView() {
                         }}
                         disabled={isParsingVoice}
                     />
+
+                    {/* Photo Upload Icon Button */}
+                    <button
+                        type="button"
+                        onClick={() => photoFileInputRef.current?.click()}
+                        className={`p-3 rounded-xl border transition-all text-xs font-bold flex items-center justify-center shrink-0 active:scale-95 ${
+                            attachedPhotoBase64
+                                ? 'bg-[#C5A367]/20 border-[#C5A367] text-[#C5A367]'
+                                : 'bg-[#050507] border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                        }`}
+                        title={isDesktop ? "Muat Naik, Tampal (Paste) atau Tarik & Lepas Gambar" : "Muat Naik Gambar"}
+                    >
+                        <ImageIcon className="w-4 h-4" />
+                    </button>
+
                     <GlobalVoiceMic
                         onTranscript={(text) => setManualDescription(prev => (prev ? `${prev} ${text}` : text))}
                         size="md"
                     />
+
                     <button
                         onClick={handleSendAduan}
-                        disabled={!manualDescription.trim() || isParsingVoice}
-                        className="px-5 py-3 rounded-xl text-xs font-bold text-black bg-gradient-to-r from-[#C5A367] to-[#E5C387] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md active:scale-95 shrink-0"
+                        disabled={(!manualDescription.trim() && !attachedPhotoBase64) || isParsingVoice}
+                        className="px-5 py-3 rounded-xl text-xs font-bold text-black bg-[#C5A367] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md active:scale-95 shrink-0"
                     >
                         {isParsingVoice ? (
                             <>
@@ -738,13 +920,13 @@ export default function InfraView() {
                 className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6"
             >
                 {/* Card 1 */}
-                <div className="bg-gradient-to-br from-[#0c1c14] to-[#050B08] p-4 rounded-2xl border border-emerald-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
+                <div className="bg-[#0D0D10] p-4 rounded-2xl border border-emerald-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/90 block mb-1">
                             Lubang Dikesan
                         </span>
                         <div className="text-2xl font-black text-white font-mono tracking-tight">{totalPotholes}</div>
-                        <span className="text-[9px] text-zinc-500 font-medium">Sensori & Visual Akselerometer</span>
+                        <span className="text-[9px] text-zinc-400 font-medium">Dikesan automatik semasa memandu</span>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                         <Activity className="w-5 h-5" />
@@ -752,13 +934,13 @@ export default function InfraView() {
                 </div>
 
                 {/* Card 2 */}
-                <div className="bg-gradient-to-br from-[#1c170c] to-[#0B0905] p-4 rounded-2xl border border-[#C5A367]/30 shadow-lg relative overflow-hidden flex items-center justify-between">
+                <div className="bg-[#0D0D10] p-4 rounded-2xl border border-[#C5A367]/30 shadow-lg relative overflow-hidden flex items-center justify-between">
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A367] block mb-1">
                             Aduan Suara Warga
                         </span>
                         <div className="text-2xl font-black text-white font-mono tracking-tight">{totalCivic}</div>
-                        <span className="text-[9px] text-zinc-500 font-medium">Analisis Suara & Dialek</span>
+                        <span className="text-[9px] text-zinc-400 font-medium">Dihantar menerusi rakaman suara</span>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-[#C5A367]/10 border border-[#C5A367]/20 flex items-center justify-center text-[#C5A367]">
                         <Mic className="w-5 h-5" />
@@ -766,7 +948,7 @@ export default function InfraView() {
                 </div>
 
                 {/* Card 3 */}
-                <div className="bg-gradient-to-br from-[#10121c] to-[#05060B] p-4 rounded-2xl border border-purple-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
+                <div className="bg-[#0D0D10] p-4 rounded-2xl border border-purple-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 block mb-1">
                             Disahkan Rakyat
@@ -774,7 +956,7 @@ export default function InfraView() {
                         <div className="text-2xl font-black text-white font-mono tracking-tight flex items-baseline gap-1">
                             {totalVerified} <span className="text-xs font-mono font-medium text-purple-300">({avgConfidence}%)</span>
                         </div>
-                        <span className="text-[9px] text-zinc-500 font-medium">Pengesahan Komuniti</span>
+                        <span className="text-[9px] text-zinc-400 font-medium">Disahkan komuniti tempatan</span>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                         <Shield className="w-5 h-5" />
@@ -810,7 +992,7 @@ export default function InfraView() {
                             <motion.div
                                 key={a.id}
                                 initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.05 }}
-                                className="bg-gradient-to-b from-[#0F0F13] to-[#0A0A0C] border border-zinc-800/90 rounded-3xl p-5 shadow-2xl space-y-4 hover:border-zinc-700/80 transition-all"
+                                className="bg-[#0D0D10] border border-zinc-800/90 rounded-3xl p-5 shadow-2xl space-y-4 hover:border-zinc-700/80 transition-all"
                             >
                                 {/* 1. Header Row */}
                                 <div className="flex items-start justify-between gap-3">
@@ -1097,10 +1279,65 @@ export default function InfraView() {
                         );
                         })}
                     </AnimatePresence>
-                    {anomalies.length === 0 && (
-                        <div className="text-center py-12 text-zinc-400 border border-dashed border-zinc-800 rounded-3xl text-sm font-bold uppercase tracking-widest">
-                            No potholes detected yet
-                        </div>
+                    {filteredAnomalies.length === 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-center py-12 px-6 bg-[#0D0D10] border border-dashed border-zinc-800/90 rounded-3xl space-y-5 shadow-2xl relative overflow-hidden my-4"
+                        >
+                            {/* Ambient Glow */}
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#C5A367]/5 blur-3xl rounded-full pointer-events-none" />
+
+                            {/* Icon Badge & Contextual Malay Microcopy */}
+                            <div className="relative z-10 flex flex-col items-center space-y-3">
+                                <div className="w-14 h-14 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center shadow-xl">
+                                    {filter === 'potholes' ? (
+                                        <AlertTriangle className="w-7 h-7 text-amber-400" />
+                                    ) : filter === 'civic' ? (
+                                        <Mic className="w-7 h-7 text-purple-400" />
+                                    ) : filter === 'verified' ? (
+                                        <ShieldCheck className="w-7 h-7 text-emerald-400" />
+                                    ) : (
+                                        <Layers className="w-7 h-7 text-[#C5A367]" />
+                                    )}
+                                </div>
+
+                                <h4 className="font-serif text-lg font-bold text-white tracking-tight">
+                                    {filter === 'potholes'
+                                        ? 'Tiada Kerosakan Jalan Dikesan'
+                                        : filter === 'civic'
+                                        ? 'Belum Ada Aduan Suara Warga'
+                                        : filter === 'verified'
+                                        ? 'Belum Ada Laporan Disahkan'
+                                        : 'Jom Bantu Jaga Jalan Kita!'}
+                                </h4>
+
+                                <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed font-medium">
+                                    {filter === 'potholes'
+                                        ? 'Sistem sedia mengesan lubang jalan secara automatik. Tekan butang di bawah untuk membuka kamera atau aktifkan sensor peranti semasa memandu.'
+                                        : filter === 'civic'
+                                        ? 'Sampaikan sebarang masalah kawasan anda menerusi rakaman suara ringkas atau taipan di ruangan atas.'
+                                        : filter === 'verified'
+                                        ? 'Laporan yang disahkan oleh komuniti tempatan dan AI akan dipaparkan di sini untuk tindakan lanjut.'
+                                        : 'Belum ada laporan lagi di kawasan ini. Anda boleh terus hantar aduan pertama atau aktifkan pengesanan automatik semasa memandu.'}
+                                </p>
+                            </div>
+
+                            <div className="relative z-10 pt-2 flex flex-col items-center gap-3">
+                                <button
+                                    onClick={handleToggleDashcam}
+                                    className="px-5 py-3 rounded-2xl text-xs font-bold text-black bg-[#C5A367] hover:brightness-110 flex items-center gap-2 transition-all shadow-xl active:scale-95"
+                                >
+                                    <Video className="w-4 h-4 text-black" />
+                                    <span>Buka Kamera Dashcam & AR HUD</span>
+                                </button>
+
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-semibold">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Sensor Fusion Inersia: Sentiasa Aktif (Always-On)</span>
+                                </div>
+                            </div>
+                        </motion.div>
                     )}
                 </div>
             </div>

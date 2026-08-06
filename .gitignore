@@ -53,3 +53,17 @@ dialect-engine/__pycache__/
 # Secrets / Credentials (NEVER commit these)
 secrets.h
 
+# Media & Image Assets
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.ico
+*.mp4
+*.webm
+*.mov
+!public/icon.svg
+!public/globe.svg
+!public/file.svg
+!public/window.svg
