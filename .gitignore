@@ -53,17 +53,14 @@ dialect-engine/__pycache__/
 # Secrets / Credentials (NEVER commit these)
 secrets.h
 
-# Media & Image Assets
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.gif
-*.ico
+# Media & Heavy User Assets (Ignore raw/temp uploads, keep public web assets)
 *.mp4
 *.webm
 *.mov
-!public/icon.svg
-!public/globe.svg
-!public/file.svg
-!public/window.svg
+*.psd
+*.ai
+
+# Ensure public UI brand assets & favicons ARE tracked by Git
+!public/**
+!src/app/icon.jpg
+!src/app/icon.png
