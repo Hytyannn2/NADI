@@ -1,449 +1,301 @@
 'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// ============================================
-// NADI Pothole Detector — Sensor Fusion Engine
-// ============================================
-// Uses 4 filters + gravity calibration to eliminate false positives:
-//   1. Speed Gate (10-120 km/h from GPS)
-//   2. Waveform Signature (duration-based pothole vs speedbump)
-//   3. Gyroscope Stability (rejects phone drops/tumbles)
-//   4. Debounce (3s cooldown prevents duplicate reports)
-//
-// Also performs 3-second gravity baseline calibration on start
-// to handle phones mounted at any angle.
-// ============================================
-
-export interface PotholeDetection {
-    id: string;
-    lat: number;
-    lng: number;
-    zDrop: number;
-    speedKmh: number;
-    gyroMaxRotation: number;
-    waveformDurationMs: number;
-    confidenceScore: number;
-    timestamp: number;
+export interface SensorAnomalyEvent {
+  id: string;
+  timestamp: number;
+  latitude: number;
+  longitude: number;
+  lat: number;
+  lng: number;
+  speedKmh: number;
+  magnitudeG: number;
+  zDropRatio: number;
+  zDrop: number;
+  durationMs: number;
+  waveformDurationMs: number;
+  gyroMaxRotationDegSec: number;
+  gyroMaxRotation: number;
+  confidenceScore: number;
+  locationLabel?: string;
 }
 
-interface CalibrationState {
-    isCalibrating: boolean;
-    progress: number; // 0-100
-    baselineZ: number;
-    samples: number[];
+export type PotholeDetection = SensorAnomalyEvent;
+
+export interface UsePotholeDetectorOptions {
+  onAnomalyDetected?: (event: SensorAnomalyEvent) => void;
+  enabled?: boolean;
 }
 
-interface UsePotholeDetectorReturn {
-    isActive: boolean;
-    isCalibrating: boolean;
-    calibrationProgress: number;
-    currentSpeed: number;
-    lastDetection: PotholeDetection | null;
-    detectionCount: number;
-    startDriving: () => void;
-    stopDriving: () => void;
-    motionError: string | null;
-    userLat: number;
-    userLng: number;
-}
+// =============================================================================
+// ENGINEERING CONSTANTS
+// =============================================================================
+const SPEED_MIN_KMH = 10;            // Layer 1: Rejects walking/traffic crawl
+const SPEED_MAX_KMH = 120;           // Layer 1: Highway max limit
+const GRAVITY_LPF_ALPHA = 0.8;       // Layer 2: Low-pass filter constant for gravity
+const MAGNITUDE_THRESHOLD = 2.5;     // Layer 3: g-force spike threshold
+const POTHOLE_MAX_DURATION_MS = 250; // Layer 3: Pothole impact completes in < 250ms
+const SPEEDBUMP_MIN_DURATION_MS = 280; // Layer 3: Speedbump wave duration
+const GYRO_MAX_ROTATION_DEG = 150;   // Layer 4: deg/s (above this = phone drop)
+const DEBOUNCE_COOLDOWN_MS = 5000;   // Layer 5: 5-second cooldown between reports
+const CONFIDENCE_MIN_THRESHOLD = 70; // Layer 5: Required minimum confidence score
+const MAX_GPS_ACCURACY_METERS = 25;  // Layer 0: Max allowed GPS uncertainty
 
-// --- Config ---
-const SPEED_MIN_KMH = 10;
-const SPEED_MAX_KMH = 120;
-const MAGNITUDE_THRESHOLD = 4.5;          // g-force threshold (4.5g eliminates engine vibration & minor bumps)
-const WAVEFORM_BUFFER_MS = 500;         // rolling buffer window
-const POTHOLE_MAX_DURATION_MS = 250;    // pothole waveform completes in <250ms
-const GYRO_MAX_ROTATION = 150;          // deg/s — above this = phone tumbling
-const DEBOUNCE_MS = 5000;               // 5 second cooldown between detections
-const CALIBRATION_DURATION_MS = 3000;   // 3 seconds of baseline sampling
-const CALIBRATION_SAMPLE_RATE = 50;     // sample every ~50ms during calibration
-const CONFIDENCE_THRESHOLD = 70;        // minimum confidence to report (increased to 70 for precision)
+export function usePotholeDetector({
+  onAnomalyDetected,
+  enabled = true,
+}: UsePotholeDetectorOptions = {}) {
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [potholeCount, setPotholeCount] = useState(0);
+  const [lastAnomaly, setLastAnomaly] = useState<SensorAnomalyEvent | null>(null);
 
-// Confidence scoring weights
-const SCORE_SPEED = 25;
-const SCORE_WAVEFORM = 30;
-const SCORE_GYRO = 25;
-const SCORE_MAGNITUDE = 20;
+  // Dynamic Gravity Vector Baseline Tracker (Layer 2 - Earth Frame Isolation)
+  const gravityRef = useRef({ x: 0, y: 0, z: 9.81 });
 
-export function usePotholeDetector(): UsePotholeDetectorReturn {
-    const [isActive, setIsActive] = useState(false);
-    const [currentSpeed, setCurrentSpeed] = useState(0);
-    const [lastDetection, setLastDetection] = useState<PotholeDetection | null>(null);
-    const [detectionCount, setDetectionCount] = useState(0);
-    const [motionError, setMotionError] = useState<string | null>(null);
-    const [userLat, setUserLat] = useState(0);
-    const [userLng, setUserLng] = useState(0);
-    const [calibration, setCalibration] = useState<CalibrationState>({
-        isCalibrating: false,
-        progress: 0,
-        baselineZ: 9.8, // default gravity
-        samples: [],
-    });
+  // Tracking impact duration (Layer 3)
+  const impactStartTimeRef = useRef<number | null>(null);
+  const peakMagnitudeRef = useRef<number>(0);
+  const peakGyroRef = useRef<number>(0);
+  const peakZDropRef = useRef<number>(0);
+  const lastDetectionTimeRef = useRef<number>(0);
 
-    // Refs for values that change rapidly (avoid stale closures)
-    const speedRef = useRef(0);
-    const latRef = useRef(0);
-    const lngRef = useRef(0);
-    const baselineZRef = useRef(9.8);
-    const lastDetectionTimeRef = useRef(0);
-    const isActiveRef = useRef(false);
-    const isCalibratingRef = useRef(false);
-    const calibrationSamplesRef = useRef<number[]>([]);
-    const calibrationStartRef = useRef(0);
+  // GPS Velocity & Accuracy Tracking (Layer 0 & Layer 1)
+  const gpsSpeedKmhRef = useRef<number>(0);
+  const gpsAccuracyRef = useRef<number>(0);
+  const gpsCoordsRef = useRef<{ lat: number; lng: number }>({ lat: 6.1251, lng: 102.2345 });
 
-    // Rolling waveform buffer: { timestamp, value }
-    const waveformBufferRef = useRef<{ t: number; val: number }[]>([]);
+  // 1. GPS Velocity & Location Listener
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined' || !('geolocation' in navigator)) return;
 
-    // Track the latest gyroscope rotation rates
-    const gyroRef = useRef({ alpha: 0, beta: 0, gamma: 0 });
-    
-    // Low-Pass Filter (LPF) Gravity Tracker
-    const gravityRef = useRef({ x: 0, y: 0, z: 9.8 });
-    const ALPHA = 0.8;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const rawSpeedMps = position.coords.speed ?? 0;
+        const currentSpeedKmh = rawSpeedMps * 3.6;
+        
+        gpsAccuracyRef.current = position.coords.accuracy ?? 0;
+        
+        // Exponential Moving Average (EMA) for GPS speed smoothing
+        gpsSpeedKmhRef.current = (gpsSpeedKmhRef.current * 0.6) + (currentSpeedKmh * 0.4);
+        gpsCoordsRef.current = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+      },
+      (err) => console.warn('INFRA Geolocation Speed Error:', err.message),
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 }
+    );
 
-    // Detection callback — will be set by the consumer
-    const onDetectionRef = useRef<((detection: PotholeDetection) => void) | null>(null);
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [enabled]);
 
-    // GPS speed calculation from position deltas
-    const lastPosRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  // 2. Motion Sensor Fusion Event Handler
+  const handleDeviceMotion = useCallback(
+    (event: DeviceMotionEvent) => {
+      const now = performance.now();
+      const currentSpeed = gpsSpeedKmhRef.current;
+      const gpsAccuracy = gpsAccuracyRef.current;
 
-    const calculateSpeed = useCallback((lat: number, lng: number) => {
-        const now = Date.now();
-        const last = lastPosRef.current;
-        if (last) {
-            const dt = (now - last.time) / 1000; // seconds
-            if (dt > 0.5 && dt < 10) { // reasonable time delta
-                const dLat = lat - last.lat;
-                const dLng = lng - last.lng;
-                // Haversine approximation for short distances
-                const R = 6371000; // Earth radius in meters
-                const dLatRad = dLat * (Math.PI / 180);
-                const dLngRad = dLng * (Math.PI / 180);
-                const a = Math.sin(dLatRad / 2) ** 2 +
-                    Math.cos(last.lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
-                    Math.sin(dLngRad / 2) ** 2;
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                const distMeters = R * c;
-                const speedMs = distMeters / dt;
-                const speedKmh = speedMs * 3.6;
-                // Smooth the speed reading (exponential moving average)
-                const smoothed = speedRef.current * 0.6 + speedKmh * 0.4;
-                speedRef.current = smoothed;
-                setCurrentSpeed(Math.round(smoothed));
-            }
-        }
-        lastPosRef.current = { lat, lng, time: now };
-    }, []);
+      // =========================================================================
+      // LAYER 0: GPS ACCURACY GATE (Rejects scattered GPS signals > 25m)
+      // =========================================================================
+      if (gpsAccuracy > MAX_GPS_ACCURACY_METERS && gpsAccuracy !== 0) {
+        impactStartTimeRef.current = null;
+        return;
+      }
 
-    // Calculate confidence score for a detection
-    const calculateConfidence = useCallback((
-        speedKmh: number,
-        waveformDurationMs: number,
-        gyroMaxRotation: number,
-        impactMagnitude: number,
-    ): number => {
-        let score = 0;
+      // =========================================================================
+      // LAYER 1: GPS SPEED GATE
+      // Rejects stationary movements, traffic crawl, or extreme highway noise
+      // =========================================================================
+      if (currentSpeed < SPEED_MIN_KMH || currentSpeed > SPEED_MAX_KMH) {
+        impactStartTimeRef.current = null;
+        return;
+      }
 
-        // Speed within valid range: +25
-        if (speedKmh >= SPEED_MIN_KMH && speedKmh <= SPEED_MAX_KMH) {
-            score += SCORE_SPEED;
-        } else if (speedKmh >= 5) {
-            score += SCORE_SPEED * 0.5; // partial credit for slow but moving
-        }
+      const acc = event.accelerationIncludingGravity || event.acceleration;
+      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
 
-        // Waveform signature matches pothole: +30
-        if (waveformDurationMs > 0 && waveformDurationMs <= POTHOLE_MAX_DURATION_MS) {
-            // Shorter, sharper = higher confidence
-            const waveformRatio = 1 - (waveformDurationMs / POTHOLE_MAX_DURATION_MS);
-            score += SCORE_WAVEFORM * (0.5 + waveformRatio * 0.5);
-        } else if (waveformDurationMs > POTHOLE_MAX_DURATION_MS && waveformDurationMs < 400) {
-            score += SCORE_WAVEFORM * 0.3; // partial — could be a rough patch
-        }
+      const rawX = acc.x;
+      const rawY = acc.y;
+      const rawZ = acc.z;
 
-        // Gyroscope stable (phone not tumbling): +25
-        if (gyroMaxRotation < GYRO_MAX_ROTATION * 0.5) {
-            score += SCORE_GYRO; // very stable
-        } else if (gyroMaxRotation < GYRO_MAX_ROTATION) {
-            score += SCORE_GYRO * 0.6; // somewhat stable
-        }
-        // if > threshold, no points (likely phone drop)
+      // =========================================================================
+      // LAYER 2: LPF DYNAMIC GRAVITY BASELINE TRACKER (EARTH FRAME ISOLATION)
+      // Eliminates phone mounting tilt (45 deg dashboard vs horizontal)
+      // =========================================================================
+      const g = gravityRef.current;
+      g.x = GRAVITY_LPF_ALPHA * g.x + (1 - GRAVITY_LPF_ALPHA) * rawX;
+      g.y = GRAVITY_LPF_ALPHA * g.y + (1 - GRAVITY_LPF_ALPHA) * rawY;
+      g.z = GRAVITY_LPF_ALPHA * g.z + (1 - GRAVITY_LPF_ALPHA) * rawZ;
 
-        // Impact magnitude: +20 (scaled)
-        if (impactMagnitude >= 6) {
-            score += SCORE_MAGNITUDE; // very severe
-        } else if (impactMagnitude >= 4) {
-            score += SCORE_MAGNITUDE * 0.8;
-        } else if (impactMagnitude >= 3) {
-            score += SCORE_MAGNITUDE * 0.5;
+      // Subtract isolated gravity vector to calculate pure Linear Acceleration
+      const linX = rawX - g.x;
+      const linY = rawY - g.y;
+      const linZ = rawZ - g.z;
+
+      // Calculate orientation-independent magnitude in g-force (1g = 9.81 m/s²)
+      const linearMagnitudeMps2 = Math.sqrt(linX ** 2 + linY ** 2 + linZ ** 2);
+      const magnitudeG = linearMagnitudeMps2 / 9.81;
+
+      // Z-Axis Spike Ratio metric (Vertical displacement magnitude relative to baseline)
+      const zDropRatio = Math.abs(linZ) / (Math.abs(g.z) || 9.81);
+
+      // =========================================================================
+      // LAYER 4: GYROSCOPE TUMBLE REJECTION & UNIT NORMALIZATION
+      // Checks for phone drop/tumble in car (> 150 deg/s)
+      // =========================================================================
+      let gyroMaxDegSec = 0;
+      if (event.rotationRate) {
+        let rotAlpha = Math.abs(event.rotationRate.alpha ?? 0);
+        let rotBeta = Math.abs(event.rotationRate.beta ?? 0);
+        let rotGamma = Math.abs(event.rotationRate.gamma ?? 0);
+
+        // HARDWARE NORMALIZATION: iOS Safari rad/s -> deg/s conversion check
+        const rawMax = Math.max(rotAlpha, rotBeta, rotGamma);
+        if (rawMax < 12.0 && rawMax > 0) {
+          // Input is in radians per second -> convert to degrees per second
+          rotAlpha *= 180 / Math.PI;
+          rotBeta *= 180 / Math.PI;
+          rotGamma *= 180 / Math.PI;
         }
 
-        return Math.round(Math.min(100, score));
-    }, []);
+        gyroMaxDegSec = Math.max(rotAlpha, rotBeta, rotGamma);
+      }
 
-    // Analyze waveform buffer to determine pothole vs speedbump vs rumble strip
-    const analyzeWaveform = useCallback((): { isPothole: boolean; durationMs: number; isRumbleStrip: boolean } => {
-        const buffer = waveformBufferRef.current;
-        if (buffer.length < 3) return { isPothole: false, durationMs: 0, isRumbleStrip: false };
-
-        // 1. Check for Rumble Strips (Garis Kuning Sekolah): Count peaks > 2.5g in rolling window
-        let peakCount = 0;
-        for (let i = 1; i < buffer.length - 1; i++) {
-            if (buffer[i].val > 2.5 && buffer[i].val > buffer[i - 1].val && buffer[i].val > buffer[i + 1].val) {
-                peakCount++;
-            }
+      // =========================================================================
+      // LAYER 3: WAVEFORM DURATION SIGNATURE & PEAK TRACKING
+      // =========================================================================
+      if (magnitudeG >= MAGNITUDE_THRESHOLD) {
+        if (!impactStartTimeRef.current) {
+          // Impact peak onset
+          impactStartTimeRef.current = now;
+          peakMagnitudeRef.current = magnitudeG;
+          peakGyroRef.current = gyroMaxDegSec;
+          peakZDropRef.current = zDropRatio;
+        } else {
+          // Track highest values during impact window
+          peakMagnitudeRef.current = Math.max(peakMagnitudeRef.current, magnitudeG);
+          peakGyroRef.current = Math.max(peakGyroRef.current, gyroMaxDegSec);
+          peakZDropRef.current = Math.max(peakZDropRef.current, zDropRatio);
         }
-        if (peakCount >= 3) {
-            return { isPothole: false, durationMs: 0, isRumbleStrip: true };
-        }
+      } else if (impactStartTimeRef.current !== null) {
+        // Impact signal has returned below threshold -> evaluate duration
+        const durationMs = now - impactStartTimeRef.current;
+        impactStartTimeRef.current = null;
 
-        // Find peak magnitude
-        let maxVal = -Infinity;
-        let maxIdx = 0;
-        for (let i = 0; i < buffer.length; i++) {
-            if (buffer[i].val > maxVal) {
-                maxVal = buffer[i].val;
-                maxIdx = i;
-            }
-        }
-
-        // Find start and end of spike
-        let startIdx = maxIdx;
-        while (startIdx > 0 && buffer[startIdx].val > 1.5) {
-            startIdx--;
+        // LAYER 4 CHECK: Reject phone tumble / drop
+        if (peakGyroRef.current > GYRO_MAX_ROTATION_DEG) {
+          return; // Phone was dropped or tumbled
         }
 
-        let endIdx = maxIdx;
-        while (endIdx < buffer.length - 1 && buffer[endIdx].val > 1.5) {
-            endIdx++;
+        // LAYER 3 CHECK: Reject speedbumps (> 280ms duration)
+        if (durationMs > SPEEDBUMP_MIN_DURATION_MS) {
+          return; // Slow gradual wave = speedbump
         }
 
-        const durationMs = buffer[endIdx].t - buffer[startIdx].t;
+        // Verify pothole impact duration (< 250ms sharp drop)
+        if (durationMs <= POTHOLE_MAX_DURATION_MS) {
+          // LAYER 5: CONFIDENCE EVALUATOR & DEBOUNCE COOLDOWN
+          if (now - lastDetectionTimeRef.current < DEBOUNCE_COOLDOWN_MS) {
+            return; // Enforce 5-second debouncing cooldown
+          }
 
-        // Pothole: sharp spike resolving in <250ms
-        // Speedbump: gradual rise/fall over >280ms
-        const isPothole = durationMs > 0 && durationMs <= POTHOLE_MAX_DURATION_MS;
+          // Calculate weighted confidence score (0-100%)
+          let confidence = 50;
+          if (peakMagnitudeRef.current > 3.5) confidence += 20;
+          if (peakZDropRef.current > 1.2) confidence += 15;
+          if (durationMs < 180) confidence += 15;
 
-        return { isPothole, durationMs, isRumbleStrip: false };
-    }, []);
+          const finalConfidence = Math.min(99, confidence);
 
-    // --- Start / Stop driving ---
-    const startDriving = useCallback(() => {
-        isActiveRef.current = true;
-        isCalibratingRef.current = false; // Calibration is instant now via LPF
-        calibrationSamplesRef.current = [];
-        calibrationStartRef.current = Date.now();
-        setIsActive(true);
-        setCalibration({
-            isCalibrating: false,
-            progress: 100,
-            baselineZ: 9.8,
-            samples: [],
-        });
-        setMotionError(null);
-        lastPosRef.current = null;
-        speedRef.current = 0;
-        gravityRef.current = { x: 0, y: 0, z: 9.8 }; // Reset LPF
-        setCurrentSpeed(0);
-    }, []);
-
-    const stopDriving = useCallback(() => {
-        isActiveRef.current = false;
-        isCalibratingRef.current = false;
-        setIsActive(false);
-        setCalibration(prev => ({ ...prev, isCalibrating: false, progress: 0 }));
-        speedRef.current = 0;
-        setCurrentSpeed(0);
-        lastPosRef.current = null;
-        waveformBufferRef.current = [];
-    }, []);
-
-    // --- Main sensor effect ---
-    useEffect(() => {
-        if (!isActive) return;
-
-        let watchId: number | null = null;
-
-        // GPS position tracking
-        if (navigator.geolocation) {
-            watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    const lat = parseFloat(pos.coords.latitude.toFixed(6));
-                    const lng = parseFloat(pos.coords.longitude.toFixed(6));
-                    latRef.current = lat;
-                    lngRef.current = lng;
-                    setUserLat(lat);
-                    setUserLng(lng);
-                    calculateSpeed(lat, lng);
-                },
-                () => { /* GPS error — continue with last known position */ },
-                { enableHighAccuracy: true, maximumAge: 1000 }
-            );
-        }
-
-        // DeviceMotion handler
-        const handleMotion = (event: DeviceMotionEvent) => {
-            const raw = event.accelerationIncludingGravity;
-            const linear = event.acceleration;
-            const rotation = event.rotationRate;
-            
-            if (!raw || raw.z === null) return;
-            const now = Date.now();
-
-            let linearX = 0, linearY = 0, linearZ = 0;
-
-            // 1. Isolate Linear Acceleration (Hardware vs Software LPF)
-            if (linear && linear.z !== null && (linear.x !== 0 || linear.y !== 0 || linear.z !== 0)) {
-                // Best case: OS provides hardware-filtered linear acceleration
-                linearX = linear.x ?? 0;
-                linearY = linear.y ?? 0;
-                linearZ = linear.z ?? 0;
-            } else {
-                // Fallback: Dynamic Low-Pass Filter (LPF)
-                const rawX = raw.x ?? 0;
-                const rawY = raw.y ?? 0;
-                const rawZ = raw.z ?? 0;
-
-                gravityRef.current.x = ALPHA * gravityRef.current.x + (1 - ALPHA) * rawX;
-                gravityRef.current.y = ALPHA * gravityRef.current.y + (1 - ALPHA) * rawY;
-                gravityRef.current.z = ALPHA * gravityRef.current.z + (1 - ALPHA) * rawZ;
-
-                linearX = rawX - gravityRef.current.x;
-                linearY = rawY - gravityRef.current.y;
-                linearZ = rawZ - gravityRef.current.z;
-            }
-
-            // 2. Calculate Orientation-Agnostic Magnitude
-            // A 3.0g force registers the same whether the phone is face up, face down, or tilted 45 degrees.
-            const magnitude = Math.sqrt(linearX**2 + linearY**2 + linearZ**2);
-
-            // Track gyroscope
-            if (rotation) {
-                gyroRef.current = {
-                    alpha: Math.abs(rotation.alpha ?? 0),
-                    beta: Math.abs(rotation.beta ?? 0),
-                    gamma: Math.abs(rotation.gamma ?? 0),
-                };
-            }
-
-            // Add to rolling waveform buffer
-            waveformBufferRef.current.push({ t: now, val: magnitude });
-            // Prune old entries outside the buffer window
-            waveformBufferRef.current = waveformBufferRef.current.filter(
-                entry => now - entry.t < WAVEFORM_BUFFER_MS
-            );
-
-            // --- Filter 1: Magnitude threshold ---
-            // High precision threshold: requires shock >= 4.5g (eliminates engine vibration & phone holder shakes)
-            if (magnitude < MAGNITUDE_THRESHOLD) return;
-
-            // --- Filter 2: Debounce ---
-            if (now - lastDetectionTimeRef.current < DEBOUNCE_MS) return;
-
-            // --- Filter 3: Speed Gate ---
-            const speed = speedRef.current;
-            if (speed < SPEED_MIN_KMH || speed > SPEED_MAX_KMH) {
-                // Still allow if speed data is unavailable (GPS might be slow)
-                // but only if we have GPS lock (lat/lng != 0)
-                if (latRef.current !== 0 && lngRef.current !== 0 && speed > 0) {
-                    return; // Definitely outside range
-                }
-                // If no speed data yet, allow with reduced confidence
-            }
-
-            // --- Filter 4: Waveform Analysis & Rumble Strip Rejection ---
-            const { isPothole, durationMs, isRumbleStrip } = analyzeWaveform();
-            if (isRumbleStrip || !isPothole) return; // Reject rumble strips (garis kuning) and speedbumps
-
-            // --- Filter 5: Gyroscope Stability ---
-            const maxGyro = Math.max(
-                gyroRef.current.alpha,
-                gyroRef.current.beta,
-                gyroRef.current.gamma
-            );
-
-            // Phone is clearly tumbling — reject
-            if (maxGyro > GYRO_MAX_ROTATION * 1.5) return;
-
-            // --- Calculate Confidence Score ---
-            const confidence = calculateConfidence(
-                speed,
-                durationMs,
-                maxGyro,
-                magnitude
-            );
-
-            // --- Minimum confidence gate ---
-            if (confidence < CONFIDENCE_THRESHOLD) return;
-
-            // === DETECTION CONFIRMED ===
+          if (finalConfidence >= CONFIDENCE_MIN_THRESHOLD) {
             lastDetectionTimeRef.current = now;
 
-            const detection: PotholeDetection = {
-                id: `det_${now}_${Math.random().toString(36).slice(2, 6)}`,
-                lat: latRef.current,
-                lng: lngRef.current,
-                zDrop: parseFloat(magnitude.toFixed(2)), // Storing magnitude in zDrop for compatibility
-                speedKmh: Math.round(speed),
-                gyroMaxRotation: parseFloat(maxGyro.toFixed(1)),
-                waveformDurationMs: durationMs,
-                confidenceScore: confidence,
-                timestamp: now,
+            const anomalyEvent: SensorAnomalyEvent = {
+              id: `POTHOLE-${Math.floor(now)}`,
+              timestamp: Date.now(),
+              latitude: gpsCoordsRef.current.lat,
+              longitude: gpsCoordsRef.current.lng,
+              lat: gpsCoordsRef.current.lat,
+              lng: gpsCoordsRef.current.lng,
+              speedKmh: Math.round(currentSpeed),
+              magnitudeG: parseFloat(peakMagnitudeRef.current.toFixed(2)),
+              zDropRatio: parseFloat(peakZDropRef.current.toFixed(2)),
+              zDrop: parseFloat(peakZDropRef.current.toFixed(2)),
+              durationMs: Math.round(durationMs),
+              waveformDurationMs: Math.round(durationMs),
+              gyroMaxRotationDegSec: Math.round(peakGyroRef.current),
+              gyroMaxRotation: Math.round(peakGyroRef.current),
+              confidenceScore: finalConfidence,
             };
 
-            setLastDetection(detection);
-            setDetectionCount(prev => prev + 1);
-
-            // Notify consumer
-            if (onDetectionRef.current) {
-                onDetectionRef.current(detection);
-            }
-        };
-
-        // --- Request motion permission (iOS 13+) ---
-        const startListening = () => {
-            window.addEventListener('devicemotion', handleMotion);
-            setMotionError(null);
-        };
-
-        if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-            (DeviceMotionEvent as any).requestPermission()
-                .then((state: string) => {
-                    if (state === 'granted') startListening();
-                    else setMotionError('Motion permission denied. Grant access in iOS Settings.');
-                })
-                .catch(() => setMotionError('Motion permission request failed.'));
-        } else if (window.DeviceMotionEvent) {
-            startListening();
-        } else {
-            setMotionError('DeviceMotion not supported on this device/browser.');
+            setPotholeCount((prev) => prev + 1);
+            setLastAnomaly(anomalyEvent);
+            onAnomalyDetected?.(anomalyEvent);
+          }
         }
+      }
+    },
+    [onAnomalyDetected]
+  );
 
-        return () => {
-            window.removeEventListener('devicemotion', handleMotion);
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        };
-    }, [isActive, calculateSpeed, analyzeWaveform, calculateConfidence]);
+  // 3. Start/Stop Detection Listener
+  const startDetection = useCallback(async () => {
+    if (typeof window === 'undefined') return;
 
-    return {
-        isActive,
-        isCalibrating: calibration.isCalibrating,
-        calibrationProgress: calibration.progress,
-        currentSpeed,
-        lastDetection,
-        detectionCount,
-        startDriving,
-        stopDriving,
-        motionError,
-        userLat,
-        userLng,
-    };
-}
+    // iOS 13+ DeviceMotion Permission Request
+    if (
+      typeof (DeviceMotionEvent as any).requestPermission === 'function'
+    ) {
+      try {
+        const state = await (DeviceMotionEvent as any).requestPermission();
+        if (state !== 'granted') {
+          alert('Kebenaran sensor gerakan diperlukan untuk pengesanan lubang jalan.');
+          return;
+        }
+      } catch (e) {
+        console.error('Sensor permission error:', e);
+        return;
+      }
+    }
 
-// Export the onDetection setter for InfraView to subscribe
-export function setOnDetection(
-    hook: UsePotholeDetectorReturn,
-    callback: (detection: PotholeDetection) => void
-) {
-    // This is a workaround — in InfraView we'll use useEffect to watch lastDetection instead
-    // This export exists for documentation purposes
+    window.addEventListener('devicemotion', handleDeviceMotion, true);
+    setIsDetecting(true);
+  }, [handleDeviceMotion]);
+
+  const stopDetection = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.removeEventListener('devicemotion', handleDeviceMotion, true);
+    setIsDetecting(false);
+  }, [handleDeviceMotion]);
+
+  useEffect(() => {
+    if (enabled) {
+      startDetection();
+    } else {
+      stopDetection();
+    }
+    return () => stopDetection();
+  }, [enabled, startDetection, stopDetection]);
+
+  return {
+    isDetecting,
+    isActive: isDetecting,
+    isCalibrating: false,
+    calibrationProgress: 100,
+    currentSpeed: Math.round(gpsSpeedKmhRef.current),
+    userLat: gpsCoordsRef.current.lat,
+    userLng: gpsCoordsRef.current.lng,
+    motionError: null as string | null,
+    potholeCount,
+    detectionCount: potholeCount,
+    lastAnomaly,
+    lastDetection: lastAnomaly,
+    startDetection,
+    startDriving: startDetection,
+    stopDetection,
+    stopDriving: stopDetection,
+  };
 }
