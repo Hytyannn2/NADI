@@ -31,11 +31,16 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: [
-      { url: "/favicon.jpg", type: "image/jpeg" },
-      { url: "/icon.jpg", type: "image/jpeg" },
-    ],
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
     apple: "/favicon.jpg",
+    other: [
+      {
+        rel: "icon",
+        type: "image/jpeg",
+        url: "/favicon.jpg",
+      },
+    ],
   },
   openGraph: {
     title: "NADI — Sistem Operasi Sivik & Respons Bencana Kebangsaan",
