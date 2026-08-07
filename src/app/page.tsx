@@ -117,6 +117,7 @@ export default function App() {
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [showRankPanel, setShowRankPanel] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   // === Derived State ===
   const currentRankIndex = RANK_DATA.reduce((acc, r, i) => level >= r.level ? i : acc, 0);
@@ -124,7 +125,7 @@ export default function App() {
   const xpPercent = Math.min((xp / xpToNext) * 100, 100);
   const completedQuests = quests.filter(q => q.completed).length;
   const userEmail = user?.email ?? '';
-  const userInitial = userEmail.charAt(0).toUpperCase() || 'W';
+  const userInitial = (user?.user_metadata?.full_name as string | undefined)?.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase() || 'W';
   const userAvatar = (
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
@@ -209,10 +210,16 @@ export default function App() {
                       id="user-avatar-btn"
                       aria-label="View Profile"
                       onClick={() => { setShowProfile(true); closeAllMenus(); }}
-                      className="w-10 h-10 rounded-full overflow-hidden border-2 transition-colors focus:outline-none" style={{ borderColor: 'var(--border-default)' }}
+                      className="w-10 h-10 rounded-full overflow-hidden border-2 transition-colors focus:outline-none flex items-center justify-center shrink-0" style={{ borderColor: 'var(--border-default)' }}
                     >
-                      {userAvatar ? (
-                        <img src={userAvatar} alt="avatar" className="w-full h-full object-cover" />
+                      {userAvatar && !avatarError ? (
+                        <img
+                          src={userAvatar}
+                          alt="avatar"
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={() => setAvatarError(true)}
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center font-bold text-sm" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
                           {userInitial}

@@ -8,6 +8,29 @@ import { useXP } from '@/src/hooks/useXP';
 
 interface Post { id: string; content: string; author: string; author_avatar?: string; type: string; timestamp: number; upvotes: number; user_id?: string; replies?: any[]; comments?: number; }
 
+function UserAvatar({ src, name }: { src?: string; name: string }) {
+    const [hasError, setHasError] = useState(false);
+    const initial = (name || 'Warga').charAt(0).toUpperCase();
+
+    if (src && !hasError) {
+        return (
+            <img
+                src={src}
+                alt={name}
+                referrerPolicy="no-referrer"
+                onError={() => setHasError(true)}
+                className="w-full h-full object-cover rounded-full"
+            />
+        );
+    }
+
+    return (
+        <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-white bg-emerald-700 text-[9px]">
+            {initial}
+        </div>
+    );
+}
+
 export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClose: () => void; initialTab?: 'feed' | 'whistle' }) {
     const [tab, setTab] = useState<'feed' | 'whistle'>(initialTab);
     const [posts, setPosts] = useState<Post[]>([]);
@@ -73,7 +96,7 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
             const res = await fetch('/api/community', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ postId, action: 'reply', content: replyText })
+                body: JSON.stringify({ postId, action: 'reply', content: replyText, author_avatar: userAvatar })
             });
             const d = await res.json();
             if (d.success && d.reply) {
@@ -96,7 +119,7 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
         setPosting(true);
         try {
             const authorName = user?.user_metadata?.full_name || 'Anonymous Warga';
-            const res = await fetch('/api/community', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, type: 'general', author: authorName }) });
+            const res = await fetch('/api/community', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, type: 'general', author: authorName, author_avatar: userAvatar }) });
             const d = await res.json();
             if (d.success) { 
                 setPosts(prev => [d.post, ...prev]); 
@@ -234,10 +257,9 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-6 h-6 rounded-full overflow-hidden border border-zinc-700 bg-zinc-800 shrink-0 flex items-center justify-center">
-                                                        <img 
-                                                            src={p.author_avatar || (p.user_id === user?.id && userAvatar ? userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.author || 'Warga')}&background=0F766E&color=fff&bold=true`)} 
-                                                            alt={p.author} 
-                                                            className="w-full h-full object-cover" 
+                                                        <UserAvatar 
+                                                            src={p.author_avatar || (p.user_id === user?.id && userAvatar ? userAvatar : undefined)} 
+                                                            name={p.author} 
                                                         />
                                                     </div>
                                                     <span className="text-xs font-bold text-zinc-300">{p.author}</span>
@@ -291,10 +313,9 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                                                                         <div className="flex items-center justify-between mb-1">
                                                                             <div className="flex items-center gap-2">
                                                                                 <div className="w-5 h-5 rounded-full overflow-hidden border border-zinc-700 bg-zinc-800 shrink-0 flex items-center justify-center">
-                                                                                    <img
-                                                                                        src={reply.author_avatar || (reply.user_id === user?.id && userAvatar ? userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.author || 'Warga')}&background=0F766E&color=fff`)}
-                                                                                        alt={reply.author}
-                                                                                        className="w-full h-full object-cover"
+                                                                                    <UserAvatar
+                                                                                        src={reply.author_avatar || (reply.user_id === user?.id && userAvatar ? userAvatar : undefined)}
+                                                                                        name={reply.author}
                                                                                     />
                                                                                 </div>
                                                                                 <span className="text-[11px] font-bold text-zinc-300">{reply.author}</span>

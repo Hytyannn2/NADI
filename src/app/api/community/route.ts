@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const forwardedFor = request.headers.get('x-forwarded-for');
         const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'anonymous';
 
-        const { content, author, type } = await request.json();
+        const { content, author, type, author_avatar } = await request.json();
         if (!content || !content.trim()) {
             return NextResponse.json({ success: false, error: 'Teks mesej diperlukan.' }, { status: 400 });
         }
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
         const adminSupa = getAdminSupabase();
 
-        let authorAvatar = (
+        let authorAvatar = author_avatar || (
             user.user_metadata?.avatar_url ||
             user.user_metadata?.picture ||
             user.user_metadata?.avatarUrl ||
@@ -149,13 +149,13 @@ export async function PATCH(request: Request) {
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
         const body = await request.json();
-        const { postId, action, content } = body;
+        const { postId, action, content, author_avatar } = body;
 
         if (!postId) return NextResponse.json({ success: false, error: 'Post ID missing' }, { status: 400 });
 
         const adminSupa = getAdminSupabase();
 
-        const authorAvatar = (
+        const authorAvatar = author_avatar || (
             user.user_metadata?.avatar_url ||
             user.user_metadata?.picture ||
             user.user_metadata?.avatarUrl ||
