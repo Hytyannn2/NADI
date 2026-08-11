@@ -174,13 +174,18 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                         zoomControl={false}
                         ref={mapRef}
                         whenReady={() => {
+                            [100, 300, 600].forEach(delay => {
+                                setTimeout(() => {
+                                    if (mapRef.current) mapRef.current.invalidateSize();
+                                }, delay);
+                            });
                             // If user location already resolved, fly to it
                             if (userLocation && mapRef.current) {
                                 mapRef.current.flyTo(userLocation, 14, { duration: 1.5 });
                             }
                         }}
                     >
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
+                        <TileLayer url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png" subdomains="abcd" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
                         {filteredPoints.map((point, i) => (
                             <CircleMarker key={i} center={[point.lat, point.lng]} radius={point.severity * 6}
                                 pathOptions={{ color: TYPE_CONFIG[point.type].color, fillColor: TYPE_CONFIG[point.type].color, fillOpacity: 0.4, weight: 2 }}>

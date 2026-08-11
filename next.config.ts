@@ -2,11 +2,11 @@ import type { NextConfig } from "next";
 
 const cspHeader = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.openstreetmap.org https://*.open-meteo.com https://*.supabase.co https://api.mapbox.com https://ui-avatars.com",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com https://publicinfobanjir.water.gov.my",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://translate.google.com https://translate.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://translate.googleapis.com https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https://*.openstreetmap.org https://*.open-meteo.com https://*.supabase.co https://api.mapbox.com https://ui-avatars.com https://*.googleusercontent.com https://translate.google.com https://www.google.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com https://publicinfobanjir.water.gov.my https://translate.googleapis.com",
   "frame-src 'self'",
 ].join('; ');
 
@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   async headers() {
     return [
+      {
+        source: '/(favicon.ico|favicon.jpg|icon.jpg|logo.png|images/.*|manifest.json|llms.txt)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [

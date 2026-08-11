@@ -2,68 +2,17 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkSuaraLimit } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-const DIALECT_ENGINE_URL = process.env.DIALECT_ENGINE_URL || 'http://localhost:8100';
-
-// In-Memory Dialect Feedback Cache (Cold-Start Warming)
-interface CachedFeedback {
-  phrase: string;
-  intendedMeaning: string;
-}
-
-let dialectFeedbackCache: CachedFeedback[] = [];
-let lastCacheWarmTimestamp = 0;
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
-
-async function getLearnedDbFeedback(): Promise<string> {
-  const now = Date.now();
-  if (dialectFeedbackCache.length > 0 && (now - lastCacheWarmTimestamp) < CACHE_TTL_MS) {
-    return dialectFeedbackCache.map(f => `"${f.phrase}" -> "${f.intendedMeaning}"`).join('\n');
-  }
-
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    if (!url || !key) return '';
-    const supabase = createClient(url, key);
-
-    const { data } = await supabase
-      .from('nadi_dialect_feedback')
-      .select('dialect_text, correct_meaning')
-      .eq('is_positive', false)
-      .not('correct_meaning', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (data && data.length > 0) {
-      dialectFeedbackCache = data.map(item => ({
-        phrase: (item.dialect_text || '').replace(/[^\w\s]/g, '').trim(), // Sanitize input
-        intendedMeaning: (item.correct_meaning || '').replace(/[^\w\s]/g, '').trim(), // Sanitize input
-      }));
-      lastCacheWarmTimestamp = now;
-      return dialectFeedbackCache.map(f => `"${f.phrase}" -> "${f.intendedMeaning}"`).join('\n');
-    }
-  } catch {
-    // Fail silently
-  }
-  return '';
-}
+import { exportForPrompt } from '@/src/lib/dialect/engine';
 
 /**
- * Fetch dialect context from the Python engine.
- * Gracefully degrades if engine is offline or unreachable on Vercel deployment.
+ * Fetch dialect context from the native TypeScript engine.
+ * No Python microservice needed — runs directly in Next.js.
  */
-async function getDialectContext(region?: string): Promise<string> {
+async function getDialectContext(): Promise<string> {
   try {
-    const url = `${DIALECT_ENGINE_URL}/prompt-context${region ? `?region=${region}` : ''}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
-    if (res.ok) {
-      const data = await res.json();
-      return data.context || '';
-    }
+    return await exportForPrompt();
   } catch {
-    // Engine offline or unreachable on cloud — graceful fallback to Groq native NLP
+    // Engine error — graceful fallback to Groq native NLP
   }
   return '';
 }
@@ -99,15 +48,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const [engineContext, learnedFeedback] = await Promise.all([
-      getDialectContext(dialectRegion),
-      getLearnedDbFeedback()
-    ]);
-
-    const dialectContext = [
-      engineContext,
-      learnedFeedback ? `LEARNED CITIZEN CORRECTIONS:\n${learnedFeedback}` : ''
-    ].filter(Boolean).join('\n\n');
+    const dialectContext = await getDialectContext();
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 

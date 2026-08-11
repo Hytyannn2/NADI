@@ -239,12 +239,10 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
               <p className="text-[10px] leading-relaxed truncate" style={{ color: 'var(--text-muted)' }}>
                 Platform Digital Komuniti & Respon Warga
               </p>
-              <div className="pt-2 border-t flex items-center justify-between text-[9px] font-semibold text-zinc-400" style={{ borderColor: 'var(--border-default)' }}>
+              <div className="pt-2 border-t flex items-center justify-center gap-3 text-[9px] font-semibold text-zinc-400" style={{ borderColor: 'var(--border-default)' }}>
                 <Link href="/privacy" className="hover:text-white transition-colors">Privasi</Link>
                 <span>•</span>
                 <Link href="/terms" className="hover:text-white transition-colors">Terma</Link>
-                <span>•</span>
-                <Link href="/llms.txt" target="_blank" className="hover:text-white transition-colors">LLMs.txt</Link>
               </div>
             </motion.div>
           )}

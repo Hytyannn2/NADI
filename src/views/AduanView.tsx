@@ -4,8 +4,6 @@ import { createPortal } from 'react-dom';
 import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info, FileText, Layers, AlertTriangle, ShieldCheck, Image as ImageIcon, Paperclip, X, UploadCloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
-import { useGame } from '../context/GameContext';
-import { useXP } from '../hooks/useXP';
 import { useTheme } from '../context/ThemeContext';
 import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDetector';
 import { useDashcam } from '../hooks/useDashcam';
@@ -74,7 +72,7 @@ function getDeviceFingerprint(): string {
     return fp;
 }
 
-export default function InfraView() {
+export default function AduanView() {
     const { formatTime } = useTheme();
     const [filter, setFilter] = useState<'all' | 'potholes' | 'civic' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
@@ -87,8 +85,6 @@ export default function InfraView() {
     const [shareModalAnomaly, setShareModalAnomaly] = useState<Anomaly | null>(null);
     const [copiedToast, setCopiedToast] = useState(false);
 
-    const { completeQuest, incrementStat } = useGame();
-    const { addXp } = useXP();
     const supabase = createClient();
 
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
@@ -272,8 +268,6 @@ export default function InfraView() {
         setAnomalies(prev => [newA, ...prev]);
         setManualDescription('');
         setAttachedPhotoBase64(null);
-        incrementStat('reports');
-        addXp(30);
 
         try {
             const deviceFp = getDeviceFingerprint();
@@ -319,10 +313,6 @@ export default function InfraView() {
                     translatedText: correction || item.translatedText,
                     userIntendedMeaning: correction ? `Dikemaskini Warga: "${correction}"` : item.userIntendedMeaning
                 } : item));
-
-                if (!skipCorrection && correction) {
-                    addXp(10);
-                }
 
                 setFeedbackSuccessToast(true);
                 setTimeout(() => {
@@ -585,10 +575,6 @@ export default function InfraView() {
                     ai_analysis: data.analysis,
                     status: 'verified'
                 }).eq('id', id);
-
-                incrementStat('reports');
-                const xp = await completeQuest('report');
-                if (xp > 0) addXp(xp);
             } else {
                 setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
             }
@@ -622,10 +608,6 @@ export default function InfraView() {
                         ai_analysis: { ...anomaly.aiAnalysis, ...data.analysis },
                         status: 'verified'
                     }).eq('id', id);
-
-                    incrementStat('reports');
-                    const xp = await completeQuest('report');
-                    if (xp > 0) addXp(xp);
                 } else {
                     setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
                 }

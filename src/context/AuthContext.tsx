@@ -27,10 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Safety fallback: Never allow loading screen to hang for more than 2.5 seconds
+    // Safety fallback: Never allow loading screen to hang for more than 1 second
     const safetyTimer = setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 2500);
+    }, 1000);
 
     // Get initial session
     supabase.auth.getSession()
@@ -38,11 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
-          setLoading(false);
         }
       })
       .catch((err) => {
         console.warn('[AuthContext] Session fetch warning:', err);
+      })
+      .finally(() => {
         if (mounted) setLoading(false);
       });
 

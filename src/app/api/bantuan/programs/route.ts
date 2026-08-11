@@ -349,5 +349,9 @@ export async function GET(request: NextRequest) {
         programs: verifiedPrograms,
         location: locationName,
         total: verifiedPrograms.length,
+    }, {
+        headers: {
+            'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
+        },
     });
 }

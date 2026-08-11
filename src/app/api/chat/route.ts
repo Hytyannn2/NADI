@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkRateLimit } from '@/src/lib/rateLimit';
+import { exportForPrompt } from '@/src/lib/dialect/engine';
 
 export async function POST(request: Request) {
     try {
@@ -26,17 +27,12 @@ export async function POST(request: Request) {
         const { message, context } = await request.json();
         if (!message) return NextResponse.json({ success: false, error: 'No message' }, { status: 400 });
 
-        // Fetch dialect context from the engine for Kelantan
+        // Fetch dialect context from the native TypeScript engine (no Python needed)
         let dialectContext = '';
         try {
-            const engineUrl = process.env.DIALECT_ENGINE_URL || 'http://localhost:8100';
-            const res = await fetch(`${engineUrl}/prompt-context?region=kelantan`, { signal: AbortSignal.timeout(2000) });
-            if (res.ok) {
-                const data = await res.json();
-                dialectContext = data.context || '';
-            }
-        } catch (e) {
-            // Silently ignore if dialect engine is down
+            dialectContext = await exportForPrompt();
+        } catch {
+            // Silently ignore if dialect engine errors
         }
 
         const dialectSection = dialectContext

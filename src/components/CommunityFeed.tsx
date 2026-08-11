@@ -3,8 +3,6 @@ import { useState, useEffect } from 'react';
 import { Send, ThumbsUp, Plus, X, Loader2, MessageSquare, Shield, AlertTriangle, Users, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
-import { useGame } from '@/src/context/GameContext';
-import { useXP } from '@/src/hooks/useXP';
 
 interface Post { id: string; content: string; author: string; author_avatar?: string; type: string; timestamp: number; upvotes: number; user_id?: string; replies?: any[]; comments?: number; }
 
@@ -54,8 +52,6 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
         user?.identities?.[0]?.identity_data?.avatar_url ||
         user?.identities?.[0]?.identity_data?.picture
     ) as string | undefined;
-    const { incrementStat, completeQuest } = useGame();
-    const { addXp } = useXP();
 
     const [replyingPostId, setReplyingPostId] = useState<string | null>(null);
     const [replyText, setReplyText] = useState('');
@@ -125,7 +121,6 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                 setPosts(prev => [d.post, ...prev]); 
                 setContent(''); 
                 setShowCompose(false); 
-                incrementStat('communityPosts');
             }
         } catch {} finally { setPosting(false); }
     };
@@ -184,9 +179,6 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                 setWbLocation('');
                 setWbImage(null);
                 setTimeout(() => setWbSuccess(false), 3000); 
-                completeQuest('report').then(xp => {
-                    if (xp > 0) addXp(xp);
-                });
             }
         } catch {} finally { setWbSubmitting(false); }
     };

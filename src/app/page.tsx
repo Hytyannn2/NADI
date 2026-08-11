@@ -6,16 +6,12 @@ import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { useTheme, THEMES, type ThemeId, type FontSize } from '@/src/context/ThemeContext';
-import { useGame } from '@/src/context/GameContext';
-import { generateRankCard } from '@/src/lib/share/generateRankCard';
 
-import { useXP } from '@/src/hooks/useXP';
 import { useGreeting } from '@/src/hooks/useGreeting';
-import { RANK_DATA } from '@/src/constants/ranks';
 
 // === Views ===
 import AuthView from '@/src/views/AuthView';
-import InfraView from '../views/InfraView';
+import AduanView from '../views/AduanView';
 import BencanaView from '../views/BencanaView';
 import DashboardView from '../views/DashboardView';
 import BantuanView from '../views/BantuanView';
@@ -26,11 +22,8 @@ import OnboardingWalkthrough from '../components/OnboardingWalkthrough';
 import CommunityFeed from '../components/CommunityFeed';
 import SettingsModal from '@/src/components/SettingsModal';
 import CivicHeatMap from '@/src/components/CivicHeatMap';
-import LevelUpToast from '@/src/components/LevelUpToast';
-import QuestPanel from '@/src/components/QuestPanel';
 import SideNav from '@/src/components/SideNav';
 import BottomNav from '../components/BottomNav';
-import RankPanel from '../components/RankPanel';
 import LoadingScreen from '../components/LoadingScreen';
 
 // === WhistleIcon Component ===
@@ -52,12 +45,9 @@ export default function App() {
   const { user, loading, signOut } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const { themeId, setThemeId, fontSize, setFontSize } = useTheme();
-  const { quests, allQuestsComplete, badges } = useGame();
-
 
   // === Hooks ===
   const greeting = useGreeting();
-  const { xp, level, showLevelUp, xpToNext } = useXP();
 
   // === UI State ===
   const [activeTab, setActiveTab] = useState<TabId>('aduan');
@@ -88,7 +78,7 @@ export default function App() {
   const [showNotif, setShowNotif] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showQuestPanel, setShowQuestPanel] = useState(false);
+
   const [showCommunity, setShowCommunity] = useState(false);
   const [communityTab, setCommunityTab] = useState<'feed' | 'whistle'>('whistle');
   const fabX = useMotionValue(0);
@@ -115,15 +105,10 @@ export default function App() {
   }, []);
 
   const [showHeatMap, setShowHeatMap] = useState(false);
-  const [showRankPanel, setShowRankPanel] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
 
   // === Derived State ===
-  const currentRankIndex = RANK_DATA.reduce((acc, r, i) => level >= r.level ? i : acc, 0);
-  const rank = RANK_DATA[currentRankIndex].title;
-  const xpPercent = Math.min((xp / xpToNext) * 100, 100);
-  const completedQuests = quests.filter(q => q.completed).length;
   const userEmail = user?.email ?? '';
   const userInitial = (user?.user_metadata?.full_name as string | undefined)?.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase() || 'W';
   const userAvatar = (
@@ -147,8 +132,6 @@ export default function App() {
     setShowUserMenu(false);
     setShowNotif(false);
     setShowLangPicker(false);
-    setShowQuestPanel(false);
-    setShowRankPanel(false);
   };
 
   const handleTabSwitch = (id: string) => {
@@ -176,8 +159,6 @@ export default function App() {
       <AnimatePresence>{showCommunity && <CommunityFeed initialTab={communityTab} onClose={() => setShowCommunity(false)} />}</AnimatePresence>
       <AnimatePresence>{showHeatMap && <CivicHeatMap onClose={() => setShowHeatMap(false)} />}</AnimatePresence>
 
-      {/* === Floating Elements === */}
-      <LevelUpToast visible={showLevelUp} level={level} rank={rank} />
 
       {/* === Main App Shell === */}
       <div className="flex-1 w-full h-full relative flex flex-row overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
@@ -226,9 +207,6 @@ export default function App() {
                         </div>
                       )}
                     </button>
-                    <div className="absolute -bottom-0.5 -right-0.5 rounded-full w-5 h-5 flex items-center justify-center text-[8px] font-bold" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
-                      {level}
-                    </div>
                   </div>
                   <div>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{greeting}</p>
@@ -254,34 +232,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* XP Progress Bar */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 relative">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <button
-                      aria-label="View Rank Panel"
-                      onClick={() => { setShowRankPanel(!showRankPanel); closeAllMenus(); setShowRankPanel(p => !p); }}
-                      className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                    >
-                      <span className="text-[10px] font-bold" style={{ color: RANK_DATA[currentRankIndex].color }}>{rank}</span>
-                      <ChevronDown className={`w-3 h-3 transition-all ${showRankPanel ? 'rotate-180' : ''}`} style={{ color: 'var(--text-muted)' }} />
-                    </button>
-                    <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>{xp}/{xpToNext} XP</span>
-                  </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${xpPercent}%` }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ background: 'var(--accent)' }}
-                    />
-                  </div>
-                </div>
+              {/* Settings Button */}
+              <div className="flex items-center justify-end">
                 <button
                   id="settings-btn"
                   aria-label="Settings"
-                  onClick={() => { setShowUserMenu(!showUserMenu); setShowNotif(false); setShowQuestPanel(false); setShowRankPanel(false); }}
+                  onClick={() => { setShowUserMenu(!showUserMenu); setShowNotif(false); }}
                   className="shrink-0 p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}
                 >
                   <Settings className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
@@ -289,9 +245,6 @@ export default function App() {
               </div>
             </div>
           </header>
-
-          {/* === Rank Panel === */}
-          <RankPanel visible={showRankPanel} level={level} currentRankIndex={currentRankIndex} />
 
           {/* === Settings Modal === */}
           <SettingsModal
@@ -323,7 +276,7 @@ export default function App() {
           </AnimatePresence>
 
           {/* Backdrop to close menus */}
-          {(showUserMenu || showNotif || showRankPanel || showQuestPanel) && (
+          {(showUserMenu || showNotif) && (
             <div className="absolute inset-0 z-40" onClick={closeAllMenus} />
           )}
 
@@ -363,83 +316,7 @@ export default function App() {
                       <div>
                         <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{userName}</h3>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{userEmail}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                            Level {level} • {rank}
-                          </span>
-                        </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Stats Grid */}
-                  <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Your Stats</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Zap className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                          <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>XP</span>
-                        </div>
-                        <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{xp}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{xpToNext}</span></p>
-                      </div>
-                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Trophy className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                          <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>CRS</span>
-                        </div>
-                        <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{quests.filter(q => q.completed).length * 50}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/1000</span></p>
-                      </div>
-                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Target className="w-3.5 h-3.5" style={{ color: 'var(--success, #10B981)' }} />
-                          <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Quests</span>
-                        </div>
-                        <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{completedQuests}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{quests.length}</span></p>
-                      </div>
-                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Award className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} />
-                          <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Badges</span>
-                        </div>
-                        <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{badges.filter(b => b.unlocked).length}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{badges.length}</span></p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* XP Progress */}
-                  <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Level Progress</p>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold" style={{ color: RANK_DATA[currentRankIndex].color }}>{rank}</span>
-                      <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>Level {level}</span>
-                    </div>
-                    <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                      <motion.div
-                        initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }}
-                        transition={{ duration: 1 }}
-                        className="h-full rounded-full" style={{ background: 'var(--accent)' }}
-                      />
-                    </div>
-                    <p className="text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>{xp} / {xpToNext} XP to next level</p>
-                  </div>
-
-                  {/* Badges */}
-                  <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Badges Earned</p>
-                    <div className="space-y-2">
-                      {badges.map(b => (
-                        <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: b.unlocked ? 'var(--success-muted, rgba(16,185,129,0.08))' : 'var(--bg-subtle)', border: '1px solid var(--border-default)', opacity: b.unlocked ? 1 : 0.5 }}>
-                          <span className={`text-xl ${b.unlocked ? '' : 'grayscale opacity-40'}`}>{b.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold" style={{ color: b.unlocked ? 'var(--text-primary)' : 'var(--text-muted)' }}>{b.name}</p>
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.description}</p>
-                          </div>
-                          {b.unlocked && (
-                            <span className="text-[8px] font-bold px-2 py-0.5 rounded" style={{ background: 'var(--success-muted, rgba(16,185,129,0.1))', color: 'var(--success, #10B981)' }}></span>
-                          )}
-                        </div>
-                      ))}
                     </div>
                   </div>
 
@@ -466,24 +343,6 @@ export default function App() {
 
                   {/* Actions */}
                   <div className="p-5">
-                    <button
-                      onClick={() => {
-                        generateRankCard({
-                          userName,
-                          userEmail,
-                          level,
-                          rank,
-                          xp,
-                          xpToNext,
-                          completedQuests,
-                          badgesCount: badges.filter(b => b.unlocked).length,
-                        });
-                      }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl mb-2 transition-all font-bold text-xs bg-gradient-to-r from-[#C5A367]/20 to-blue-500/20 text-[#C5A367] border border-[#C5A367]/40 hover:bg-[#C5A367]/30 active:scale-95"
-                    >
-                      <Share2 className="w-4 h-4 text-[#C5A367]" />
-                      <span>Kongsi Sijil Kad CRS</span>
-                    </button>
 
                     <button onClick={() => { setShowOnboarding(true); setShowProfile(false); }}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors"
@@ -505,8 +364,7 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {/* === Quest Panel === */}
-          <QuestPanel visible={showQuestPanel} fabRect={fabRect} />
+
 
           {/* === Main Content === */}
           <main className="flex-1 overflow-y-auto relative scroll-smooth pb-24 no-scrollbar">
@@ -523,7 +381,7 @@ export default function App() {
                   {activeTab === 'utama' && <DashboardView />}
                   {activeTab === 'bencana' && <BencanaView />}
                   {activeTab === 'bantuan' && <BantuanView />}
-                  {activeTab === 'aduan' && <InfraView />}
+                  {activeTab === 'aduan' && <AduanView />}
                   {activeTab === 'komuniti' && <KomunitiView />}
                 </motion.div>
               </div>
@@ -535,42 +393,7 @@ export default function App() {
             <BottomNav tabs={tabs} activeTab={activeTab} onTabSwitch={handleTabSwitch} />
           </div>
 
-          {/* Quest FAB */}
-          <motion.button
-            aria-label="Quests"
-            drag
-            dragConstraints={fabConstraints}
-            dragElastic={0}
-            dragMomentum={false}
-            style={{ x: fabX, y: fabY, touchAction: 'none' }}
-            onDragStart={() => { isDragging.current = true; }}
-            onDragEnd={(e, info) => {
-              setTimeout(() => { isDragging.current = false; }, 50);
-              const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1000;
-              const hasSidebar = screenWidth >= 768; // md breakpoint in Tailwind
-              const centerPoint = hasSidebar ? 128 + (screenWidth / 2) : screenWidth / 2;
-              const isLeftHalf = info.point.x < centerPoint;
 
-              // If it snaps left, account for the 256px sidebar on desktop
-              const targetX = isLeftHalf ? -(screenWidth - (hasSidebar ? 352 : 96)) : 0;
-              animate(fabX, targetX, { type: "spring", stiffness: 300, damping: 25 });
-            }}
-            onClick={(e) => {
-              if (isDragging.current) { e.preventDefault(); return; }
-              setFabRect(e.currentTarget.getBoundingClientRect());
-              setShowQuestPanel(!showQuestPanel);
-              setShowUserMenu(false);
-              setShowNotif(false);
-            }}
-            className="absolute top-[130px] right-5 z-30 w-14 h-14 rounded-full flex items-center justify-center transition-opacity hover:opacity-80 shadow-[0_4px_20px_rgba(245,158,11,0.4)] cursor-grab active:cursor-grabbing border border-white/20 bg-gradient-to-br from-amber-400 to-orange-500"
-          >
-            <Sparkles className="w-6 h-6 text-white" />
-            {completedQuests > 0 && completedQuests < quests.length && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center pointer-events-none shadow-md bg-white text-orange-600 border border-orange-200">
-                {completedQuests}
-              </span>
-            )}
-          </motion.button>
         </div>
       </div>
     </div>

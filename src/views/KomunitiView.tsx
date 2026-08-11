@@ -205,7 +205,7 @@ export default function KomunitiView() {
                     }`}
                 >
                     <Briefcase className="w-4 h-4" />
-                    Kerja Bermaruah
+                    Kerja
                 </button>
                 <button
                     onClick={() => { setSubTab('niaga'); setSearchQuery(''); }}

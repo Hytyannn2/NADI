@@ -6,8 +6,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import VolunteerChat from '@/src/components/VolunteerChat';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
-import { useGame } from '@/src/context/GameContext';
-import { useXP } from '@/src/hooks/useXP';
 import { useDebounce } from '@/src/hooks/useDebounce';
 import useSWR from 'swr';
 import { evaluateAllEligibility } from '@/src/utils/eligibilityEngine';
@@ -75,10 +73,6 @@ export default function BantuanView() {
     // SWR Fetcher logic
     const [userLoc, setUserLoc] = useState<{ lat: number, lng: number } | null>(null);
     useEffect(() => {
-        completeQuest('listing').then(xp => {
-            if (xp > 0) addXp(xp);
-        });
-
         if (typeof navigator !== 'undefined' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
@@ -116,8 +110,6 @@ export default function BantuanView() {
     const [jobForm, setJobForm] = useState({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
 
     const { user } = useAuth();
-    const { completeQuest } = useGame();
-    const { addXp } = useXP();
 
     // Lock background scroll when modal is open and pre-fill name
     useEffect(() => {
@@ -143,8 +135,6 @@ export default function BantuanView() {
             const data = await res.json();
             if (data.success) {
                 mutateLocalJobs({ ...localJobsData, jobs: localJobs.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j) }, false);
-                const xp = await completeQuest('volunteer');
-                if (xp > 0) addXp(xp);
                 showToast('Job Accepted', `You have accepted to help: ${localJobs.find(j => j.id === jobId)?.name}`);
             }
         } catch {
@@ -184,9 +174,6 @@ export default function BantuanView() {
                 mutateLocalJobs({ ...localJobsData, jobs: [data.job, ...localJobs] }, false);
                 setShowJobForm(false);
                 setJobForm({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
-                addXp(15);
-                const xp = await completeQuest('report');
-                if (xp > 0) addXp(xp);
                 showToast('Request Submitted', 'Your SOS request has been posted to the community.');
             }
         } catch {

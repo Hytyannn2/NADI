@@ -5,7 +5,6 @@ import { X, Globe, Sun, Moon, LogOut, Award, Eye, Monitor, Baseline, Activity, P
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { useTheme, THEMES, FontSize, ColorblindMode, ThemeId, ClockFormat, AutoRefreshRate } from '@/src/context/ThemeContext';
-import { useGame } from '@/src/context/GameContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,7 +15,6 @@ interface SettingsModalProps {
 export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: SettingsModalProps) {
   const { signOut } = useAuth();
   const { t, lang, setLang } = useLanguage();
-  const { badges } = useGame();
   const { 
     themeId, setThemeId, fontSize, setFontSize,
     highContrast, setHighContrast,
@@ -307,31 +305,6 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                       ))}
                     </div>
                   </div>
-                </div>
-              </section>
-
-              {/* Badges Section */}
-              <section>
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Award className="w-4 h-4 text-amber-400" /> Badges & Achievements ({badges.filter(b => b.unlocked).length}/{badges.length})
-                </h3>
-
-                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto no-scrollbar p-1">
-                  {badges.map(b => (
-                    <div key={b.id} className="flex items-center gap-2.5 p-2.5 rounded-2xl border transition-all"
-                      style={{
-                        background: b.unlocked ? 'var(--bg-card)' : 'var(--bg-subtle)',
-                        borderColor: b.unlocked ? 'var(--accent)' : 'var(--border-default)',
-                        opacity: b.unlocked ? 1 : 0.5
-                      }}
-                    >
-                      <span className="text-2xl shrink-0">{b.unlocked ? b.icon : ''}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold truncate" style={{ color: b.unlocked ? 'var(--text-primary)' : 'var(--text-muted)' }}>{b.name}</p>
-                        <p className="text-[9px] line-clamp-1" style={{ color: 'var(--text-muted)' }}>{b.description}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </section>
 

@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nadi.gov.my';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nadi-kelantan.app';
   const lastModified = new Date();
 
   return [

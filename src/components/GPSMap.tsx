@@ -43,10 +43,11 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
         attributionControl: false,
       });
 
-      // Add satellite tile layer (Google Maps Satellite for recent imagery)
-      L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        attribution: '&copy; Google Maps'
+      // Add CartoDB Dark tile layer for crisp, reliable dark-mode map tiles
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        attribution: '&copy; CARTO &copy; OpenStreetMap'
       }).addTo(map);
 
       // Layer group for shelter markers
@@ -69,6 +70,19 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
 
       mapInstanceRef.current = map;
       markerRef.current = marker;
+
+      // Force size recalculation across all render ticks
+      const invalidate = () => {
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+      };
+
+      [50, 150, 300, 600, 1000].forEach(delay => setTimeout(invalidate, delay));
+
+      // ResizeObserver to automatically handle container size changes
+      if (containerRef.current && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => invalidate());
+        ro.observe(containerRef.current);
+      }
     }
 
     // Cleanup on unmount
@@ -201,7 +215,7 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
         )}
       </AnimatePresence>
 
-      <div ref={mapRef} className="w-full h-full" />
+      <div ref={mapRef} className="w-full h-full min-h-[300px] absolute inset-0 z-[1]" />
 
       {/* Control Buttons Stack (Zoom In, Zoom Out, Fullscreen, Recenter) */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-[400]">

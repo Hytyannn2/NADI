@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
-import { useGame } from '@/src/context/GameContext';
-import { useXP } from '@/src/hooks/useXP';
 import dynamic from 'next/dynamic';
 
 const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
@@ -68,8 +66,6 @@ export default function BencanaView() {
     const isMs = lang === 'ms';
     const [activeTab, setActiveTab] = useState<'map' | 'sensors' | 'zones'>('map');
 
-    const { completeQuest } = useGame();
-    const { addXp } = useXP();
     const supabase = createClient();
 
     const { weather, isWeatherLoading, locationLabel, userLat, userLng } = useWeather();
@@ -317,14 +313,6 @@ export default function BencanaView() {
 
     // Map shelters layer (top 10 nearest centers)
     const mapShelters = filteredEvacCenters.slice(0, 10);
-
-    // Real-time geolocation tracking
-    useEffect(() => {
-        completeQuest('flood').then(xp => {
-            if (xp > 0) addXp(xp);
-        });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Signal bars component
     const SignalBars = ({ rssi }: { rssi: number | null }) => {

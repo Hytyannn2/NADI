@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Lexend:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Lexend:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', 'DIN Round', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Plus Jakarta Sans', 'DIN Round', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -80,6 +80,7 @@
 
 /* ====== GLOBAL BASE ====== */
 body {
+  font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   background-color: var(--bg-base);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
@@ -314,8 +315,9 @@ body {
 }
 
 /* 2. Dyslexia Font */
-.font-dyslexic {
-  --font-sans: 'Lexend', 'OpenDyslexic', 'Comic Sans MS', 'Comic Sans', Arial, sans-serif !important;
+.font-dyslexic, .font-dyslexic * {
+  font-family: 'Lexend', 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+  --font-sans: 'Lexend', 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
   letter-spacing: 0.05em !important;
   word-spacing: 0.1em !important;
   line-height: 1.6 !important;
@@ -359,4 +361,24 @@ body {
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
+}
+
+/* ====== HIDE GOOGLE TRANSLATE OVERLAYS ====== */
+.goog-te-banner-frame,
+.goog-te-balloon-frame,
+#goog-gt-tt,
+.goog-te-spinner-pos,
+.goog-te-gadget-icon,
+.goog-te-gadget-simple {
+  display: none !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
 }

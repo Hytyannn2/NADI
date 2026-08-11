@@ -18,6 +18,6 @@
 
 ## Canonical URLs & APIs
 
-- Web Application: https://nadi.gov.my
-- API Root: https://nadi.gov.my/api
+- Web Application: https://nadi-kelantan.app
+- API Root: https://nadi-kelantan.app/api
 - Documentation & Repositories: https://github.com/Hytyannn2/NADI

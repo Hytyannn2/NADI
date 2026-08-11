@@ -3,9 +3,7 @@ import { type Metadata } from "next";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { LanguageProvider } from "@/src/context/LanguageContext";
 import { ThemeProvider } from "@/src/context/ThemeContext";
-import { GameProvider } from "@/src/context/GameContext";
 import { FamilyProvider } from "@/src/context/FamilyContext";
-import { GamificationProvider } from "@/src/components/Gamification";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-kelantan.app";
 
@@ -65,6 +63,12 @@ export const metadata: Metadata = {
     description:
       "Platform Operasi Sivik & Respons Bencana Kebangsaan Malaysia. Pemantauan paras air JPS, aduan dialek AI Groq Llama 3.3, dan padanan bantuan B40.",
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "NADI",
+  },
 };
 
 export default function RootLayout({
@@ -106,18 +110,31 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                if (${process.env.NODE_ENV === 'production'}) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function() {});
+                  });
+                } else {
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (let r of registrations) { r.unregister(); }
+                  });
+                }
+              }
+            `,
+          }}
+        />
       </head>
       <body className="antialiased bg-[#050507] text-white">
         <AuthProvider>
           <LanguageProvider>
             <ThemeProvider>
-              <GameProvider>
                 <FamilyProvider>
-                  <GamificationProvider>
                     {children}
-                  </GamificationProvider>
                 </FamilyProvider>
-              </GameProvider>
             </ThemeProvider>
           </LanguageProvider>
         </AuthProvider>

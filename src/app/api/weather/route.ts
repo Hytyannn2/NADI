@@ -78,6 +78,10 @@ export async function GET(request: Request) {
                 pm25: currentA.pm2_5 || 10,
                 pm10: currentA.pm10 || 20,
             },
+        }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=600',
+            },
         });
     } catch (error) {
         console.error('Weather fetch error:', error);
