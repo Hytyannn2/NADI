@@ -306,9 +306,19 @@ export const ALL_KELANTAN_PPS_CENTERS: EvacCenterItem[] = Object.entries(RAW_PPS
         } else {
             const baseCoords = getSubdistrictCoordinates(name, jajahan);
             const angle = (idx * 137.5 * Math.PI) / 180;
-            const radius = 0.003 + ((idx % 10) * 0.0012);
+            const radius = 0.002 + ((idx % 8) * 0.0008);
             lat = Number((baseCoords.lat + Math.sin(angle) * radius).toFixed(6));
-            lng = Number((baseCoords.lng + Math.cos(angle) * radius).toFixed(6));
+            lng = Number((baseCoords.lng + Math.abs(Math.cos(angle)) * radius).toFixed(6));
+
+            // Riverbed Water Avoidance: Clamp coordinates away from Sungai Kelantan river corridors
+            // 1. Kota Bharu Riverbed (lat 6.10-6.17): keep lng >= 102.238
+            if (lat >= 6.10 && lat <= 6.17 && lng >= 102.215 && lng <= 102.235) {
+                lng = 102.238 + (idx % 8) * 0.0015;
+            }
+            // 2. Pasir Mas River Bend (lat 6.00-6.08): keep lng <= 102.138
+            if (lat >= 6.00 && lat <= 6.08 && lng >= 102.139 && lng <= 102.165) {
+                lng = 102.132 - (idx % 8) * 0.0012;
+            }
         }
 
         return {

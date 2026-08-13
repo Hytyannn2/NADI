@@ -1,256 +1,1054 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Map, X, AlertTriangle, Droplets, Construction, Loader2, MapPin, Info } from 'lucide-react';
+import {
+  Map,
+  X,
+  AlertTriangle,
+  Droplets,
+  Construction,
+  Loader2,
+  MapPin,
+  Info,
+  Home,
+  Radio,
+  Store,
+  Navigation,
+  ZoomIn,
+  Search,
+  Crosshair,
+  Compass,
+  ChevronUp,
+  ChevronDown,
+  SlidersHorizontal,
+} from 'lucide-react';
 import dynamic from 'next/dynamic';
+import 'leaflet/dist/leaflet.css';
 
 import { createClient } from '@/src/lib/supabase/client';
+import { useWeather } from '@/src/hooks/useWeather';
+import { useLanguage } from '@/src/context/LanguageContext';
+import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } from '@/src/data/kelantanPpsCenters';
 
 // Dynamic import to avoid SSR issues with Leaflet
-const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
-const CircleMarker = dynamic(() => import('react-leaflet').then(m => m.CircleMarker), { ssr: false });
-const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
+const MapContainer = dynamic(() => import('react-leaflet').then((m) => m.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then((m) => m.TileLayer), { ssr: false });
+const CircleMarker = dynamic(() => import('react-leaflet').then((m) => m.CircleMarker), { ssr: false });
+const Circle = dynamic(() => import('react-leaflet').then((m) => m.Circle), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then((m) => m.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-leaflet').then((m) => m.Popup), { ssr: false });
+
+export type HeatType = 'pothole' | 'flood' | 'volunteer' | 'pps' | 'sensor' | 'vendor';
 
 interface HeatPoint {
-    lat: number; lng: number;
-    type: 'pothole' | 'flood' | 'volunteer';
-    label: string; severity: number;
+  lat: number;
+  lng: number;
+  type: HeatType;
+  label: string;
+  sublabel?: string;
+  severity: number;
 }
 
-const TYPE_CONFIG = {
-    pothole: { color: '#EF4444', label: 'Potholes', icon: Construction },
-    flood: { color: '#3B82F6', label: 'Flood Zones', icon: Droplets },
-    volunteer: { color: '#F59E0B', label: 'Volunteer', icon: AlertTriangle },
+interface ClusterPoint {
+  id: string;
+  isCluster: boolean;
+  lat: number;
+  lng: number;
+  count: number;
+  points: HeatPoint[];
+  type: HeatType;
+  label?: string;
+  sublabel?: string;
+  severity?: number;
+}
+
+const TYPE_CONFIG: Record<
+  HeatType,
+  { color: string; labelMs: string; labelEn: string; icon: any }
+> = {
+  pothole: { color: '#EF4444', labelMs: 'Jalan Berlubang', labelEn: 'Potholes', icon: Construction },
+  flood: { color: '#3B82F6', labelMs: 'Zon Banjir', labelEn: 'Flood Zones', icon: Droplets },
+  volunteer: { color: '#F59E0B', labelMs: 'Misi Sukarelawan', labelEn: 'Volunteer Jobs', icon: AlertTriangle },
+  pps: { color: '#10B981', labelMs: 'Pusat Pemindahan (PPS)', labelEn: 'PPS Shelters', icon: Home },
+  sensor: { color: '#8B5CF6', labelMs: 'Pengesan Sungai', labelEn: 'River Sensors', icon: Radio },
+  vendor: { color: '#EC4899', labelMs: 'Perniagaan Komuniti', labelEn: 'Local Businesses', icon: Store },
 };
 
-// Default center (Bangi / UKM area) — map shows immediately
-const DEFAULT_CENTER: [number, number] = [2.9181, 101.7712];
+// Default center (Kota Bharu, Kelantan)
+const DEFAULT_CENTER: [number, number] = [6.1256, 102.2386];
+
+// Major Flood Risk Corridor Zones (hydro-geological centroids of Kelantan river basins)
+const FALLBACK_FLOOD_ZONES: { name: string; center: [number, number]; radius: number }[] = [
+  { name: 'Cekungan Sungai Kelantan (Kota Bharu)', center: [6.1200, 102.2250], radius: 3200 },
+  { name: 'Zon Limpahan Rantau Panjang (Sungai Golok)', center: [6.0212, 101.9741], radius: 4000 },
+  { name: 'Zon Banjir Pasir Mas (Limpahan Sungai)', center: [6.0425, 102.1450], radius: 3500 },
+  { name: 'Lembangan Sungai Kuala Krai', center: [5.5347, 102.1975], radius: 4500 },
+];
+
+// Static fallback Merchants across Kelantan
+const FALLBACK_VENDORS = [
+  { name: 'Warung Nasi Ulam Cikgu', category: 'Makanan & Minuman', lat: 6.1280, lng: 102.2370, district: 'Kota Bharu' },
+  { name: 'Kedai Runcit Pak Mat', category: 'Runcit & Bekalan', lat: 6.0450, lng: 102.1410, district: 'Pasir Mas' },
+  { name: 'Batik Canting Kak Jah', category: 'Kraf Tangan', lat: 6.1220, lng: 102.2410, district: 'Kota Bharu' },
+  { name: 'Kedai Serbaneka Pasar Siti Khadijah', category: 'Bekalan Makanan', lat: 6.1305, lng: 102.2388, district: 'Kota Bharu' },
+  { name: 'Depot Tabung Gas Pasir Puteh', category: 'Bekalan Asas', lat: 5.8340, lng: 102.4010, district: 'Pasir Puteh' },
+];
+
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return parseFloat((R * c).toFixed(1));
+}
+
+// Calculate dynamic spatial grid size in degrees based on floating zoom level
+function getGridSizeForZoom(zoom: number): number {
+  if (zoom <= 10.5) return 0.25;    // Statewide view: 1-2 huge circles
+  if (zoom <= 11.8) return 0.12;    // Regional view: ~12km grid
+  if (zoom <= 12.8) return 0.055;   // Town view: ~5.5km grid (e.g. Pasir Mas = 1 circle)
+  if (zoom <= 13.8) return 0.022;   // Sub-district view: ~2.2km grid
+  if (zoom <= 14.8) return 0.008;   // Neighborhood view: ~800m grid
+  return 0;                         // Street level view (zoom > 14.8): Breaks apart completely into individual street pins!
+}
+
+// Create custom Leaflet HTML DivIcon with white number badge inside circle
+const createClusterIcon = (count: number, color: string) => {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const L = require('leaflet');
+    const size = Math.min(54, 34 + Math.log2(count) * 4);
+    return L.divIcon({
+      html: `<div style="
+        background-color: ${color};
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        border: 3px solid #ffffff;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+        color: #ffffff;
+        font-weight: 900;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, sans-serif;
+        cursor: pointer;
+      ">${count}</div>`,
+      className: 'nadi-cluster-badge',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  } catch {
+    return undefined;
+  }
+};
+
+// Fixed Map event listener component (Only updates state on actual zoomend / moveend to prevent re-render loops)
+function MapEventsController({
+  onMapChange,
+}: {
+  onMapChange: (zoom: number, bounds: any) => void;
+}) {
+  const { useMapEvents } = require('react-leaflet');
+  const map = useMapEvents({
+    zoomend: () => {
+      onMapChange(map.getZoom(), map.getBounds());
+    },
+    moveend: () => {
+      onMapChange(map.getZoom(), map.getBounds());
+    },
+  });
+
+  return null;
+}
 
 export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
-    const [filters, setFilters] = useState({ pothole: true, flood: true, volunteer: true });
-    const [points, setPoints] = useState<HeatPoint[]>([]);
-    const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-    const [mapReady, setMapReady] = useState(false);
-    const mapRef = useRef<any>(null);
-    const supabase = createClient();
+  const { lang } = useLanguage();
+  const isMs = lang === 'ms';
+  const [mounted, setMounted] = useState(false);
+  const [filters, setFilters] = useState<Record<HeatType, boolean>>({
+    pothole: true,
+    flood: true,
+    volunteer: true,
+    pps: true,
+    sensor: true,
+    vendor: true,
+  });
+  const [radiusFilter, setRadiusFilter] = useState<'all' | 2 | 5 | 10>('all');
+  const [points, setPoints] = useState<HeatPoint[]>([]);
+  const [floodZones, setFloodZones] = useState<{ name: string; center: [number, number]; radius: number }[]>(FALLBACK_FLOOD_ZONES);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [liveSensorData, setLiveSensorData] = useState<any>({ water_level: 1.74, is_online: true });
+  const [zoomLevel, setZoomLevel] = useState<number>(13);
+  const [mapBounds, setMapBounds] = useState<any>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const mapRef = useRef<any>(null);
+  const supabase = useMemo(() => createClient(), []);
 
-    // Fetch detected potholes from localStorage and Supabase DB
-    useEffect(() => {
-        const loadHeatPoints = async () => {
-            const heatPoints: HeatPoint[] = [];
+  const { userLat, userLng } = useWeather();
 
-            // 1. Load from localStorage (offline / persistent local detections)
-            const savedLocal = localStorage.getItem('nadi_local_potholes');
-            if (savedLocal) {
-                try {
-                    const localAnomalies = JSON.parse(savedLocal);
-                    localAnomalies.forEach((a: any) => {
-                        if (a.lat && a.lng && a.lat !== 0 && a.lng !== 0) {
-                            heatPoints.push({
-                                lat: parseFloat(a.lat),
-                                lng: parseFloat(a.lng),
-                                type: 'pothole',
-                                label: `Pothole (${a.status || 'pending'}) - ${a.speedKmh || 0} km/h`,
-                                severity: Math.min(5, Math.max(1, Math.round((a.zDropped || 4) / 1.5))),
-                            });
-                        }
-                    });
-                } catch (e) {
-                    console.error("Error loading local potholes for map", e);
-                }
-            }
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-            // 2. Load from Supabase DB (nadi_infra_reports table)
-            try {
-                const { data } = await supabase.from('nadi_infra_reports').select('*').limit(100);
-                if (data) {
-                    data.forEach((d: any) => {
-                        const lat = parseFloat(d.lat);
-                        const lng = parseFloat(d.lng);
-                        if (lat && lng && lat !== 0 && lng !== 0) {
-                            const exists = heatPoints.some(p => Math.abs(p.lat - lat) < 0.0001 && Math.abs(p.lng - lng) < 0.0001);
-                            if (!exists) {
-                                heatPoints.push({
-                                    lat,
-                                    lng,
-                                    type: 'pothole',
-                                    label: `Pothole Report (${d.status})`,
-                                    severity: Math.min(5, Math.max(1, Math.round((d.z_dropped || 4) / 1.5))),
-                                });
-                            }
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error("Error loading DB potholes for map", e);
-            }
+  // Sync exact user GPS coordinates from useWeather hook
+  useEffect(() => {
+    if (userLat !== null && userLng !== null && !isNaN(userLat) && !isNaN(userLng)) {
+      const loc: [number, number] = [userLat, userLng];
+      setUserLocation(loc);
+      if (mapRef.current) {
+        mapRef.current.flyTo(loc, 13, { duration: 1.5 });
+      }
+    }
+  }, [userLat, userLng]);
 
-            setPoints(heatPoints);
-        };
-
-        loadHeatPoints();
-    }, [supabase]);
-
-    // Inject Leaflet CSS immediately
-    useEffect(() => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-        // Mark map as ready once CSS is injected
-        setMapReady(true);
-
-        // Try to get user location in the background — map renders regardless
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-                    setUserLocation(loc);
-                    // Pan the map if ref is available
-                    if (mapRef.current) {
-                        mapRef.current.flyTo(loc, 14, { duration: 1.5 });
-                    }
-                },
-                () => {
-                    // Geolocation denied — stay at default center, no mock data
-                },
-                { enableHighAccuracy: true }
-            );
+  // Fetch real flood risk zones from Supabase nadi_bencana_zones if available
+  useEffect(() => {
+    const fetchZones = async () => {
+      try {
+        const { data } = await supabase.from('nadi_bencana_zones').select('*');
+        if (data && data.length > 0) {
+          const mapped = data.map((z: any) => ({
+            name: z.zone_name || z.name || 'Zon Risiko Banjir',
+            center: [z.latitude || 6.1200, z.longitude || 102.2250] as [number, number],
+            radius: z.radius_meters || 3200,
+          }));
+          setFloodZones(mapped);
         }
+      } catch (err) {
+        console.warn('[CivicHeatMap] Flood zones fetch notice:', err);
+      }
+    };
+    fetchZones();
+  }, [supabase]);
 
-        return () => { document.head.removeChild(link); };
-    }, []);
-
-    const toggleFilter = (type: keyof typeof filters) => {
-        setFilters(prev => ({ ...prev, [type]: !prev[type] }));
+  // Fetch & poll live sensor telemetry from DB
+  useEffect(() => {
+    const fetchSensor = async () => {
+      try {
+        const { data } = await supabase
+          .from('nadi_bencana_sensors')
+          .select('*')
+          .eq('name', 'Sungai Kelantan Node A')
+          .single();
+        if (data && data.water_level !== null && data.water_level !== undefined) {
+          setLiveSensorData(data);
+        }
+      } catch (err) {
+        console.warn('[CivicHeatMap] Sensor fetch notice:', err);
+      }
     };
 
-    const filteredPoints = points.filter(p => filters[p.type]);
-    const countByType = (type: string) => points.filter(p => p.type === type).length;
-    const totalReports = points.length;
+    fetchSensor();
+    const interval = setInterval(fetchSensor, 5000);
+    return () => clearInterval(interval);
+  }, [supabase]);
 
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex flex-col md:pl-64"
-            style={{ background: 'var(--bg-main)' }}
-        >
-            <div className="flex items-center justify-between p-4" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
-                <div className="flex items-center gap-2">
-                    <Map className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                    <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Live Civic Heat Map</h3>
-                </div>
-                <button onClick={onClose} className="p-2 rounded-xl transition-colors" style={{ color: 'var(--text-muted)' }}>
-                    <X className="w-5 h-5" />
-                </button>
-            </div>
+  // Search Location Handler (Town / Subdistrict / Jajahan)
+  const handleSearchInput = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchSuggestions([]);
+      return;
+    }
+    const q = query.toUpperCase();
+    const matches: { name: string; lat: number; lng: number }[] = [];
 
-            <div className="flex gap-2 p-3 overflow-x-auto no-scrollbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
-                {(Object.keys(TYPE_CONFIG) as (keyof typeof TYPE_CONFIG)[]).map(type => {
-                    const cfg = TYPE_CONFIG[type];
-                    const Icon = cfg.icon;
-                    const count = countByType(type);
-                    return (
-                        <button key={type} onClick={() => toggleFilter(type)}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wide border whitespace-nowrap transition-all"
-                            style={filters[type]
-                                ? { backgroundColor: cfg.color + '15', borderColor: cfg.color + '40', color: 'var(--text-primary)' }
-                                : { borderColor: 'var(--border-default)', color: 'var(--text-muted)', opacity: 0.5 }
-                            }
-                        >
-                            <Icon className="w-3 h-3" style={filters[type] ? { color: cfg.color } : {}} />
-                            {cfg.label} <span className="ml-0.5 opacity-60">{count}</span>
-                        </button>
-                    );
-                })}
-            </div>
+    // Search Jajahan
+    Object.entries(JAJAHAN_CENTER_COORDS).forEach(([jajahan, coords]) => {
+      if (jajahan.toUpperCase().includes(q)) {
+        matches.push({ name: `Jajahan ${jajahan}`, lat: coords.lat, lng: coords.lng });
+      }
+    });
 
-            <div className="flex-1 relative">
-                {mapReady ? (
-                    <MapContainer
-                        center={DEFAULT_CENTER}
-                        zoom={14}
-                        style={{ height: '100%', width: '100%' }}
-                        zoomControl={false}
-                        ref={mapRef}
-                        whenReady={() => {
-                            [100, 300, 600].forEach(delay => {
-                                setTimeout(() => {
-                                    if (mapRef.current) mapRef.current.invalidateSize();
-                                }, delay);
-                            });
-                            // If user location already resolved, fly to it
-                            if (userLocation && mapRef.current) {
-                                mapRef.current.flyTo(userLocation, 14, { duration: 1.5 });
-                            }
-                        }}
-                    >
-                        <TileLayer url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png" subdomains="abcd" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
-                        {filteredPoints.map((point, i) => (
-                            <CircleMarker key={i} center={[point.lat, point.lng]} radius={point.severity * 6}
-                                pathOptions={{ color: TYPE_CONFIG[point.type].color, fillColor: TYPE_CONFIG[point.type].color, fillOpacity: 0.4, weight: 2 }}>
-                                <Popup>
-                                    <div className="text-xs font-semibold">{point.label}</div>
-                                    <div className="text-[10px] opacity-60 mt-0.5">Severity: {'●'.repeat(point.severity)}{'○'.repeat(5 - point.severity)}</div>
-                                </Popup>
-                            </CircleMarker>
-                        ))}
+    // Search Towns / Subdistricts
+    Object.entries(SUBDISTRICT_COORDS).forEach(([town, coords]) => {
+      if (town.toUpperCase().includes(q)) {
+        matches.push({ name: town, lat: coords.lat, lng: coords.lng });
+      }
+    });
 
-                        {/* User location marker */}
-                        {userLocation && (
-                            <CircleMarker center={userLocation} radius={8}
-                                pathOptions={{ color: '#6366F1', fillColor: '#6366F1', fillOpacity: 0.7, weight: 3 }}>
-                                <Popup>
-                                    <div className="text-xs font-semibold"> Your Location</div>
-                                </Popup>
-                            </CircleMarker>
-                        )}
-                    </MapContainer>
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--text-muted)' }} />
-                    </div>
-                )}
+    setSearchSuggestions(matches.slice(0, 5));
+  };
 
-                {/* Info overlay */}
-                <div className="absolute bottom-4 left-4 right-4 md:left-auto md:w-[360px] md:right-6 rounded-2xl p-4 z-[500] backdrop-blur-xl shadow-2xl"
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+  const handleSelectLocation = (lat: number, lng: number) => {
+    if (mapRef.current) {
+      mapRef.current.flyTo([lat, lng], 14, { duration: 1.2 });
+    }
+    setSearchQuery('');
+    setSearchSuggestions([]);
+  };
+
+  // Fetch all 6 live civic & disaster data streams
+  const loadHeatPoints = useCallback(async () => {
+    const heatPoints: HeatPoint[] = [];
+
+    // 1. Potholes from localStorage
+    const savedLocal = localStorage.getItem('nadi_local_potholes');
+    if (savedLocal) {
+      try {
+        const parsed = JSON.parse(savedLocal);
+        parsed.forEach((p: any) => {
+          heatPoints.push({
+            lat: p.lat,
+            lng: p.lng,
+            type: 'pothole',
+            label: p.label || (isMs ? 'Jalan Berlubang Dikesan' : 'Detected Pothole'),
+            sublabel: 'On-device AI Vision',
+            severity: p.severity || 3,
+          });
+        });
+      } catch {}
+    }
+
+    // 2. Infra Reports (Potholes & Floods) from Supabase
+    try {
+      const { data: infraData } = await supabase
+        .from('nadi_infra_reports')
+        .select('latitude, longitude, issue_type, title, severity')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (infraData) {
+        infraData.forEach((r) => {
+          if (r.latitude && r.longitude) {
+            const reportType = r.issue_type === 'flood' ? 'flood' : 'pothole';
+            heatPoints.push({
+              lat: r.latitude,
+              lng: r.longitude,
+              type: reportType,
+              label: r.title || (isMs ? 'Laporan Awam' : 'Civic Report'),
+              sublabel: r.issue_type,
+              severity: r.severity || 3,
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('[CivicHeatMap] Infra reports fetch notice:', err);
+    }
+
+    // 3. Volunteer Jobs from Supabase
+    try {
+      const { data: jobsData } = await supabase
+        .from('nadi_bencana_jobs')
+        .select('latitude, longitude, title, district, status')
+        .limit(50);
+
+      if (jobsData) {
+        jobsData.forEach((j) => {
+          if (j.latitude && j.longitude) {
+            heatPoints.push({
+              lat: j.latitude,
+              lng: j.longitude,
+              type: 'volunteer',
+              label: j.title || (isMs ? 'Misi Sukarelawan' : 'Volunteer Task'),
+              sublabel: j.district,
+              severity: 4,
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('[CivicHeatMap] Volunteer jobs fetch notice:', err);
+    }
+
+    // 4. Official PPS Evacuation Centers (All 600+ Real Kelantan Centers)
+    try {
+      const { data: ppsData } = await supabase.from('nadi_bencana_centers').select('*').limit(200);
+      if (ppsData && ppsData.length > 0) {
+        ppsData.forEach((center) => {
+          if (center.latitude && center.longitude) {
+            heatPoints.push({
+              lat: center.latitude,
+              lng: center.longitude,
+              type: 'pps',
+              label: center.name,
+              sublabel: `${center.district} · ${center.type}`,
+              severity: center.capacity > 400 ? 3 : 2,
+            });
+          }
+        });
+      } else {
+        ALL_KELANTAN_PPS_CENTERS.forEach((center, idx) => {
+          heatPoints.push({
+            lat: center.lat,
+            lng: center.lng,
+            type: 'pps',
+            label: center.name,
+            sublabel: `${center.jajahan} · ${center.type}`,
+            severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
+          });
+        });
+      }
+    } catch {
+      ALL_KELANTAN_PPS_CENTERS.forEach((center, idx) => {
+        heatPoints.push({
+          lat: center.lat,
+          lng: center.lng,
+          type: 'pps',
+          label: center.name,
+          sublabel: `${center.jajahan} · ${center.type}`,
+          severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
+        });
+      });
+    }
+
+    // 5. River Water Sensor Hardware Nodes (Loaded from DB or User GPS Position)
+    try {
+      const { data: sensorNodes } = await supabase.from('nadi_bencana_sensors').select('*');
+      if (sensorNodes && sensorNodes.length > 0) {
+        sensorNodes.forEach((node) => {
+          const sLat = node.latitude || (userLat ? userLat + 0.002 : 6.1256);
+          const sLng = node.longitude || (userLng ? userLng + 0.002 : 102.2386);
+          heatPoints.push({
+            lat: sLat,
+            lng: sLng,
+            type: 'sensor',
+            label: node.name || 'Sungai Kelantan Node A',
+            sublabel: `Ultrasonic Sonar Telemetry · ${node.status || 'Active'}`,
+            severity: 5,
+          });
+        });
+      } else {
+        const sLat = userLat ? userLat + 0.002 : 6.1256;
+        const sLng = userLng ? userLng + 0.002 : 102.2386;
+        heatPoints.push({
+          lat: sLat,
+          lng: sLng,
+          type: 'sensor',
+          label: 'Sungai Kelantan Node A',
+          sublabel: 'Ultrasonic Sonar Telemetry · Kota Bharu',
+          severity: 5,
+        });
+      }
+    } catch {
+      const sLat = userLat ? userLat + 0.002 : 6.1256;
+      const sLng = userLng ? userLng + 0.002 : 102.2386;
+      heatPoints.push({
+        lat: sLat,
+        lng: sLng,
+        type: 'sensor',
+        label: 'Sungai Kelantan Node A',
+        sublabel: 'Ultrasonic Sonar Telemetry · Kota Bharu',
+        severity: 5,
+      });
+    }
+
+    // 6. Community Merchants / B40 Businesses (Supabase or Fallback)
+    try {
+      const { data: vendorData } = await supabase.from('nadi_vendors').select('*').limit(50);
+      if (vendorData && vendorData.length > 0) {
+        vendorData.forEach((v) => {
+          if (v.latitude && v.longitude) {
+            heatPoints.push({
+              lat: v.latitude,
+              lng: v.longitude,
+              type: 'vendor',
+              label: v.name,
+              sublabel: v.category || (isMs ? 'Perniagaan Komuniti' : 'Local Business'),
+              severity: 1,
+            });
+          }
+        });
+      } else {
+        FALLBACK_VENDORS.forEach((v) => {
+          heatPoints.push({
+            lat: v.lat,
+            lng: v.lng,
+            type: 'vendor',
+            label: v.name,
+            sublabel: v.category,
+            severity: 1,
+          });
+        });
+      }
+    } catch {
+      FALLBACK_VENDORS.forEach((v) => {
+        heatPoints.push({
+          lat: v.lat,
+          lng: v.lng,
+          type: 'vendor',
+          label: v.name,
+          sublabel: v.category,
+          severity: 1,
+        });
+      });
+    }
+
+    setPoints(heatPoints);
+  }, [supabase, isMs, userLat, userLng]);
+
+  useEffect(() => {
+    loadHeatPoints();
+  }, [loadHeatPoints]);
+
+  // Real-time Supabase updates listener
+  useEffect(() => {
+    const channel = supabase
+      .channel('heatmap_realtime_updates')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_infra_reports' }, () => {
+        console.log('⚡ [CivicHeatMap] Live infra report detected — updating map points');
+        loadHeatPoints();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_bencana_jobs' }, () => {
+        console.log('⚡ [CivicHeatMap] Live volunteer mission detected — updating map points');
+        loadHeatPoints();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, loadHeatPoints]);
+
+  useEffect(() => {
+    setMapReady(true);
+  }, []);
+
+  const toggleFilter = (type: HeatType) => {
+    setFilters((prev) => ({ ...prev, [type]: !prev[type] }));
+  };
+
+  // Real Dynamic Spatial Grid Clustering Engine with Dynamic Zoom Scaling & Spiderfy Offset
+  const clusterPoints = useMemo<ClusterPoint[]>(() => {
+    // 1. Filter base points by layer chip filter & radius filter & viewport bounds
+    const basePoints = points.filter((p) => {
+      if (!filters[p.type]) return false;
+      if (radiusFilter !== 'all' && userLocation) {
+        const dist = getDistanceKm(userLocation[0], userLocation[1], p.lat, p.lng);
+        if (dist > radiusFilter) return false;
+      }
+      if (mapBounds) {
+        try {
+          if (!mapBounds.contains([p.lat, p.lng])) return false;
+        } catch {}
+      }
+      return true;
+    });
+
+    // 2. Spiderfy offset for co-located points (prevents 100% stacking when unclustered)
+    const coordMap: Record<string, number> = {};
+    const spiderfiedPoints = basePoints.map((p) => {
+      const coordKey = `${p.lat.toFixed(4)}_${p.lng.toFixed(4)}`;
+      const count = coordMap[coordKey] || 0;
+      coordMap[coordKey] = count + 1;
+
+      if (count === 0) return p;
+
+      // Apply a tiny spiderfy spiral offset (~30m radius) so stacked pins sit side-by-side cleanly
+      const angle = (count * 120 * Math.PI) / 180;
+      const offset = 0.00035 * Math.ceil(count / 3);
+      return {
+        ...p,
+        lat: Number((p.lat + Math.sin(angle) * offset).toFixed(6)),
+        lng: Number((p.lng + Math.cos(angle) * offset).toFixed(6)),
+      };
+    });
+
+    const gridSize = getGridSizeForZoom(zoomLevel);
+
+    // 3. If zoomLevel >= 15 (Street level), un-cluster completely into individual small circles
+    if (gridSize === 0) {
+      return spiderfiedPoints.map((p, idx) => ({
+        id: `p-${idx}-${p.lat}-${p.lng}`,
+        isCluster: false,
+        lat: p.lat,
+        lng: p.lng,
+        count: 1,
+        points: [p],
+        type: p.type,
+        label: p.label,
+        sublabel: p.sublabel,
+        severity: p.severity,
+      }));
+    }
+
+    // 4. Otherwise, group nearby points into dynamic spatial grid clusters based on zoomLevel
+    const gridMap: Record<string, HeatPoint[]> = {};
+
+    spiderfiedPoints.forEach((p) => {
+      const key = `${Math.floor(p.lat / gridSize)}_${Math.floor(p.lng / gridSize)}`;
+      if (!gridMap[key]) gridMap[key] = [];
+      gridMap[key].push(p);
+    });
+
+    const result: ClusterPoint[] = [];
+    Object.entries(gridMap).forEach(([key, group], idx) => {
+      if (group.length === 1) {
+        const p = group[0];
+        result.push({
+          id: `single-${key}-${idx}`,
+          isCluster: false,
+          lat: p.lat,
+          lng: p.lng,
+          count: 1,
+          points: [p],
+          type: p.type,
+          label: p.label,
+          sublabel: p.sublabel,
+          severity: p.severity,
+        });
+      } else {
+        const avgLat = group.reduce((sum, item) => sum + item.lat, 0) / group.length;
+        const avgLng = group.reduce((sum, item) => sum + item.lng, 0) / group.length;
+
+        const counts: Record<string, number> = {};
+        group.forEach((item) => {
+          counts[item.type] = (counts[item.type] || 0) + 1;
+        });
+        const dominantType = (Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'pps') as HeatType;
+
+        result.push({
+          id: `cluster-${key}-${idx}`,
+          isCluster: true,
+          lat: avgLat,
+          lng: avgLng,
+          count: group.length,
+          points: group,
+          type: dominantType,
+        });
+      }
+    });
+
+    return result;
+  }, [points, filters, radiusFilter, userLocation, zoomLevel, mapBounds]);
+
+  const countByType = (type: HeatType) => points.filter((p) => p.type === type).length;
+
+  const handleMapChange = useCallback((z: number, b: any) => {
+    setZoomLevel(z);
+    setMapBounds(b);
+  }, []);
+
+  const handleZoomCluster = useCallback((lat: number, lng: number) => {
+    if (mapRef.current) {
+      mapRef.current.flyTo([lat, lng], Math.min(16, zoomLevel + 2.5), { duration: 0.8 });
+    }
+  }, [zoomLevel]);
+
+  const modalContent = (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[99999] flex flex-col bg-[#09090b] text-white overflow-hidden"
+    >
+      {/* Top Header Navigation & Search Bar (Mobile Ultra-Compact Single Row) */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-6 sm:py-3 bg-zinc-900/95 border-b border-zinc-800 shadow-xl backdrop-blur-xl shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <Map className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-base font-bold text-white tracking-wide leading-none">
+              {isMs ? 'Peta Haba' : 'Heat Map'}
+            </h3>
+            <p className="hidden sm:block text-[11px] text-zinc-400 mt-0.5">
+              {isMs ? 'Jalan Berlubang, Banjir, Sukarelawan & PPS' : 'Potholes, Flood Risk, Volunteers & PPS'}
+            </p>
+          </div>
+        </div>
+
+        {/* Live Location Search Bar */}
+        <div className="relative flex-1 max-w-[200px] sm:max-w-sm">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zinc-800/90 border border-zinc-700/80 focus-within:border-blue-500 transition-colors">
+            <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              placeholder={isMs ? 'Cari Lokasi...' : 'Search...'}
+              className="bg-transparent text-xs text-white placeholder-zinc-400 focus:outline-none w-full"
+            />
+            {searchQuery && (
+              <button onClick={() => handleSearchInput('')} className="text-zinc-400 hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Search Autocomplete Suggestions */}
+          <AnimatePresence>
+            {searchSuggestions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700/90 rounded-xl shadow-2xl overflow-hidden z-[1000]"
+              >
+                {searchSuggestions.map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectLocation(item.lat, item.lng)}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-200 hover:bg-blue-600/30 hover:text-white transition-colors border-b border-zinc-800/60 last:border-none flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      {item.name}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono">GPS</span>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Mobile Filter Toggle Button */}
+          <button
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="sm:hidden p-2 rounded-xl bg-zinc-800 text-zinc-300 border border-zinc-700 active:scale-95"
+            title={isMs ? 'Tapis Lapisan' : 'Filter Layers'}
+          >
+            <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+          </button>
+
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-all border border-zinc-700/80 active:scale-95"
+            aria-label={isMs ? 'Tutup Peta Haba' : 'Close Heat Map'}
+          >
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Fast District Jump Pills Toolbar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-3 bg-zinc-900/90 border-b border-zinc-800/80 shrink-0">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 shrink-0 mr-1">
+          {isMs ? 'Jajahan:' : 'District:'}
+        </span>
+        {Object.entries(JAJAHAN_CENTER_COORDS).map(([jajahan, coords]) => (
+          <button
+            key={jajahan}
+            onClick={() => handleSelectLocation(coords.lat, coords.lng)}
+            className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-zinc-300 bg-zinc-800/80 hover:bg-blue-600/30 hover:text-blue-300 border border-zinc-700/80 transition-all whitespace-nowrap active:scale-95 shrink-0 shadow-sm"
+          >
+            {jajahan}
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop Filter Toolbar / Mobile Expandable Drawer */}
+      <div className={`${mobileFiltersOpen ? 'block' : 'hidden sm:block'} px-3 py-2 sm:px-6 sm:py-2.5 bg-zinc-900/95 border-b border-zinc-800/80 transition-all shrink-0`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          {/* Layer Filters (Horizontal Scroll on Mobile, Flex Wrap on Desktop) */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1">
+            {(Object.keys(TYPE_CONFIG) as HeatType[]).map((type) => {
+              const cfg = TYPE_CONFIG[type];
+              const Icon = cfg.icon;
+              const count = countByType(type);
+              const label = isMs ? cfg.labelMs : cfg.labelEn;
+              const active = filters[type];
+              return (
+                <button
+                  key={type}
+                  onClick={() => toggleFilter(type)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all shadow-sm active:scale-95 shrink-0"
+                  style={
+                    active
+                      ? { backgroundColor: cfg.color + '20', borderColor: cfg.color + '50', color: '#fff' }
+                      : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', color: '#71717a', opacity: 0.5 }
+                  }
                 >
-                    {totalReports > 0 ? (
-                        <>
-                            <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Reports Near You</p>
-                            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                                {filteredPoints.length} <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>points</span>
-                            </p>
-                            <div className="flex gap-3 mt-2">
-                                {(Object.keys(TYPE_CONFIG) as (keyof typeof TYPE_CONFIG)[]).map(type => {
-                                    const cfg = TYPE_CONFIG[type];
-                                    const count = filteredPoints.filter(p => p.type === type).length;
-                                    if (count === 0) return null;
-                                    return (
-                                        <span key={type} className="text-[10px] font-bold flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: cfg.color }} />
-                                            {count}
-                                        </span>
-                                    );
-                                })}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-muted)' }}>
-                                <Info className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>No reports yet</p>
-                                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                                    Submit civic reports via Suara or Infra to see them here.
-                                </p>
-                            </div>
+                  <Icon className="w-3 h-3" style={active ? { color: cfg.color } : {}} />
+                  {label} <span className="ml-1 px-1.5 py-0.5 rounded-md bg-white/10 text-[9px]">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Radius Radar Proximity Filter */}
+          <div className="flex items-center gap-1.5 shrink-0 bg-zinc-800/60 p-1 rounded-xl border border-zinc-700/60 self-start sm:self-auto">
+            <Navigation className="w-3.5 h-3.5 text-blue-400 ml-1.5 shrink-0" />
+            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-1">{isMs ? 'Radius:' : 'Radius:'}</span>
+            {(['all', 2, 5, 10] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRadiusFilter(r)}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                  radiusFilter === r
+                    ? 'bg-blue-500/25 text-blue-400 border border-blue-500/40 shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {r === 'all' ? (isMs ? 'Semua' : 'All') : `< ${r}km`}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Map Canvas Container */}
+      <div className="flex-1 relative w-full h-full min-h-0">
+        {mapReady ? (
+          <MapContainer
+            key="nadi-civic-heatmap-container"
+            center={userLocation || DEFAULT_CENTER}
+            zoom={13}
+            preferCanvas={true}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false}
+            ref={mapRef}
+            whenReady={() => {
+              const map = mapRef.current;
+              if (map) {
+                setZoomLevel(map.getZoom());
+                setMapBounds(map.getBounds());
+
+                [100, 300, 600].forEach((delay) => {
+                  setTimeout(() => {
+                    map.invalidateSize();
+                  }, delay);
+                });
+                if (userLocation) {
+                  map.flyTo(userLocation, 13, { duration: 1.5 });
+                }
+              }
+            }}
+          >
+            <MapEventsController onMapChange={handleMapChange} />
+
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              subdomains="abcd"
+              attribution="&copy; CARTO &copy; OpenStreetMap"
+            />
+
+            {/* High-Risk Flood Polygon Zones */}
+            {filters.flood &&
+              floodZones.map((zone, i) => (
+                <Circle
+                  key={`flood-zone-${i}`}
+                  center={zone.center}
+                  radius={zone.radius}
+                  interactive={false}
+                  pathOptions={{
+                    color: '#3B82F6',
+                    fillColor: '#3B82F6',
+                    fillOpacity: 0.12,
+                    weight: 1.5,
+                    dashArray: '6, 8',
+                  }}
+                />
+              ))}
+
+            {clusterPoints.map((cluster) => {
+              const cfg = TYPE_CONFIG[cluster.type || 'pps'];
+              const distFromUser =
+                userLocation ? getDistanceKm(userLocation[0], userLocation[1], cluster.lat, cluster.lng) : null;
+
+              // Render Cluster Marker (HTML DivIcon Badge with white count printed inside!)
+              if (cluster.isCluster) {
+                const clusterIcon = createClusterIcon(cluster.count, cfg.color);
+                return (
+                  <Marker
+                    key={cluster.id}
+                    position={[cluster.lat, cluster.lng]}
+                    icon={clusterIcon}
+                    eventHandlers={{
+                      click: () => handleZoomCluster(cluster.lat, cluster.lng),
+                    }}
+                  />
+                );
+              }
+
+              // Render Individual Circle Marker (Small crisp circle when zoomed in)
+              const point = cluster.points[0] || cluster;
+              return (
+                <CircleMarker
+                  key={cluster.id}
+                  center={[point.lat, point.lng]}
+                  radius={point.type === 'sensor' ? 9 : 4.5}
+                  pathOptions={{
+                    color: '#ffffff',
+                    fillColor: cfg.color,
+                    fillOpacity: 0.9,
+                    weight: 1.5,
+                  }}
+                >
+                  <Popup>
+                    <div className="p-2 font-sans bg-zinc-950 text-white rounded-2xl border border-zinc-800 shadow-2xl min-w-[200px]">
+                      <strong className="text-sm font-bold text-white block leading-tight">{point.label}</strong>
+                      {point.sublabel && <span className="text-[11px] text-zinc-400 block mt-0.5">{point.sublabel}</span>}
+                      {distFromUser !== null && (
+                        <span className="text-[10px] font-semibold text-blue-400 block mt-1">
+                          📍 {distFromUser} km {isMs ? 'dari lokasi anda' : 'from your location'}
+                        </span>
+                      )}
+
+                      <div className="flex items-center gap-1.5 mt-2 mb-2.5">
+                        <span
+                          className="inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider"
+                          style={{ background: cfg.color }}
+                        >
+                          {isMs ? cfg.labelMs : cfg.labelEn}
+                        </span>
+                      </div>
+
+                      {/* Live IoT Sensor Telemetry Card */}
+                      {point.type === 'sensor' && (
+                        <div className="my-2 p-2.5 rounded-xl bg-zinc-900/90 text-white font-sans border border-purple-500/40 shadow-inner">
+                          <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold mb-1">
+                            <span>📡 IoT TELEMETRY</span>
+                            <span className="text-emerald-400 font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-black text-purple-400">
+                              {(liveSensorData?.water_level ?? 1.74).toFixed(2)}m
+                            </span>
+                            <span className="text-[10px] text-zinc-400">
+                              ({Math.round((liveSensorData?.water_level ?? 1.74) * 100)} cm)
+                            </span>
+                          </div>
+                          <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden my-1.5 border border-zinc-700">
+                            <div
+                              className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, Math.max(10, ((liveSensorData?.water_level ?? 1.74) / 3.0) * 100))}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[8px] text-zinc-400 font-medium">
+                            <span>Biasa &lt;1.8m</span>
+                            <span className="text-amber-400">Amaran 1.8m</span>
+                            <span className="text-red-400 font-bold">Bahaya 3.0m</span>
+                          </div>
                         </div>
-                    )}
-                </div>
+                      )}
+
+                      {/* 1-Tap Navigation Buttons */}
+                      {point.type !== 'sensor' && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
+                          <a
+                            href={`https://www.waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-1.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold text-center no-underline transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                          >
+                            🚙 Waze
+                          </a>
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center no-underline transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                          >
+                            🗺️ Maps
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
+
+            {/* User location marker */}
+            {userLocation && (
+              <CircleMarker
+                center={userLocation}
+                radius={8}
+                pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.8, weight: 3 }}
+              >
+                <Popup>
+                  <div className="text-xs font-bold text-zinc-900">{isMs ? 'Lokasi Anda' : 'Your Location'}</div>
+                </Popup>
+              </CircleMarker>
+            )}
+          </MapContainer>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+            <p className="text-xs font-bold text-zinc-400">
+              {isMs ? 'Memuatkan Peta Haba...' : 'Loading Heatmap Canvas...'}
+            </p>
+          </div>
+        )}
+
+        {/* Floating Live GPS Re-Center Target Button */}
+        <div className="absolute bottom-20 right-4 sm:bottom-28 sm:right-6 z-[500]">
+          <button
+            onClick={() => {
+              if (userLocation && mapRef.current) {
+                mapRef.current.flyTo(userLocation, 14, { duration: 1.2 });
+              } else if (mapRef.current) {
+                mapRef.current.flyTo(DEFAULT_CENTER, 14, { duration: 1.2 });
+              }
+            }}
+            className="p-3 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-blue-400 border border-zinc-700/80 shadow-2xl transition-all active:scale-95 group backdrop-blur-xl"
+            title={isMs ? 'Pusatkan Lokasi Saya' : 'Re-center My GPS'}
+          >
+            <Crosshair className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+          </button>
+        </div>
+
+        {/* Floating Collapsible Bottom Legend Drawer (Mobile Pill / Desktop Full Card) */}
+        <div className="absolute bottom-4 left-4 right-4 md:left-auto md:w-[400px] md:right-6 z-[500]">
+          {/* Mobile Collapsible Header Toggle Pill */}
+          <div className="md:hidden flex justify-start mb-2">
+            <button
+              onClick={() => setLegendOpen(!legendOpen)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-zinc-900/95 border border-zinc-700/90 text-white shadow-2xl backdrop-blur-xl text-xs font-bold active:scale-95"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{clusterPoints.length} {isMs ? 'titik isyarat' : 'signals near you'}</span>
+              {legendOpen ? <ChevronDown className="w-4 h-4 text-zinc-400" /> : <ChevronUp className="w-4 h-4 text-zinc-400" />}
+            </button>
+          </div>
+
+          {/* Expanded Card (Always visible on desktop md:, collapsible on mobile) */}
+          <div className={`${legendOpen ? 'flex' : 'hidden md:flex'} rounded-2xl p-3.5 backdrop-blur-2xl bg-zinc-900/95 border border-zinc-800 shadow-2xl flex-col gap-2.5 transition-all`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                  {isMs ? 'Titik Isyarat Berdekatan' : 'Signals Near You'}
+                </p>
+                <p className="text-xl font-bold text-white">
+                  {clusterPoints.length} <span className="text-xs font-medium text-zinc-400">{isMs ? 'titik/kluster' : 'points/clusters'}</span>
+                </p>
+              </div>
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Canvas GIS
+              </span>
             </div>
-        </motion.div>
-    );
+
+            {/* Interactive Legend Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-2 border-t border-zinc-800/80">
+              {(Object.keys(TYPE_CONFIG) as HeatType[]).map((type) => {
+                const cfg = TYPE_CONFIG[type];
+                const count = points.filter((p) => p.type === type).length;
+                const label = isMs ? cfg.labelMs : cfg.labelEn;
+                return (
+                  <div key={type} className="flex items-center gap-1.5 p-1 rounded-lg bg-zinc-800/40">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.color }} />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-zinc-200 truncate leading-tight">{label}</p>
+                      <p className="text-[9px] text-zinc-400">{count} {isMs ? 'aktif' : 'active'}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+
+  if (!mounted) return null;
+  return createPortal(modalContent, document.body);
 }

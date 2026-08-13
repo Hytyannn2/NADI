@@ -64,3 +64,27 @@ secrets.h
 !public/**
 !src/app/icon.jpg
 !src/app/icon.png
+
+# Python Virtual Environments & Tooling Caches (HIGHLY RECOMMENDED)
+.venv/
+venv/
+env/
+/strix-env/
+/strix_runs/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Local IDE / Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Internal Scratch Plans & Markdown Notes
+gamification_plan.md
+neural_network_plan.md
+maps_files.md
+*_plan.md

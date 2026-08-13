@@ -1,6 +1,6 @@
 'use client';
 import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -66,7 +66,7 @@ export default function BencanaView() {
     const isMs = lang === 'ms';
     const [activeTab, setActiveTab] = useState<'map' | 'sensors' | 'zones'>('map');
 
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const { weather, isWeatherLoading, locationLabel, userLat, userLng } = useWeather();
 
@@ -156,7 +156,7 @@ export default function BencanaView() {
         };
 
         fetchLatestSensor();
-        const pollInterval = setInterval(fetchLatestSensor, 3000);
+        const pollInterval = setInterval(fetchLatestSensor, 30000);
 
         // Fetch initial sensor data from Supabase DB
         supabase.from('nadi_bencana_sensors').select('*').eq('name', 'Sungai Kelantan Node A').single()
@@ -279,37 +279,43 @@ export default function BencanaView() {
     const floodZones: FloodZone[] = bencanaData?.zones || [];
 
     // Calculate distance to all official Kelantan PPS centers from live GPS
-    const allProcessedEvacCenters = ALL_KELANTAN_PPS_CENTERS.map(center => {
-        const dist = (userLat !== null && userLng !== null)
-            ? getDistanceKm(userLat, userLng, center.lat, center.lng)
-            : null;
-        return {
-            name: center.name,
-            district: center.jajahan,
-            capacity: center.capacity,
-            type: center.type,
-            lat: center.lat,
-            lng: center.lng,
-            distanceKm: dist,
-        };
-    });
+    const allProcessedEvacCenters = useMemo(() => {
+        return ALL_KELANTAN_PPS_CENTERS.map(center => {
+            const dist = (userLat !== null && userLng !== null)
+                ? getDistanceKm(userLat, userLng, center.lat, center.lng)
+                : null;
+            return {
+                name: center.name,
+                district: center.jajahan,
+                capacity: center.capacity,
+                type: center.type,
+                lat: center.lat,
+                lng: center.lng,
+                distanceKm: dist,
+            };
+        });
+    }, [userLat, userLng]);
 
-    const filteredEvacCenters = allProcessedEvacCenters.filter(c => {
-        const matchesJajahan = selectedJajahan === 'All' || c.district.toLowerCase() === selectedJajahan.toLowerCase();
-        const matchesType = selectedType === 'All' || c.type.toLowerCase().includes(selectedType.toLowerCase());
-        const matchesSearch = searchPps === '' || c.name.toLowerCase().includes(searchPps.toLowerCase()) || c.district.toLowerCase().includes(searchPps.toLowerCase());
-        return matchesJajahan && matchesType && matchesSearch;
-    });
+    const filteredEvacCenters = useMemo(() => {
+        const filtered = allProcessedEvacCenters.filter(c => {
+            const matchesJajahan = selectedJajahan === 'All' || c.district.toLowerCase() === selectedJajahan.toLowerCase();
+            const matchesType = selectedType === 'All' || c.type.toLowerCase().includes(selectedType.toLowerCase());
+            const matchesSearch = searchPps === '' || c.name.toLowerCase().includes(searchPps.toLowerCase()) || c.district.toLowerCase().includes(searchPps.toLowerCase());
+            return matchesJajahan && matchesType && matchesSearch;
+        });
 
-    if (sortBy === 'capacity') {
-        filteredEvacCenters.sort((a, b) => b.capacity - a.capacity);
-    } else if (sortBy === 'name') {
-        filteredEvacCenters.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-        if (userLat !== null && userLng !== null) {
-            filteredEvacCenters.sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+        if (sortBy === 'capacity') {
+            filtered.sort((a, b) => b.capacity - a.capacity);
+        } else if (sortBy === 'name') {
+            filtered.sort((a, b) => a.name.localeCompare(b.name));
+        } else {
+            if (userLat !== null && userLng !== null) {
+                filtered.sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+            }
         }
-    }
+
+        return filtered;
+    }, [allProcessedEvacCenters, selectedJajahan, selectedType, searchPps, sortBy, userLat, userLng]);
 
     // Map shelters layer (top 10 nearest centers)
     const mapShelters = filteredEvacCenters.slice(0, 10);
@@ -533,7 +539,7 @@ export default function BencanaView() {
                         {sensorData.is_online === false || sensorData.status === 'offline' || sensorData.status === 'sensor_fault'
                             ? currentSensor.text
                             : sensorData.water_level > 0
-                                ? `${sensorData.water_level < 10 ? Math.round(sensorData.water_level * 100) : Math.round(sensorData.water_level)} cm · ${currentSensor.text}`
+                                ? `${Math.round(sensorData.water_level * 100)} cm · ${currentSensor.text}`
                                 : currentSensor.text}
                     </span>
 
@@ -908,7 +914,7 @@ export default function BencanaView() {
                                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                         <Droplets className={`w-4 h-4 mb-1 ${sensorStatus === 'danger' ? 'text-red-500' : 'text-blue-400'}`} />
                                         <p className={`text-xl font-bold ${sensorStatus === 'danger' ? 'text-red-500' : sensorStatus === 'warning' ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                            {sensorData.water_level !== null && sensorData.water_level !== undefined ? Math.round(sensorData.water_level < 10 ? sensorData.water_level * 100 : sensorData.water_level) : '—'}
+                                            {sensorData.water_level !== null && sensorData.water_level !== undefined ? Math.round(sensorData.water_level * 100) : '—'}
                                         </p>
                                         <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Water (cm)</p>
                                     </div>

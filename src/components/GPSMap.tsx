@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LocateFixed, Plus, Minus, Maximize2, Minimize2, Sparkles } from 'lucide-react';
+import { LocateFixed, Plus, Minus, Maximize2, Minimize2, Layers, Globe, MapPin, Eye, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useLanguage } from '@/src/context/LanguageContext';
 
 export interface EvacShelterMarker {
   name: string;
@@ -22,14 +23,19 @@ interface GPSMapProps {
 }
 
 export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
+  const { lang } = useLanguage();
+  const isMs = lang === 'ms';
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const shelterLayerRef = useRef<L.LayerGroup | null>(null);
+  const currentTileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isAnimatingFS, setIsAnimatingFS] = useState(false);
+  const [layerMode, setLayerMode] = useState<'dark' | 'streets' | 'satellite'>('dark');
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -42,13 +48,6 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
         zoomControl: false,
         attributionControl: false,
       });
-
-      // Add CartoDB Dark tile layer for crisp, reliable dark-mode map tiles
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; CARTO &copy; OpenStreetMap'
-      }).addTo(map);
 
       // Layer group for shelter markers
       shelterLayerRef.current = L.layerGroup().addTo(map);
@@ -94,6 +93,57 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
     };
   }, []);
 
+  // Update map tile layer dynamically when layerMode changes
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    if (currentTileLayerRef.current) {
+      currentTileLayerRef.current.remove();
+    }
+
+    let tileUrl = 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png';
+    let options: L.TileLayerOptions = {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c', 'd'],
+      attribution: '&copy; CARTO &copy; OpenStreetMap',
+    };
+
+    if (layerMode === 'streets') {
+      tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      options = { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' };
+    } else if (layerMode === 'satellite') {
+      tileUrl = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
+      options = { maxZoom: 20, subdomains: ['0', '1', '2', '3'], attribution: '&copy; Google Maps Satellite' };
+    }
+
+    const tileLayer = L.tileLayer(tileUrl, options);
+
+    tileLayer.on('tileerror', () => {
+      if (layerMode === 'satellite') {
+        console.warn('[GPSMap] Google Satellite tiles error — swapping to Esri World Imagery fallback');
+        tileLayer.remove();
+        const esriFallback = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 19,
+          attribution: 'Tiles &copy; Esri',
+        });
+        esriFallback.addTo(mapInstanceRef.current!);
+        currentTileLayerRef.current = esriFallback;
+      } else if (layerMode === 'dark') {
+        console.warn('[GPSMap] CartoDB dark tiles error — swapping to Stadia Dark fallback');
+        tileLayer.remove();
+        const stadiaFallback = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          attribution: '&copy; Stadia Maps',
+        });
+        stadiaFallback.addTo(mapInstanceRef.current!);
+        currentTileLayerRef.current = stadiaFallback;
+      }
+    });
+
+    tileLayer.addTo(mapInstanceRef.current);
+    currentTileLayerRef.current = tileLayer;
+  }, [layerMode]);
+
   // Update map center and marker when coordinates change
   useEffect(() => {
     if (mapInstanceRef.current && markerRef.current) {
@@ -110,42 +160,40 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
     if (!shelterLayerRef.current) return;
     shelterLayerRef.current.clearLayers();
 
-    shelters.forEach(s => {
-      if (!s.lat || !s.lng) return;
-      const emoji = s.type === 'Sekolah' ? '🏫' : s.type === 'Masjid' ? '🕌' : '🏛️';
+    shelters.forEach((shelter) => {
       const shelterIcon = L.divIcon({
-        className: 'shelter-leaflet-icon',
+        className: 'custom-shelter-icon',
         html: `
-          <div style="background: #10B981; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px; white-space: nowrap;">
-            <span>${emoji}</span>
-            <span>${s.name.slice(0, 16)}${s.name.length > 16 ? '...' : ''}</span>
+          <div style="position: relative; display: flex; items-center; justify-content: center; width: 26px; height: 26px; border-radius: 10px; background: rgba(16, 185, 129, 0.9); border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: center; line-height: 22px; font-size: 13px;">
+            ${shelter.type === 'Sekolah' ? '🏫' : shelter.type === 'Masjid' ? '🕌' : shelter.type === 'Dewan' ? '🏛️' : '📍'}
           </div>
         `,
-        iconSize: [120, 24],
-        iconAnchor: [60, 12],
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
       });
 
-      const m = L.marker([s.lat, s.lng], { icon: shelterIcon });
-      m.bindPopup(`
-        <div style="padding: 4px; font-family: sans-serif;">
-          <strong style="font-size: 12px; color: #111;">${s.name}</strong>
-          <div style="font-size: 10px; color: #555; margin-top: 2px;">
-            ${s.type} · Capacity: <strong>${s.capacity || 400}</strong>
-          </div>
-          ${s.distanceKm ? `<div style="font-size: 10px; color: #3B82F6; font-weight: bold; margin-top: 4px;">📍 ${s.distanceKm} km from you</div>` : ''}
+      const shelterMarker = L.marker([shelter.lat, shelter.lng], { icon: shelterIcon });
+      const distLabel = shelter.distanceKm != null ? ` · ${shelter.distanceKm} km` : '';
+
+      shelterMarker.bindPopup(`
+        <div style="font-family: sans-serif; padding: 4px; color: #111;">
+          <strong style="font-size: 12px; display: block; margin-bottom: 2px;">${shelter.name}</strong>
+          <span style="font-size: 10px; color: #666;">${shelter.type}${distLabel}</span>
         </div>
       `);
-      shelterLayerRef.current?.addLayer(m);
+
+      shelterLayerRef.current?.addLayer(shelterMarker);
     });
   }, [shelters]);
 
-  // Handle Full Screen Toggle with smooth progressive tile invalidation
+  // Smooth Fullscreen Toggle Helper
   const toggleFullScreen = () => {
     if (!containerRef.current) return;
+
     setIsAnimatingFS(true);
 
     const invalidateSmoothly = () => {
-      [50, 150, 300, 500].forEach(delay => {
+      [50, 150, 300, 500].forEach((delay) => {
         setTimeout(() => {
           mapInstanceRef.current?.invalidateSize();
         }, delay);
@@ -154,22 +202,28 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
     };
 
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => {
-        setIsFullScreen(true);
-        invalidateSmoothly();
-      }).catch((err) => {
-        console.error('Fullscreen request failed:', err);
-        setIsFullScreen(prev => !prev); // Fallback to CSS fullscreen
-        invalidateSmoothly();
-      });
+      containerRef.current
+        .requestFullscreen()
+        .then(() => {
+          setIsFullScreen(true);
+          invalidateSmoothly();
+        })
+        .catch((err) => {
+          console.error('Fullscreen request failed:', err);
+          setIsFullScreen((prev) => !prev);
+          invalidateSmoothly();
+        });
     } else {
-      document.exitFullscreen().then(() => {
-        setIsFullScreen(false);
-        invalidateSmoothly();
-      }).catch(() => {
-        setIsFullScreen(false);
-        invalidateSmoothly();
-      });
+      document
+        .exitFullscreen()
+        .then(() => {
+          setIsFullScreen(false);
+          invalidateSmoothly();
+        })
+        .catch(() => {
+          setIsFullScreen(false);
+          invalidateSmoothly();
+        });
     }
   };
 
@@ -178,7 +232,7 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
     const handleFSChange = () => {
       const isFS = !!document.fullscreenElement;
       setIsFullScreen(isFS);
-      [50, 150, 300, 500].forEach(delay => {
+      [50, 150, 300, 500].forEach((delay) => {
         setTimeout(() => {
           mapInstanceRef.current?.invalidateSize();
         }, delay);
@@ -190,10 +244,8 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
   }, []);
 
   return (
-    <motion.div
+    <div
       ref={containerRef}
-      layout
-      transition={{ type: 'spring', stiffness: 280, damping: 28 }}
       className={`w-full h-full relative overflow-hidden transition-all duration-300 ${
         isFullScreen ? 'fixed inset-0 z-[9999] w-screen h-screen bg-black' : ''
       }`}
@@ -217,9 +269,86 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
 
       <div ref={mapRef} className="w-full h-full min-h-[300px] absolute inset-0 z-[1]" />
 
-      {/* Control Buttons Stack (Zoom In, Zoom Out, Fullscreen, Recenter) */}
+      {/* Control Buttons Stack (Layers, Zoom, Fullscreen, Recenter) */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-[400]">
-        {/* Fullscreen Toggle Button with Smooth Icon Morph */}
+        
+        {/* Layer Mode Switcher Button */}
+        <div className="relative">
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowLayerMenu((prev) => !prev);
+            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-2xl backdrop-blur-xl transition-colors relative overflow-hidden group"
+            aria-label={isMs ? 'Pilih Lapisan Peta' : 'Select Map Layer'}
+            title={isMs ? 'Pilih Lapisan Peta' : 'Select Map Layer'}
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+          >
+            <Layers className="w-4 h-4 text-emerald-400 group-hover:rotate-12 transition-transform" />
+          </motion.button>
+
+          {/* Layer Menu Popup */}
+          <AnimatePresence>
+            {showLayerMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                className="absolute right-0 top-12 w-44 rounded-2xl p-2 shadow-2xl backdrop-blur-2xl bg-zinc-900/95 border border-zinc-700/80 flex flex-col gap-1 z-[500]"
+              >
+                <button
+                  onClick={() => {
+                    setLayerMode('dark');
+                    setShowLayerMenu(false);
+                  }}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    layerMode === 'dark' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-zinc-300 hover:bg-zinc-800'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-zinc-400" /> {isMs ? 'Mod Gelap' : 'Dark Mode'}
+                  </span>
+                  {layerMode === 'dark' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setLayerMode('streets');
+                    setShowLayerMenu(false);
+                  }}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    layerMode === 'streets' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-zinc-300 hover:bg-zinc-800'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5 text-blue-400" /> {isMs ? 'Mod Jalan' : 'Streets Mode'}
+                  </span>
+                  {layerMode === 'streets' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setLayerMode('satellite');
+                    setShowLayerMenu(false);
+                  }}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    layerMode === 'satellite' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-zinc-300 hover:bg-zinc-800'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Eye className="w-3.5 h-3.5 text-amber-400" /> {isMs ? 'Satelit' : 'Satellite'}
+                  </span>
+                  {layerMode === 'satellite' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Fullscreen Toggle Button */}
         <motion.button
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.92 }}
@@ -229,8 +358,8 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
             toggleFullScreen();
           }}
           className="w-10 h-10 rounded-xl flex items-center justify-center shadow-2xl backdrop-blur-xl transition-colors relative overflow-hidden group"
-          aria-label={isFullScreen ? 'Exit Full Screen' : 'Full Screen'}
-          title={isFullScreen ? 'Exit Full Screen' : 'Full Screen'}
+          aria-label={isFullScreen ? (isMs ? 'Keluar Skrin Penuh' : 'Exit Full Screen') : (isMs ? 'Skrin Penuh' : 'Full Screen')}
+          title={isFullScreen ? (isMs ? 'Keluar Skrin Penuh' : 'Exit Full Screen') : (isMs ? 'Skrin Penuh' : 'Full Screen')}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           <AnimatePresence mode="wait">
@@ -260,8 +389,8 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
             mapInstanceRef.current?.zoomIn();
           }}
           className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl transition-all"
-          aria-label="Zoom In"
-          title="Zoom In"
+          aria-label={isMs ? 'Besarkan Peta' : 'Zoom In'}
+          title={isMs ? 'Besarkan Peta' : 'Zoom In'}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           <Plus className="w-4 h-4" />
@@ -277,8 +406,8 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
             mapInstanceRef.current?.zoomOut();
           }}
           className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl transition-all"
-          aria-label="Zoom Out"
-          title="Zoom Out"
+          aria-label={isMs ? 'Kecilkan Peta' : 'Zoom Out'}
+          title={isMs ? 'Kecilkan Peta' : 'Zoom Out'}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           <Minus className="w-4 h-4" />
@@ -294,13 +423,13 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
             mapInstanceRef.current?.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
           }}
           className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl transition-all mt-1"
-          aria-label="Recenter Map"
-          title="Recenter to My Location"
+          aria-label={isMs ? 'Kembali ke Lokasi Saya' : 'Recenter to My Location'}
+          title={isMs ? 'Kembali ke Lokasi Saya' : 'Recenter to My Location'}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
         >
           <LocateFixed className="w-4 h-4 text-blue-400" />
         </motion.button>
       </div>
-    </motion.div>
+    </div>
   );
 }
