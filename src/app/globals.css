@@ -122,6 +122,65 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* ====== NADI TACTICAL LEAFLET POPUP ====== */
+.nadi-popup .leaflet-popup-content-wrapper {
+  background: rgba(12, 12, 15, 0.94) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.75) !important;
+  color: #fafafa !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+.nadi-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: 264px !important;
+  line-height: normal !important;
+}
+.nadi-popup .leaflet-popup-tip-container {
+  overflow: visible !important;
+}
+.nadi-popup .leaflet-popup-tip {
+  background: rgba(12, 12, 15, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: none !important;
+}
+.nadi-popup .leaflet-popup-close-button {
+  color: #71717a !important;
+  font-size: 18px !important;
+  padding: 6px 8px 0 0 !important;
+  z-index: 10 !important;
+}
+.nadi-popup .leaflet-popup-close-button:hover {
+  color: #ffffff !important;
+}
+
+@keyframes nadiPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.nadi-popup-card {
+  animation: nadiPopIn 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.nadi-translucent-cluster-badge {
+  background: transparent !important;
+  border: none !important;
+  transition: transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.nadi-translucent-cluster-badge:hover {
+  transform: scale(1.12);
+  z-index: 1000 !important;
+}
+
 /* Interactive touch target */
 .touch-target {
   min-height: 44px;
@@ -363,19 +422,31 @@ body {
   mix-blend-mode: normal;
 }
 
-/* ====== HIDE GOOGLE TRANSLATE OVERLAYS ====== */
+/* ====== HIDE GOOGLE TRANSLATE OVERLAYS & BANNERS ====== */
 .goog-te-banner-frame,
 .goog-te-balloon-frame,
 #goog-gt-tt,
 .goog-te-spinner-pos,
 .goog-te-gadget-icon,
-.goog-te-gadget-simple {
+.goog-te-gadget-simple,
+.skiptranslate,
+iframe.skiptranslate,
+.VIpgJd-ZVi9od-OR9G1-bZyMbe,
+#google_translate_element {
   display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-body {
+html, body {
   top: 0px !important;
   position: static !important;
+  margin-top: 0px !important;
+  padding-top: 0px !important;
 }
 
 .goog-text-highlight {

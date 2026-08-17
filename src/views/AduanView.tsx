@@ -1,7 +1,30 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Check, AlertCircle, Camera, Loader2, Zap, ChevronDown, ChevronUp, Gauge, Video, VideoOff, Shield, Users, Share2, Send, Plus, Sparkles, Mic, Info, FileText, Layers, AlertTriangle, ShieldCheck, Image as ImageIcon, Paperclip, X, UploadCloud } from 'lucide-react';
+import {
+    Activity,
+    Check,
+    AlertCircle,
+    Camera,
+    Loader2,
+    Zap,
+    ChevronDown,
+    ChevronUp,
+    Video,
+    Shield,
+    Share2,
+    Send,
+    Sparkles,
+    Mic,
+    FileText,
+    Layers,
+    Image as ImageIcon,
+    X,
+    MapPin,
+    Volume2,
+    Compass
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useTheme } from '../context/ThemeContext';
@@ -10,6 +33,95 @@ import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
+
+// =============================================================================
+// CIVIC CATEGORIES (WHAT YOU REPORT — ORTHOGONAL TO INPUT METHOD)
+// =============================================================================
+export type CivicCategory = 'jalan' | 'banjir' | 'lampu' | 'sampah' | 'infra' | 'lain';
+
+export interface CivicCategoryConfig {
+    id: CivicCategory;
+    label: string;
+    image: string;
+    color: string;
+    activeBg: string;
+    activeBorder: string;
+    activeGlow: string;
+    keywords: string[];
+}
+
+export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
+    {
+        id: 'jalan',
+        label: 'Jalan & Lubang',
+        image: '/images/aduan/pothole.png',
+        color: 'text-amber-400',
+        activeBg: 'bg-amber-500/15',
+        activeBorder: 'border-amber-500/30',
+        activeGlow: 'shadow-[0_0_12px_rgba(245,158,11,0.15)]',
+        keywords: ['jalan', 'lubang', 'berlubang', 'tar', 'pothole', 'pecah', 'lerek', 'kelebok', 'perok', 'retak', 'bonggol', 'mendap']
+    },
+    {
+        id: 'banjir',
+        label: 'Banjir & Saliran',
+        image: '/images/aduan/flood.png',
+        color: 'text-sky-400',
+        activeBg: 'bg-sky-500/15',
+        activeBorder: 'border-sky-500/30',
+        activeGlow: 'shadow-[0_0_12px_rgba(56,189,248,0.15)]',
+        keywords: ['banjir', 'air', 'sungai', 'parit', 'longkang', 'saliran', 'tersumbat', 'melimpah', 'lemas', 'hujan', 'takung', 'lumpur']
+    },
+    {
+        id: 'lampu',
+        label: 'Lampu & Elektrik',
+        image: '/images/aduan/electricity.png',
+        color: 'text-yellow-400',
+        activeBg: 'bg-yellow-500/15',
+        activeBorder: 'border-yellow-500/30',
+        activeGlow: 'shadow-[0_0_12px_rgba(234,179,8,0.15)]',
+        keywords: ['lampu', 'tiang', 'gelap', 'padam', 'mentol', 'wayar', 'kabel', 'elektrik', 'tnb', 'putus', 'terpadam']
+    },
+    {
+        id: 'sampah',
+        label: 'Sampah & Sisa',
+        image: '/images/aduan/garbage.png',
+        color: 'text-emerald-400',
+        activeBg: 'bg-emerald-500/15',
+        activeBorder: 'border-emerald-500/30',
+        activeGlow: 'shadow-[0_0_12px_rgba(16,185,129,0.15)]',
+        keywords: ['sampah', 'bau', 'longgokan', 'busuk', 'kotor', 'sisa', 'pembuangan', 'haram', 'bangkai', 'lalat', 'timbunan']
+    },
+    {
+        id: 'infra',
+        label: 'Infrastruktur',
+        image: '/images/aduan/infrastructure.png',
+        color: 'text-purple-400',
+        activeBg: 'bg-purple-500/15',
+        activeBorder: 'border-purple-500/30',
+        activeGlow: 'shadow-[0_0_12px_rgba(168,85,247,0.15)]',
+        keywords: ['jambatan', 'pagar', 'taman', 'pokok', 'tumbang', 'reput', 'kemudahan', 'tandas', 'papan', 'tanda', 'benteng', 'balairaya']
+    },
+    {
+        id: 'lain',
+        label: 'Lain-lain',
+        image: '/images/aduan/other.png',
+        color: 'text-zinc-300',
+        activeBg: 'bg-zinc-700/25',
+        activeBorder: 'border-zinc-500/40',
+        activeGlow: 'shadow-[0_0_12px_rgba(161,161,170,0.15)]',
+        keywords: ['lain', 'umum', 'cadangan', 'bantuan', 'aduan']
+    }
+];
+
+function detectCategoryFromText(text: string): CivicCategory {
+    const lower = text.toLowerCase();
+    for (const cat of CIVIC_CATEGORIES) {
+        if (cat.keywords.some(kw => lower.includes(kw))) {
+            return cat.id;
+        }
+    }
+    return 'jalan';
+}
 
 interface AiAnalysis {
     severityScore: number;
@@ -37,6 +149,7 @@ interface Anomaly {
     id: string;
     lat: number;
     lng: number;
+    category?: CivicCategory;
     zDropped: number;
     verifications: number;
     status: 'pending' | 'verified';
@@ -61,9 +174,9 @@ interface Anomaly {
     feedbackGiven?: 'up' | 'down';
 }
 
-// Device fingerprint (persistent per browser)
 function getDeviceFingerprint(): string {
     const key = 'nadi_device_fp';
+    if (typeof window === 'undefined') return 'dev_server';
     let fp = localStorage.getItem(key);
     if (!fp) {
         fp = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -74,30 +187,65 @@ function getDeviceFingerprint(): string {
 
 export default function AduanView() {
     const { formatTime } = useTheme();
-    const [filter, setFilter] = useState<'all' | 'potholes' | 'civic' | 'verified'>('all');
+    const [filter, setFilter] = useState<'all' | 'jalan' | 'banjir' | 'lampu' | 'sampah' | 'infra' | 'lain' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
 
+    // Universal Composer States
     const [manualDescription, setManualDescription] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<CivicCategory>('jalan');
+    const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
     const [isParsingVoice, setIsParsingVoice] = useState(false);
-    const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+    const [userGpsLocation, setUserGpsLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
+    const [isGettingGps, setIsGettingGps] = useState(false);
+
+    // Modals
     const [shareModalAnomaly, setShareModalAnomaly] = useState<Anomaly | null>(null);
     const [copiedToast, setCopiedToast] = useState(false);
-
-    const supabase = createClient();
-
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
     const [feedbackCorrectText, setFeedbackCorrectText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
 
+    // Photo Attachment
     const [attachedPhotoBase64, setAttachedPhotoBase64] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const photoFileInputRef = useRef<HTMLInputElement>(null);
 
-    // Desktop OS detection (Drag & Drop only applies to laptop/PC)
+    const supabase = createClient();
+    const detector = usePotholeDetector();
+    const dashcam = useDashcam();
+
     const isDesktop = typeof window !== 'undefined' && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    const handleDescriptionChange = (text: string) => {
+        setManualDescription(text);
+        if (!hasManuallySelectedCategory && text.trim().length > 2) {
+            const detected = detectCategoryFromText(text);
+            setSelectedCategory(detected);
+        }
+    };
+
+    const handleGetGps = () => {
+        if (!navigator.geolocation) return;
+        setIsGettingGps(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setUserGpsLocation({
+                    lat: Number(pos.coords.latitude.toFixed(5)),
+                    lng: Number(pos.coords.longitude.toFixed(5)),
+                    label: 'Lokasi Semasa (GPS)'
+                });
+                setIsGettingGps(false);
+            },
+            (err) => {
+                console.warn('GPS location error:', err);
+                setIsGettingGps(false);
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    };
 
     const handlePaste = (e: React.ClipboardEvent) => {
         const items = e.clipboardData?.items;
@@ -168,6 +316,7 @@ export default function AduanView() {
         setIsParsingVoice(true);
         let resData: any = null;
         let visionAnalysis: any = null;
+        const reportCategory = selectedCategory;
 
         try {
             if (textToProcess) {
@@ -193,8 +342,8 @@ export default function AduanView() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         imageBase64: cleanBase64,
-                        lat: resData?.coordinates?.lat || 6.0833,
-                        lng: resData?.coordinates?.lng || 102.2500,
+                        lat: userGpsLocation?.lat || resData?.coordinates?.lat || 6.0833,
+                        lng: userGpsLocation?.lng || resData?.coordinates?.lng || 102.2500,
                         zDropped: 0
                     })
                 });
@@ -209,27 +358,32 @@ export default function AduanView() {
             setIsParsingVoice(false);
         }
 
-        const intent = visionAnalysis?.damageType || resData?.intent || 'Aduan Gambar / Infrastruktur';
-        const locName = resData?.location || 'Kota Bharu';
-        const translation = resData?.simplifiedTranslation || textToProcess || visionAnalysis?.damageType || 'Aduan Gambar';
+        const catConfig = CIVIC_CATEGORIES.find(c => c.id === reportCategory);
+        const intent = visionAnalysis?.damageType || resData?.intent || `Aduan ${catConfig?.label || 'Sivik'}`;
+        const locName = userGpsLocation?.label || resData?.location || 'Kota Bharu';
+        const translation = resData?.simplifiedTranslation || textToProcess || visionAnalysis?.damageType || `Aduan ${catConfig?.label || 'Sivik'}`;
         const dialect = resData?.detectedDialect || 'kelantan';
-        const urgency = (resData?.urgency || 'Medium') as 'Low' | 'Medium' | 'High';
+        const urgency = (resData?.urgency || (visionAnalysis?.severityScore >= 4 ? 'High' : 'Medium')) as 'Low' | 'Medium' | 'High';
         const intendedMeaning = resData?.userIntendedMeaning || translation;
         const parsedConfidence = resData?.confidenceScore
             ? Number(resData.confidenceScore)
-            : Math.min(98, Math.max(72, 78 + (resData?.dialectWords?.length || 0) * 4));
+            : Math.min(98, Math.max(75, 80 + (resData?.dialectWords?.length || 0) * 4));
+
+        const reportLat = userGpsLocation?.lat || resData?.coordinates?.lat || 6.0833;
+        const reportLng = userGpsLocation?.lng || resData?.coordinates?.lng || 102.2500;
 
         const newA: Anomaly = {
             id: `aduan-${Date.now()}`,
-            lat: resData?.coordinates?.lat || 6.0833,
-            lng: resData?.coordinates?.lng || 102.2500,
+            lat: reportLat,
+            lng: reportLng,
+            category: reportCategory,
             zDropped: 0,
             verifications: 1,
             status: photoToProcess ? 'verified' : 'pending',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             title: `${intent} @ ${locName}`,
             source: photoToProcess ? 'dashcam' : 'voice',
-            originalText: textToProcess || 'Aduan bergambar',
+            originalText: textToProcess || `Aduan bergambar (${catConfig?.label})`,
             translatedText: translation,
             userIntendedMeaning: intendedMeaning,
             locationName: locName,
@@ -240,7 +394,7 @@ export default function AduanView() {
             photoBase64: photoToProcess || undefined,
             aiAnalysis: visionAnalysis ? {
                 severityScore: visionAnalysis.severityScore || (urgency === 'High' ? 4 : 3),
-                severityLabel: visionAnalysis.damageType || `Aduan Gambar ${dialect.toUpperCase()}`,
+                severityLabel: visionAnalysis.damageType || `Aduan ${catConfig?.label}`,
                 damageType: visionAnalysis.damageType || intent,
                 estimatedWidth: visionAnalysis.estimatedWidth || '—',
                 estimatedDepth: visionAnalysis.estimatedDepth || '—',
@@ -249,10 +403,10 @@ export default function AduanView() {
                 priorityScore: visionAnalysis.priorityScore || 75,
                 riskAssessment: visionAnalysis.riskAssessment || intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: visionAnalysis.recommendedAction || 'Penugasan Skuad Tapak'
+                recommendedAction: visionAnalysis.recommendedAction || 'Penugasan Skuad Tindakan Tapak'
             } : {
                 severityScore: urgency === 'High' ? 4 : urgency === 'Medium' ? 3 : 2,
-                severityLabel: `Aduan Dialek ${dialect.toUpperCase()}`,
+                severityLabel: `Aduan ${catConfig?.label}`,
                 damageType: intent,
                 estimatedWidth: '—',
                 estimatedDepth: '—',
@@ -261,13 +415,14 @@ export default function AduanView() {
                 priorityScore: urgency === 'High' ? 88 : urgency === 'Medium' ? 68 : 48,
                 riskAssessment: intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: 'Penugasan Skuad Tapak'
+                recommendedAction: 'Penugasan Skuad Tindakan Tapak'
             }
         };
 
         setAnomalies(prev => [newA, ...prev]);
         setManualDescription('');
         setAttachedPhotoBase64(null);
+        setHasManuallySelectedCategory(false);
 
         try {
             const deviceFp = getDeviceFingerprint();
@@ -285,6 +440,24 @@ export default function AduanView() {
             console.warn('DB insert error:', dbErr);
         }
     };
+
+    function resolveCategory(a: Anomaly): CivicCategory {
+        if (a.category) return a.category;
+        const text = `${a.title || ''} ${a.originalText || ''} ${a.translatedText || ''} ${a.aiAnalysis?.damageType || ''}`.toLowerCase();
+        return detectCategoryFromText(text);
+    }
+
+    const filteredAnomalies = useMemo(() => {
+        return anomalies.filter(a => {
+            if (filter === 'verified') return a.status === 'verified';
+            if (filter === 'all') return true;
+            return resolveCategory(a) === filter;
+        });
+    }, [anomalies, filter]);
+
+    const totalReports = anomalies.length;
+    const totalVerified = anomalies.filter(a => a.status === 'verified').length;
+    const estimatedResolved = Math.max(1, Math.floor(totalVerified * 0.38));
 
     const handleSendFeedback = async (skipCorrection = false) => {
         if (!feedbackModalAnomaly || isSubmittingFeedback) return;
@@ -327,59 +500,15 @@ export default function AduanView() {
         }
     };
 
-    // === NEW: Sensor Fusion Hook ===
-    const detector = usePotholeDetector();
-
-    // === NEW: Dashcam Hook ===
-    const dashcam = useDashcam();
-
-    function isPotholeReport(a: Anomaly): boolean {
-        if (a.zDropped && a.zDropped > 0) return true;
-        if (a.source === 'sensor' || a.source === 'dashcam') return true;
-        
-        const text = `${a.title || ''} ${a.originalText || ''} ${a.translatedText || ''} ${a.aiAnalysis?.damageType || ''}`.toLowerCase();
-        const keywords = ['pothole', 'lubang', 'berlubang', 'pecah', 'sinkhole', 'kelebok', 'lerek', 'perok'];
-        return keywords.some(kw => text.includes(kw));
-    }
-
-    const potholeAnomalies = anomalies.filter(isPotholeReport);
-    const civicAnomalies = anomalies.filter(a => !isPotholeReport(a));
-
-    const totalPotholes = potholeAnomalies.length;
-    const totalCivic = civicAnomalies.length;
-    const totalVerified = anomalies.filter(a => a.status === 'verified').length;
-    const avgConfidence = anomalies.length > 0
-        ? Math.round(anomalies.reduce((sum, a) => sum + (a.confidenceScore || 0), 0) / anomalies.length)
-        : 0;
-
-    const filteredAnomalies = anomalies.filter(a => {
-        if (filter === 'potholes') return isPotholeReport(a);
-        if (filter === 'civic') return !isPotholeReport(a);
-        if (filter === 'verified') return a.status === 'verified';
-        return true;
-    });
-
-    // === AUTO-START: Detection runs always-on like Life360 ===
     useEffect(() => {
-        detector.startDriving();
-        return () => { detector.stopDriving(); };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Load local & DB anomalies on mount
-    useEffect(() => {
-        // 1. Load offline / persistent local anomalies first
         const savedLocal = localStorage.getItem('nadi_local_potholes');
-        let localAnomalies: Anomaly[] = [];
         if (savedLocal) {
             try {
-                localAnomalies = JSON.parse(savedLocal);
-                setAnomalies(localAnomalies);
-            } catch (e) {
-                console.error("Failed to parse local potholes from storage", e);
-            }
+                const parsed = JSON.parse(savedLocal);
+                setAnomalies(parsed);
+            } catch {}
         }
 
-        // 2. Load DB anomalies from Supabase and merge
         supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(50)
             .then(({ data }) => {
                 if (data && data.length > 0) {
@@ -410,7 +539,6 @@ export default function AduanView() {
                 }
             });
 
-        // Real-time subscription
         const channel = supabase.channel('infra_reports')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_infra_reports' }, (payload) => {
                 if (payload.new) {
@@ -436,34 +564,16 @@ export default function AduanView() {
                     });
                 }
             })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_infra_reports' }, (payload) => {
-                if (payload.new) {
-                    const d = payload.new as any;
-                    setAnomalies(prev => {
-                        const updated = prev.map(a => a.id === d.id ? {
-                            ...a,
-                            status: d.status,
-                            verifications: d.verifications,
-                            aiAnalysis: d.ai_analysis || a.aiAnalysis,
-                        } : a);
-                        localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
-                        return updated;
-                    });
-                }
-            })
             .subscribe();
-            
+
         return () => { supabase.removeChannel(channel); };
     }, [supabase]);
 
-    // === Handle new detections from usePotholeDetector ===
     useEffect(() => {
         if (!detector.lastDetection) return;
-
         const det = detector.lastDetection;
         const tempId = det.id;
 
-        // Capture dashcam frame if active
         let snapshot: string | null = null;
         if (dashcam.isDashcamEnabled && dashcam.isStreaming) {
             snapshot = dashcam.captureFrame();
@@ -473,22 +583,23 @@ export default function AduanView() {
             id: tempId,
             lat: det.lat,
             lng: det.lng,
+            category: 'jalan',
             zDropped: det.zDrop,
             verifications: 1,
             status: 'pending',
-            time: 'Just now',
+            time: 'Baru sahaja',
             confidenceScore: det.confidenceScore,
             speedKmh: det.speedKmh,
             snapshotBase64: snapshot || undefined,
+            title: `Lubang Jalan Dikesan (${det.zDrop.toFixed(1)}g)`,
         };
-        
+
         setAnomalies(prev => {
             const updated = [newAnomaly, ...prev];
             localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
             return updated;
         });
 
-        // Persist to DB with sensor fusion data
         const deviceFp = getDeviceFingerprint();
         supabase.from('nadi_infra_reports').insert({
             lat: String(det.lat),
@@ -499,42 +610,17 @@ export default function AduanView() {
             waveform_duration_ms: det.waveformDurationMs,
             confidence_score: det.confidenceScore,
             device_fingerprint: deviceFp,
-            snapshot_base64: snapshot?.split(',')[1] || null, // Remove data:image/jpeg;base64, prefix
+            snapshot_base64: snapshot?.split(',')[1] || null,
             status: 'pending'
         }).select().single().then(async ({ data }) => {
             if (data) {
-                // Update temp ID with real DB ID
                 setAnomalies(prev => prev.map(a => a.id === tempId ? { ...a, id: data.id } : a));
-
-                // Trigger clustering
-                try {
-                    const clusterRes = await fetch('/api/infra/cluster', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            reportId: data.id,
-                            lat: det.lat,
-                            lng: det.lng,
-                            deviceFingerprint: deviceFp,
-                        }),
-                    });
-                    const clusterData = await clusterRes.json();
-                    if (clusterData.success) {
-                        setAnomalies(prev => prev.map(a => a.id === data.id ? {
-                            ...a,
-                            cluster: clusterData.cluster,
-                            status: clusterData.cluster.isVerified ? 'verified' : a.status,
-                        } : a));
-                    }
-                } catch {
-                    // Clustering failed silently — report is still saved
-                }
             }
         });
     }, [detector.lastDetection]);
 
-    // Handle dashcam toggle (only manual control remaining)
     const handleToggleDashcam = async () => {
+        detector.startDriving();
         if (dashcam.isDashcamEnabled) {
             dashcam.disableDashcam();
         } else {
@@ -570,7 +656,6 @@ export default function AduanView() {
             const data = await res.json();
             if (data.success) {
                 setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: data.analysis, isAnalyzing: false, expanded: true, status: 'verified' } : a));
-                
                 await supabase.from('nadi_infra_reports').update({
                     ai_analysis: data.analysis,
                     status: 'verified'
@@ -603,7 +688,6 @@ export default function AduanView() {
                 const data = await res.json();
                 if (data.success) {
                     setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: { ...a.aiAnalysis, ...data.analysis } as AiAnalysis, isAnalyzing: false, expanded: true, status: 'verified' } : a));
-                    
                     await supabase.from('nadi_infra_reports').update({
                         ai_analysis: { ...anomaly.aiAnalysis, ...data.analysis },
                         status: 'verified'
@@ -619,28 +703,14 @@ export default function AduanView() {
         e.target.value = '';
     };
 
-    const severityColor = (score: number) => {
-        if (score >= 4) return 'text-red-400 bg-red-500/10 border-red-500/20';
-        if (score >= 3) return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
-        return 'text-[#C5A367] bg-[#C5A367]/10 border-[#C5A367]/20';
-    };
-
-    const confidenceColor = (score: number) => {
-        if (score >= 80) return { text: 'text-[#10B981]', bg: 'bg-[#10B981]/10', border: 'border-[#10B981]/20', label: 'HIGH' };
-        if (score >= 60) return { text: 'text-[#C5A367]', bg: 'bg-[#C5A367]/10', border: 'border-[#C5A367]/20', label: 'MED' };
-        return { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'LOW' };
-    };
-
     const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    useEffect(() => { setMounted(true); }, []);
 
     return (
-        <div className="p-5 h-full flex flex-col relative z-0">
+        <div className="p-4 sm:p-6 max-w-6xl mx-auto h-full flex flex-col relative z-0">
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
-            
-            {/* Single video element & Overlay — Portal to document.body for true edge-to-edge fullscreen */}
+
+            {/* Edge-to-edge Fullscreen Dashcam Portal */}
             {mounted && createPortal(
                 <>
                     <video
@@ -658,27 +728,25 @@ export default function AduanView() {
                                 exit={{ opacity: 0 }}
                                 className="fixed inset-0 z-[9999999] pointer-events-none"
                             >
-                                {/* Top bar */}
                                 <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/80 via-black/40 to-transparent">
                                     <div className="flex items-center gap-2.5 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                                        <span className="text-xs font-bold text-white uppercase tracking-widest">Dashcam Live</span>
+                                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-widest">Mod Pemanduan (AR HUD)</span>
                                     </div>
                                     <button
                                         onClick={handleToggleDashcam}
-                                        className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 active:scale-90 transition-transform shadow-2xl"
+                                        className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 active:scale-90 transition-transform text-white font-bold text-sm"
                                     >
-                                        <span className="text-white text-xl font-bold"></span>
+                                        ✕
                                     </button>
                                 </div>
-                                {/* Bottom info */}
                                 <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                                    <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="flex items-center gap-2 mb-1">
                                         <Shield className="w-4 h-4 text-[#10B981]" />
-                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Privacy Mode</span>
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Mod Privasi Aktif</span>
                                     </div>
                                     <p className="text-xs text-zinc-300 font-medium leading-relaxed max-w-lg">
-                                        Only captures 1 frame on pothole impact • No continuous video recording stored or saved
+                                        Hanya merakam 1 bingkai automatik semasa hentakan dikesan. Tiada video berterusan disimpan.
                                     </p>
                                 </div>
                             </motion.div>
@@ -688,54 +756,29 @@ export default function AduanView() {
                 document.body
             )}
 
-            {/* === HEADER === */}
+            {/* ================================================================= */}
+            {/* 1. PAGE HEADER                                                   */}
+            {/* ================================================================= */}
             <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="mb-6 flex justify-between items-end"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="mb-6"
             >
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif flex items-center gap-2">
-                        Pengesahan & Aduan Jalan
-                    </h1>
-                    <p className="text-xs font-medium mt-1 relative inline-block" style={{ color: 'var(--text-muted)' }}>
-                        {detector.isCalibrating ? (
-                            <span className="flex items-center gap-2">
-                                <Gauge className="w-3 h-3 text-[#C5A367] animate-pulse" />
-                                Membaca sensor peranti...
-                            </span>
-                        ) : (
-                            <>
-                                Sama-sama jaga keselamatan dan keselesaan jalan kita
-                                <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
-                            </>
-                        )}
-                    </p>
+                <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20">
+                        Sistem Sivik & Aduan Warga
+                    </span>
                 </div>
-                {/* Upgraded High-Tech Camera Button */}
-                <button
-                    onClick={handleToggleDashcam}
-                    className={`shrink-0 px-4 py-2.5 flex items-center justify-center gap-2 rounded-xl transition-all text-xs font-bold border shadow-lg focus:outline-none active:scale-95 ${
-                        dashcam.isDashcamEnabled
-                            ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/10'
-                            : 'bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-[#C5A367]/40'
-                    }`}
-                >
-                    {dashcam.isDashcamEnabled ? (
-                        <>
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                            <Video className="w-4 h-4 text-red-400" />
-                            <span>Kamera AR REC</span>
-                        </>
-                    ) : (
-                        <>
-                            <Video className="w-4 h-4 text-[#C5A367]" />
-                            <span>Kamera AR HUD</span>
-                        </>
-                    )}
-                </button>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-100 to-zinc-400">
+                    Aduan Sivik
+                </h1>
+                <p className="text-xs sm:text-sm font-medium mt-1 text-zinc-400">
+                    NADI mendengar. Lapor apa sahaja — jalan rosak, banjir kilat, lampu terpadam, atau sampah.
+                </p>
             </motion.div>
 
-            {/* === AMBIENT VOICE & PHOTO ADUAN INPUT BOX (Supports Upload, Paste & PC Drag-and-Drop) === */}
+            {/* Hidden file input for photo attachment */}
             <input
                 type="file"
                 accept="image/*"
@@ -744,587 +787,598 @@ export default function AduanView() {
                 onChange={handleAttachedPhotoSelect}
             />
 
+            {/* ================================================================= */}
+            {/* 2. UNIVERSAL COMPOSER WITH IMAGE ICONS                            */}
+            {/* ================================================================= */}
             <motion.div
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onPaste={handlePaste}
-                className={`mb-6 p-4 rounded-2xl bg-[#0D0D10] border transition-all shadow-2xl relative overflow-hidden ${
-                    isDragging ? 'border-[#C5A367] bg-[#C5A367]/10 ring-2 ring-[#C5A367]/30' : 'border-zinc-800/80'
+                className={`mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-b from-[#121217] via-[#0E0E12] to-[#0A0A0D] border transition-all shadow-[0_12px_40px_rgba(0,0,0,0.5)] relative overflow-hidden ${
+                    isDragging ? 'border-[#C5A367] ring-2 ring-[#C5A367]/30 bg-[#C5A367]/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
                 }`}
             >
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#C5A367]">
-                        <Sparkles className="w-3.5 h-3.5 text-[#C5A367]" /> Hantar Aduan Ringkas & Gambar
+                {/* Subtle Ambient Radial Glow */}
+                <div className="absolute top-0 right-1/4 w-72 h-36 bg-[#C5A367]/5 blur-3xl pointer-events-none rounded-full" />
+
+                {/* Category Type Chips (Using Custom Image Icons) */}
+                <div className="relative z-10 flex items-center gap-2 overflow-x-auto pb-3 mb-3 scrollbar-none">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider mr-1 shrink-0 flex items-center gap-1">
+                        <Compass className="w-3 h-3 text-[#C5A367]" /> Kategori:
                     </span>
-                    <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Sokong Dialek · Gambar (Muat Naik, Tampal {isDesktop ? '& Drag & Drop' : ''})
-                    </span>
+                    {CIVIC_CATEGORIES.map(cat => {
+                        const isSelected = selectedCategory === cat.id;
+                        return (
+                            <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => {
+                                    setSelectedCategory(cat.id);
+                                    setHasManuallySelectedCategory(true);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 border active:scale-95 ${
+                                    isSelected
+                                        ? `${cat.activeBg} ${cat.color} ${cat.activeBorder} ${cat.activeGlow} font-bold ring-1 ring-white/10`
+                                        : 'bg-zinc-900/80 border-zinc-800/90 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/70 hover:border-zinc-700'
+                                }`}
+                            >
+                                <img
+                                    src={cat.image}
+                                    alt={cat.label}
+                                    className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 rounded"
+                                />
+                                <span>{cat.label}</span>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                {/* Desktop Drag & Drop Overlay Indicator */}
-                {isDragging && (
-                    <div className="mb-3 p-3 rounded-xl bg-[#C5A367]/20 border border-dashed border-[#C5A367] text-center flex items-center justify-center gap-2 text-xs font-bold text-[#C5A367] animate-pulse">
-                        <UploadCloud className="w-4 h-4" />
-                        <span>Lepaskan gambar di sini untuk memuat naik!</span>
-                    </div>
-                )}
-
-                {/* Attached Photo Thumbnail Preview */}
+                {/* Attached Photo Preview */}
                 {attachedPhotoBase64 && (
-                    <div className="mb-3 p-2 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between gap-3">
+                    <div className="relative z-10 mb-3 p-3 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 flex items-center justify-between gap-3 shadow-inner">
                         <div className="flex items-center gap-3">
-                            <img src={attachedPhotoBase64} alt="Lampiran Gambar" className="w-12 h-12 object-cover rounded-lg border border-zinc-800" />
+                            <img src={attachedPhotoBase64} alt="Lampiran Gambar" className="w-12 h-12 object-cover rounded-xl border border-zinc-800 shadow" />
                             <div>
                                 <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                                    <ImageIcon className="w-3.5 h-3.5 text-[#C5A367]" /> Gambar Dilampirkan
+                                    <ImageIcon className="w-3.5 h-3.5 text-[#C5A367]" /> Foto Dilampirkan
                                 </p>
-                                <p className="text-[10px] text-zinc-400">Sedia dihantar untuk analisis Vision AI</p>
+                                <p className="text-[10px] text-zinc-400">Analisis AI Vision akan diproses semasa hantar</p>
                             </div>
                         </div>
                         <button
                             type="button"
                             onClick={() => setAttachedPhotoBase64(null)}
-                            className="w-7 h-7 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center transition-all shrink-0"
-                            title="Padam Gambar"
+                            className="w-7 h-7 rounded-full bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20 flex items-center justify-center transition-all shrink-0 active:scale-90"
+                            title="Padam Foto"
                         >
                             <X className="w-4 h-4" />
                         </button>
                     </div>
                 )}
 
-                <div className="flex items-center gap-2">
-                    <input
-                        type="text"
+                {/* Clean, Simple Input Field */}
+                <div className="relative z-10 mb-3">
+                    <textarea
+                        rows={2}
                         value={manualDescription}
-                        onChange={(e) => setManualDescription(e.target.value)}
-                        placeholder={
-                            isDesktop
-                                ? "Cakap, taip aduan, tampal (Ctrl+V) atau seret gambar ke sini..."
-                                : "Cakap, taip aduan atau muat naik gambar jalan..."
-                        }
-                        className="flex-1 text-xs rounded-xl px-4 py-3 bg-[#050507] border border-zinc-800/80 text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#C5A367]/50 transition-all"
+                        onChange={(e) => handleDescriptionChange(e.target.value)}
+                        placeholder="Taip atau cakap aduan anda di sini..."
+                        className="w-full text-xs sm:text-sm rounded-2xl p-3.5 sm:p-4 bg-[#060608]/90 border border-zinc-800/70 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#C5A367]/60 focus:ring-1 focus:ring-[#C5A367]/20 transition-all resize-none leading-relaxed shadow-inner"
+                        disabled={isParsingVoice}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                                 handleSendAduan();
                             }
                         }}
-                        disabled={isParsingVoice}
                     />
-
-                    {/* Photo Upload Icon Button */}
-                    <button
-                        type="button"
-                        onClick={() => photoFileInputRef.current?.click()}
-                        className={`p-3 rounded-xl border transition-all text-xs font-bold flex items-center justify-center shrink-0 active:scale-95 ${
-                            attachedPhotoBase64
-                                ? 'bg-[#C5A367]/20 border-[#C5A367] text-[#C5A367]'
-                                : 'bg-[#050507] border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
-                        }`}
-                        title={isDesktop ? "Muat Naik, Tampal (Paste) atau Tarik & Lepas Gambar" : "Muat Naik Gambar"}
-                    >
-                        <ImageIcon className="w-4 h-4" />
-                    </button>
-
-                    <GlobalVoiceMic
-                        onTranscript={(text) => setManualDescription(prev => (prev ? `${prev} ${text}` : text))}
-                        size="md"
-                    />
-
-                    <button
-                        onClick={handleSendAduan}
-                        disabled={(!manualDescription.trim() && !attachedPhotoBase64) || isParsingVoice}
-                        className="px-5 py-3 rounded-xl text-xs font-bold text-black bg-[#C5A367] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md active:scale-95 shrink-0"
-                    >
-                        {isParsingVoice ? (
-                            <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Prosès AI...
-                            </>
-                        ) : (
-                            <>
-                                <Send className="w-3.5 h-3.5" /> Hantar
-                            </>
-                        )}
-                    </button>
-                </div>
-            </motion.div>
-
-            {/* === DRIVING HUD — only visible when user is moving and telemetry is valid === */}
-            <AnimatePresence>
-                {detector.currentSpeed > 0 && detector.currentSpeed <= 180 && !detector.isCalibrating && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mb-6 bg-gradient-to-r from-[#0A0A0C] via-[#0f1a14] to-[#0A0A0C] border border-zinc-800 rounded-2xl p-4 shadow-xl flex items-center justify-between"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="text-center">
-                                <div className="text-2xl font-light text-white font-mono tracking-tight">
-                                    {Math.min(180, Math.max(0, Math.round(detector.currentSpeed || 0)))}
-                                </div>
-                                <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">km/h</div>
-                            </div>
-                            <div className="w-px h-8 bg-zinc-800"></div>
-                            <div className="text-center">
-                                <div className="text-2xl font-light text-[#C5A367] font-mono tracking-tight">{detector.detectionCount}</div>
-                                <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Hits</div>
-                            </div>
-                        </div>
-                        {dashcam.isDashcamEnabled && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">REC</span>
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Motion Error */}
-            {detector.motionError && (
-                <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                     {detector.motionError}
-                </div>
-            )}
-
-            {/* Dashcam Error */}
-            {dashcam.error && (
-                <div className="rounded-xl px-4 py-3 mb-4 text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                     {dashcam.error}
-                </div>
-            )}
-
-            {/* === STATS (Bento Grid - Hick's Law Clean Layout) === */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6"
-            >
-                {/* Card 1 */}
-                <div className="bg-[#0D0D10] p-4 rounded-2xl border border-emerald-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/90 block mb-1">
-                            Lubang Dikesan
-                        </span>
-                        <div className="text-2xl font-black text-white font-mono tracking-tight">{totalPotholes}</div>
-                        <span className="text-[9px] text-zinc-400 font-medium">Dikesan automatik semasa memandu</span>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                        <Activity className="w-5 h-5" />
-                    </div>
                 </div>
 
-                {/* Card 2 */}
-                <div className="bg-[#0D0D10] p-4 rounded-2xl border border-[#C5A367]/30 shadow-lg relative overflow-hidden flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A367] block mb-1">
-                            Aduan Suara Warga
-                        </span>
-                        <div className="text-2xl font-black text-white font-mono tracking-tight">{totalCivic}</div>
-                        <span className="text-[9px] text-zinc-400 font-medium">Dihantar menerusi rakaman suara</span>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-[#C5A367]/10 border border-[#C5A367]/20 flex items-center justify-center text-[#C5A367]">
-                        <Mic className="w-5 h-5" />
-                    </div>
-                </div>
-
-                {/* Card 3 */}
-                <div className="bg-[#0D0D10] p-4 rounded-2xl border border-purple-500/30 shadow-lg relative overflow-hidden flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 block mb-1">
-                            Disahkan Rakyat
-                        </span>
-                        <div className="text-2xl font-black text-white font-mono tracking-tight flex items-baseline gap-1">
-                            {totalVerified} <span className="text-xs font-mono font-medium text-purple-300">({avgConfidence}%)</span>
-                        </div>
-                        <span className="text-[9px] text-zinc-400 font-medium">Disahkan komuniti tempatan</span>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                        <Shield className="w-5 h-5" />
-                    </div>
-                </div>
-            </motion.div>
-
-            {/* === ANOMALY LIST === */}
-            <div className="flex-1 pb-10">
-                <motion.h3
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-                    className="text-xs uppercase font-bold tracking-widest text-zinc-400 mb-6 flex items-center justify-between px-1 flex-wrap gap-2"
-                >
-                    <span className="text-zinc-200 font-bold">Aduan Sivik & Infrastruktur</span>
-                    <div className="flex gap-1.5 flex-wrap">
-                        {(['all', 'potholes', 'civic', 'verified'] as const).map((f) => (
-                            <button key={f} onClick={() => setFilter(f)}
-                                className={`px-3.5 py-1.5 rounded-xl text-[10px] border transition-all ${filter === f ? 'bg-zinc-800 border-zinc-600 text-zinc-100 font-bold shadow-md' : 'bg-zinc-950 border-zinc-800/80 text-zinc-500 hover:text-zinc-300'}`}
+                {/* Bottom Tools Row */}
+                <div className="relative z-10 flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-zinc-800/50">
+                    {/* Location Badge / Trigger */}
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={handleGetGps}
+                            disabled={isGettingGps}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all shadow-sm active:scale-95 ${
+                                userGpsLocation
+                                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                                    : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                            }`}
+                            title="Kesan Lokasi GPS Peranti"
+                        >
+                            {isGettingGps ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                            ) : (
+                                <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                            )}
+                            <span>{userGpsLocation ? `📍 ${userGpsLocation.lat}°, ${userGpsLocation.lng}°` : 'Guna Lokasi Saya (GPS)'}</span>
+                        </button>
+                        {userGpsLocation && (
+                            <button
+                                type="button"
+                                onClick={() => setUserGpsLocation(null)}
+                                className="text-zinc-500 hover:text-zinc-300 text-xs px-1"
+                                title="Reset Lokasi"
                             >
-                                {f === 'all' ? 'SEMUA' : f === 'potholes' ? 'POTHOLES' : f === 'civic' ? 'ADUAN WARGA' : 'VERIFIED'}
+                                ✕
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Tools & Send Button */}
+                    <div className="flex items-center gap-2">
+                        {/* Photo attachment button */}
+                        <button
+                            type="button"
+                            onClick={() => photoFileInputRef.current?.click()}
+                            className={`p-2.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center shrink-0 active:scale-95 ${
+                                attachedPhotoBase64
+                                    ? 'bg-[#C5A367]/20 border-[#C5A367] text-[#C5A367]'
+                                    : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                            }`}
+                            title={isDesktop ? "Muat Naik, Tampal (Paste) atau Drag & Drop Foto" : "Muat Naik Foto"}
+                        >
+                            <ImageIcon className="w-4 h-4" />
+                        </button>
+
+                        {/* Speech Mic */}
+                        <GlobalVoiceMic
+                            onTranscript={(text) => handleDescriptionChange(manualDescription ? `${manualDescription} ${text}` : text)}
+                            size="md"
+                        />
+
+                        {/* Primary Submit Button */}
+                        <button
+                            onClick={handleSendAduan}
+                            disabled={(!manualDescription.trim() && !attachedPhotoBase64) || isParsingVoice}
+                            className="px-5 py-2.5 rounded-xl text-xs font-bold text-black bg-gradient-to-r from-[#D4AF37] to-[#AA820A] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-[0_4px_16px_rgba(212,175,55,0.25)] active:scale-95 shrink-0"
+                        >
+                            {isParsingVoice ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proses AI...
+                                </>
+                            ) : (
+                                <>
+                                    <Send className="w-3.5 h-3.5" /> Hantar Aduan
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* ================================================================= */}
+            {/* 3. CIVIC OUTCOME METRICS                                          */}
+            {/* ================================================================= */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="bg-gradient-to-r from-[#0F0F14] via-[#121218] to-[#0F0F14] border border-zinc-800/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-xl"
+            >
+                <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                        <div>
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-400 block mb-0.5">
+                                Aduan Diterima
+                            </span>
+                            <span className="text-xl font-bold text-white font-mono">{totalReports}</span>
+                        </div>
+                    </div>
+
+                    <div className="w-px h-8 bg-zinc-800/80 hidden sm:block" />
+
+                    <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <div>
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-emerald-400 block mb-0.5">
+                                Disahkan AI & Warga
+                            </span>
+                            <span className="text-xl font-bold text-emerald-400 font-mono">{totalVerified}</span>
+                        </div>
+                    </div>
+
+                    <div className="w-px h-8 bg-zinc-800/80 hidden sm:block" />
+
+                    <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#C5A367] shadow-[0_0_8px_rgba(197,163,103,0.5)]" />
+                        <div>
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367] block mb-0.5">
+                                Selesai & Tindakan
+                            </span>
+                            <span className="text-xl font-bold text-[#C5A367] font-mono">{estimatedResolved} minggu ini</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Mod Pemanduan Button */}
+                <button
+                    onClick={handleToggleDashcam}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 transition-all active:scale-95 shadow-md ${
+                        dashcam.isDashcamEnabled
+                            ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-red-500/10'
+                            : 'bg-zinc-900/90 text-zinc-200 border-zinc-700/80 hover:border-[#C5A367]/50 hover:bg-zinc-800'
+                    }`}
+                >
+                    <Video className="w-4 h-4 text-[#C5A367]" />
+                    <span>Mod Pemanduan</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono font-bold">BETA</span>
+                </button>
+            </motion.div>
+
+            {/* Motion or Dashcam Errors */}
+            {detector.motionError && (
+                <div className="rounded-2xl px-4 py-3 mb-4 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-between">
+                    <span>{detector.motionError}</span>
+                    <button
+                        onClick={() => detector.startDriving()}
+                        className="text-[10px] font-bold underline ml-2 hover:text-amber-300"
+                    >
+                        Aktifkan Sensor
+                    </button>
+                </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* 4. FEED FILTERS WITH IMAGE ICONS                                  */}
+            {/* ================================================================= */}
+            <div className="flex-1 pb-10">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex items-center justify-between px-1 mb-5 flex-wrap gap-2"
+                >
+                    <span className="text-xs uppercase font-bold tracking-widest text-zinc-300">
+                        Senarai Aduan Kawasan
+                    </span>
+                    <div className="flex gap-1.5 flex-wrap">
+                        <button
+                            onClick={() => setFilter('all')}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all ${
+                                filter === 'all'
+                                    ? 'bg-zinc-800 border-zinc-600 text-zinc-100 font-bold shadow-md'
+                                    : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                            }`}
+                        >
+                            SEMUA
+                        </button>
+                        {CIVIC_CATEGORIES.map(cat => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setFilter(cat.id)}
+                                className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all flex items-center gap-1.5 ${
+                                    filter === cat.id
+                                        ? `${cat.activeBg} ${cat.color} ${cat.activeBorder} font-bold shadow-sm`
+                                        : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                                }`}
+                            >
+                                <img
+                                    src={cat.image}
+                                    alt={cat.label}
+                                    className="w-3.5 h-3.5 object-contain shrink-0 rounded"
+                                />
+                                <span className="uppercase">{cat.id}</span>
                             </button>
                         ))}
+                        <button
+                            onClick={() => setFilter('verified')}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all ${
+                                filter === 'verified'
+                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold shadow-md'
+                                    : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                            }`}
+                        >
+                            ✓ DISAHKAN
+                        </button>
                     </div>
-                </motion.h3>
+                </motion.div>
 
+                {/* ================================================================= */}
+                {/* 5. ANOMALY CARDS FEED                                             */}
+                {/* ================================================================= */}
                 <div className="space-y-4">
                     <AnimatePresence>
                         {filteredAnomalies.map((a, i) => {
-                            const conf = confidenceColor(a.confidenceScore || 0);
-                            const isPothole = isPotholeReport(a);
+                            const cat = resolveCategory(a);
+                            const catConfig = CIVIC_CATEGORIES.find(c => c.id === cat) || CIVIC_CATEGORIES[0];
 
                             return (
-                            <motion.div
-                                key={a.id}
-                                initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.05 }}
-                                className="bg-[#0D0D10] border border-zinc-800/90 rounded-3xl p-5 shadow-2xl space-y-4 hover:border-zinc-700/80 transition-all"
-                            >
-                                {/* 1. Header Row */}
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-inner ${a.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/10' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
-                                            {a.status === 'verified' ? <Check className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                                        </div>
-                                        <div>
-                                            <h4 className="font-serif text-base font-bold text-white leading-snug">
-                                                {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Kota Bharu'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
-                                            </h4>
-                                            <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
-                                                TICKET ID: #{a.id.slice(-4)} • {a.time}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Verification status pill — High Contrast Emerald */}
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${a.status === 'verified' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-bold' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                                        {a.status === 'verified' ? '✓ Verified' : 'Pending'}
-                                    </span>
-                                </div>
-
-                                {/* 2. Metadata Badges Strip */}
-                                <div className="flex flex-wrap gap-2">
-                                    {a.source === 'voice' ? (
-                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 flex items-center gap-1">
-                                            <Mic className="w-3 h-3" /> Aduan Suara
-                                        </span>
-                                    ) : (
-                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-red-500/10 border-red-500/20 text-red-400">
-                                            G-Impact: {a.zDropped ? a.zDropped.toFixed(1) : '2.5'}g
-                                        </span>
-                                    )}
-                                    {a.urgency && (
-                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
-                                            a.urgency === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-400' : a.urgency === 'Medium' ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                                        }`}>
-                                            Keutamaan: {a.urgency === 'High' ? 'Tinggi' : a.urgency === 'Medium' ? 'Sederhana' : 'Rendah'}
-                                        </span>
-                                    )}
-                                    {a.confidenceScore != null && a.confidenceScore > 0 && (
-                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${conf.text} ${conf.bg} ${conf.border}`}>
-                                            <Shield className="w-3 h-3 inline mr-1" />Keyakinan AI {a.confidenceScore}%
-                                        </span>
-                                    )}
-                                    {a.detectedDialect && (
-                                        <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                                            Dialek {a.detectedDialect}
-                                        </span>
-                                    )}
-                                </div>
-
-                                {/* 3. Speech & Dialect AI Box */}
-                                {a.originalText && (
-                                    <div className="p-4 rounded-2xl bg-[#050507] border border-zinc-800/80 space-y-3 shadow-inner">
-                                        {/* Intent-Aware Non-Infra Banner Guard */}
-                                        {!isPothole && (
-                                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[10px] font-medium">
-                                                <Info className="w-4 h-4 text-blue-400 shrink-0" />
-                                                <span>NLP mengesan ini BUKAN aduan infrastruktur fizikal (Ungkapan Peribadi / Dialek).</span>
+                                <motion.div
+                                    key={a.id}
+                                    initial={{ opacity: 0, y: 15 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ delay: i * 0.04 }}
+                                    className="bg-gradient-to-b from-[#111116] to-[#0A0A0D] border border-zinc-800/80 rounded-3xl p-5 shadow-xl space-y-4 hover:border-zinc-700 transition-all"
+                                >
+                                    {/* Header Row */}
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border p-2 shadow-inner ${
+                                                a.status === 'verified'
+                                                    ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                    : 'bg-zinc-900/90 border-zinc-800'
+                                            }`}>
+                                                <img
+                                                    src={catConfig.image}
+                                                    alt={catConfig.label}
+                                                    className="w-full h-full object-contain drop-shadow"
+                                                />
                                             </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border flex items-center gap-1 ${catConfig.activeBg} ${catConfig.color} ${catConfig.activeBorder}`}>
+                                                        <img src={catConfig.image} alt="" className="w-2.5 h-2.5 object-contain" />
+                                                        {catConfig.label}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
+                                                        #{a.id.slice(-4)} • {a.time}
+                                                    </span>
+                                                </div>
+                                                <h4 className="font-sans text-base font-bold text-white leading-snug mt-1">
+                                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Kota Bharu'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
+                                                </h4>
+                                            </div>
+                                        </div>
+
+                                        {/* Status Pill */}
+                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${
+                                            a.status === 'verified'
+                                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                                : 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
+                                        }`}>
+                                            {a.status === 'verified' ? '✓ Disahkan' : 'Dalam Semakan'}
+                                        </span>
+                                    </div>
+
+                                    {/* Metadata Badges */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {a.source === 'voice' ? (
+                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-300 flex items-center gap-1">
+                                                <Mic className="w-3 h-3" /> Input Suara
+                                            </span>
+                                        ) : a.photoBase64 ? (
+                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400 flex items-center gap-1">
+                                                <ImageIcon className="w-3 h-3" /> Bukti Bergambar
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-zinc-800/80 text-zinc-400 border-zinc-700">
+                                                Laporan Teks
+                                            </span>
                                         )}
 
-                                        {/* Teks Asal Quote */}
-                                        <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block">
-                                                    💬 Teks Asal (Warga)
-                                                </span>
-                                                <button
-                                                    onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
-                                                    className="flex items-center gap-1 text-[9px] font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95"
-                                                    title="Sintesis Suara AI (Web Speech TTS)"
-                                                >
-                                                    🔊 Dengar Sebutan
-                                                </button>
-                                            </div>
-                                            <p className="text-xs text-zinc-100 font-medium italic bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/50">
-                                                "{a.originalText}"
-                                            </p>
-                                        </div>
+                                        {a.urgency && (
+                                            <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                                                a.urgency === 'High'
+                                                    ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                                                    : a.urgency === 'Medium'
+                                                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                                                    : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                                            }`}>
+                                                Keutamaan: {a.urgency === 'High' ? 'Tinggi' : a.urgency === 'Medium' ? 'Sederhana' : 'Biasa'}
+                                            </span>
+                                        )}
 
-                                        {/* Maksud / Niat Sebenar NLP */}
-                                        {a.userIntendedMeaning && (
-                                            <div className="pt-2 border-t border-zinc-800/80">
-                                                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-1">
-                                                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Maksud / Niat Sebenar (NLP Analysis)
-                                                </span>
-                                                <p className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
-                                                    {a.userIntendedMeaning}
+                                        {a.confidenceScore != null && a.confidenceScore > 0 && (
+                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                                <Shield className="w-3 h-3 inline mr-1" />Keyakinan AI {a.confidenceScore}%
+                                            </span>
+                                        )}
+
+                                        {a.detectedDialect && (
+                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                                Dialek {a.detectedDialect}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Speech & Dialect Card Area */}
+                                    {a.originalText && (
+                                        <div className="p-4 rounded-2xl bg-[#060609] border border-zinc-800/70 space-y-3 shadow-inner">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block">
+                                                        💬 Keterangan Warga
+                                                    </span>
+                                                    <button
+                                                        onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
+                                                        className="flex items-center gap-1 text-[9px] font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95"
+                                                        title="Sintesis Suara AI"
+                                                    >
+                                                        <Volume2 className="w-3 h-3" /> Sebutan AI
+                                                    </button>
+                                                </div>
+                                                <p className="text-xs sm:text-sm text-zinc-200 font-medium italic bg-zinc-900/70 p-3 rounded-xl border border-zinc-800/60">
+                                                    "{a.originalText}"
                                                 </p>
                                             </div>
-                                        )}
 
-                                        {/* Dialect Words Badges */}
-                                        {a.dialectWords && a.dialectWords.length > 0 && (
-                                            <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                                                <span className="text-[8px] uppercase font-bold text-zinc-500">Kata Dialek:</span>
-                                                {a.dialectWords.map((w, idx) => (
-                                                    <span key={idx} className="text-[8px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                                        {w}
+                                            {a.userIntendedMeaning && (
+                                                <div className="pt-2 border-t border-zinc-800/80">
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-1">
+                                                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Rumusan / Maksud AI (NLP)
                                                     </span>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    <p className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
+                                                        {a.userIntendedMeaning}
+                                                    </p>
+                                                </div>
+                                            )}
 
-                                        {/* Interactive Feedback Loop */}
-                                        <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2">
-                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                                Adakah Terjemahan AI Tepat?
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                                {a.feedbackGiven === 'up' ? (
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                                                        <Check className="w-3 h-3 text-emerald-400" /> Disahkan Tepat
-                                                    </span>
-                                                ) : a.feedbackGiven === 'down' ? (
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
-                                                        ⚠️ Feedback Dihantar
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={async () => {
-                                                                setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' } : x));
-                                                                try {
-                                                                    await fetch('/api/dialect/feedback', {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({
-                                                                            dialectText: a.originalText || a.title || '',
-                                                                            correctMeaning: a.translatedText || '',
-                                                                            region: a.detectedDialect || 'kelantan',
-                                                                            reportId: a.id,
-                                                                            isPositive: true
-                                                                        })
-                                                                    });
-                                                                } catch {}
-                                                            }}
-                                                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 text-xs transition-all active:scale-95 font-bold min-h-[38px]"
-                                                            title="Terjemahan tepat!"
-                                                        >
-                                                            👍 <span className="text-[10px] font-bold uppercase">Tepat</span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setFeedbackModalAnomaly(a);
-                                                                setFeedbackCorrectText(a.translatedText || a.originalText || '');
-                                                            }}
-                                                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs transition-all active:scale-95 font-bold min-h-[38px]"
-                                                            title="Terjemahan kurang tepat / Ajar AI"
-                                                        >
-                                                            👎 <span className="text-[10px] font-bold uppercase">Salah</span>
-                                                        </button>
-                                                    </>
-                                                )}
+                                            {/* Dialect Feedback Loop */}
+                                            <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2">
+                                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                                                    Adakah Terjemahan AI Tepat?
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    {a.feedbackGiven === 'up' ? (
+                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
+                                                            <Check className="w-3 h-3 text-emerald-400" /> Disahkan Tepat
+                                                        </span>
+                                                    ) : a.feedbackGiven === 'down' ? (
+                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
+                                                            ⚠️ Maklum Balas Dihantar
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' } : x));
+                                                                    try {
+                                                                        await fetch('/api/dialect/feedback', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({
+                                                                                dialectText: a.originalText || a.title || '',
+                                                                                correctMeaning: a.translatedText || '',
+                                                                                region: a.detectedDialect || 'kelantan',
+                                                                                reportId: a.id,
+                                                                                isPositive: true
+                                                                            })
+                                                                        });
+                                                                    } catch {}
+                                                                }}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase active:scale-95 hover:bg-emerald-500/20"
+                                                            >
+                                                                👍 Tepat
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setFeedbackModalAnomaly(a);
+                                                                    setFeedbackCorrectText(a.translatedText || a.originalText || '');
+                                                                }}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase active:scale-95 hover:bg-amber-500/20"
+                                                            >
+                                                                👎 Salah
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* 4. Action Buttons Footer Row */}
-                                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 flex-wrap gap-2">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <button
-                                            onClick={() => analyzeAnomaly(a.id)}
-                                            disabled={a.isAnalyzing}
-                                            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
-                                        >
-                                            {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                                            AI Analyze
-                                        </button>
-                                        <button
-                                            onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
-                                            disabled={a.isAnalyzing}
-                                            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
-                                        >
-                                            <Camera className="w-3.5 h-3.5" /> Photo
-                                        </button>
-                                        {/* Gate Viral Card: ONLY show for physical infrastructure issues */}
-                                        {isPothole ? (
-                                            <>
-                                                <button
-                                                    onClick={() => setShareModalAnomaly(a)}
-                                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
-                                                    title="Jana Kad Eskalasi Awam"
-                                                >
-                                                    <Share2 className="w-3.5 h-3.5" /> Kad Eskalasi Awam
-                                                </button>
-                                                <button
-                                                    onClick={() => generateAduanPdf(a)}
-                                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
-                                                    title="Jana Borang Aduan Rasmi PBT (PDF)"
-                                                >
-                                                    <FileText className="w-3.5 h-3.5 text-purple-400" /> Export PDF
-                                                </button>
-                                            </>
-                                        ) : (
+                                    {/* Action Buttons Footer */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 flex-wrap gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <button
-                                                onClick={() => {
-                                                    setFeedbackModalAnomaly(a);
-                                                    setFeedbackCorrectText(a.userIntendedMeaning || a.originalText || '');
-                                                }}
-                                                className="flex items-center gap-1.5 px-4 py-2.5 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
-                                                title="Bantu AI Belajar Dialek"
+                                                onClick={() => analyzeAnomaly(a.id)}
+                                                disabled={a.isAnalyzing}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
-                                                <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Dialek Info
+                                                {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                                Analisis AI
+                                            </button>
+                                            <button
+                                                onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
+                                                disabled={a.isAnalyzing}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
+                                            >
+                                                <Camera className="w-3.5 h-3.5" /> Foto
+                                            </button>
+                                            <button
+                                                onClick={() => setShareModalAnomaly(a)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
+                                                title="Jana Kad Eskalasi Awam"
+                                            >
+                                                <Share2 className="w-3.5 h-3.5" /> Eskalasi Awam
+                                            </button>
+                                            <button
+                                                onClick={() => generateAduanPdf(a)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
+                                                title="Jana Borang Aduan Rasmi PBT (PDF)"
+                                            >
+                                                <FileText className="w-3.5 h-3.5 text-purple-400" /> Export PDF
+                                            </button>
+                                        </div>
+
+                                        {a.aiAnalysis && (
+                                            <button
+                                                onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
+                                                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                            >
+                                                {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             </button>
                                         )}
                                     </div>
 
-                                    {a.aiAnalysis && (
-                                        <button onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
-                                            className="p-2 text-zinc-400 hover:text-white transition-colors"
-                                        >
-                                            {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* AI Analysis Result (Clean N/A Hiding) */}
-                                <AnimatePresence>
-                                    {a.aiAnalysis && a.expanded && (
-                                        <motion.div
-                                            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                                            className="overflow-hidden"
-                                        >
-                                            <div className="px-5 pb-5 pt-2 border-t border-zinc-800/50 space-y-3">
-                                                {a.photoBase64 && (
-                                                    <div className="rounded-2xl overflow-hidden border border-zinc-800 h-32">
-                                                        <img src={a.photoBase64} alt="Evidence" className="w-full h-full object-cover" />
+                                    {/* AI Analysis Dropdown */}
+                                    <AnimatePresence>
+                                        {a.aiAnalysis && a.expanded && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="px-5 pb-5 pt-2 border-t border-zinc-800/50 space-y-3">
+                                                    {a.photoBase64 && (
+                                                        <div className="rounded-2xl overflow-hidden border border-zinc-800 h-32">
+                                                            <img src={a.photoBase64} alt="Bukti" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {a.aiAnalysis.severityScore > 0 && (
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                                                                {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Tahap {a.aiAnalysis.severityScore}/5)
+                                                            </span>
+                                                        )}
+                                                        {a.aiAnalysis.recommendedAction && (
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-zinc-800/50 border-zinc-700 text-zinc-300">
+                                                                {a.aiAnalysis.recommendedAction}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                )}
-                                                <div className="flex flex-wrap gap-2">
-                                                    {a.aiAnalysis.severityScore > 0 && (
-                                                        <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border ${severityColor(a.aiAnalysis.severityScore)}`}>
-                                                            {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Tahap {a.aiAnalysis.severityScore}/5)
-                                                        </span>
-                                                    )}
-                                                    {a.aiAnalysis.nearestRoadType && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-zinc-800/50 border-zinc-700 text-zinc-300">
-                                                            {a.aiAnalysis.nearestRoadType}
-                                                        </span>
-                                                    )}
-                                                    {a.aiAnalysis.recommendedAction && (
-                                                        <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border ${a.aiAnalysis.recommendedAction === 'Immediate' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-400'}`}>
-                                                            {a.aiAnalysis.recommendedAction}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                
-                                                {/* Hide N/A Size & Cost fields for non-physical/null values */}
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {a.aiAnalysis.estimatedWidth && a.aiAnalysis.estimatedWidth !== 'N/A' && (
-                                                        <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Saiz</span>
-                                                            <span className="text-xs text-zinc-300 font-medium">{a.aiAnalysis.estimatedWidth} × {a.aiAnalysis.estimatedDepth}</span>
-                                                        </div>
-                                                    )}
-                                                    {a.aiAnalysis.repairCostMYR && a.aiAnalysis.repairCostMYR !== 'RM 0' && a.aiAnalysis.repairCostMYR !== 'N/A' && (
-                                                        <div className="bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-1">Anggaran Kos</span>
-                                                            <span className="text-xs text-[#C5A367] font-medium">{a.aiAnalysis.repairCostMYR}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
 
-                                                {a.aiAnalysis.riskAssessment && (
-                                                    <p className="text-xs text-zinc-300 font-medium leading-relaxed bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                        <span className="text-zinc-100 font-bold">Risiko: </span>{a.aiAnalysis.riskAssessment}
-                                                    </p>
-                                                )}
-                                                {a.aiAnalysis.repairMethod && (
-                                                    <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-                                                        <span className="text-zinc-300 font-bold">Cadangan Pembaikan: </span>{a.aiAnalysis.repairMethod}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
-                        );
+                                                    {a.aiAnalysis.riskAssessment && (
+                                                        <p className="text-xs text-zinc-300 font-medium leading-relaxed bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
+                                                            <span className="text-zinc-100 font-bold">Analisis Risiko: </span>{a.aiAnalysis.riskAssessment}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            );
                         })}
                     </AnimatePresence>
+
+                    {/* ============================================================= */}
+                    {/* 6. REFINED EMPTY STATE                                        */}
+                    {/* ============================================================= */}
                     {filteredAnomalies.length === 0 && (
                         <motion.div
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="text-center py-12 px-6 bg-[#0D0D10] border border-dashed border-zinc-800/90 rounded-3xl space-y-5 shadow-2xl relative overflow-hidden my-4"
+                            className="text-center py-12 px-6 bg-gradient-to-b from-[#101014] to-[#0A0A0C] border border-dashed border-zinc-800/80 rounded-3xl space-y-4 shadow-xl relative overflow-hidden my-4"
                         >
-                            {/* Ambient Glow */}
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#C5A367]/5 blur-3xl rounded-full pointer-events-none" />
-
-                            {/* Icon Badge & Contextual Malay Microcopy */}
-                            <div className="relative z-10 flex flex-col items-center space-y-3">
-                                <div className="w-14 h-14 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center shadow-xl">
-                                    {filter === 'potholes' ? (
-                                        <AlertTriangle className="w-7 h-7 text-amber-400" />
-                                    ) : filter === 'civic' ? (
-                                        <Mic className="w-7 h-7 text-purple-400" />
-                                    ) : filter === 'verified' ? (
-                                        <ShieldCheck className="w-7 h-7 text-emerald-400" />
-                                    ) : (
-                                        <Layers className="w-7 h-7 text-[#C5A367]" />
-                                    )}
-                                </div>
-
-                                <h4 className="font-serif text-lg font-bold text-white tracking-tight">
-                                    {filter === 'potholes'
-                                        ? 'Tiada Kerosakan Jalan Dikesan'
-                                        : filter === 'civic'
-                                        ? 'Belum Ada Aduan Suara Warga'
-                                        : filter === 'verified'
-                                        ? 'Belum Ada Laporan Disahkan'
-                                        : 'Jom Bantu Jaga Jalan Kita!'}
-                                </h4>
-
-                                <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed font-medium">
-                                    {filter === 'potholes'
-                                        ? 'Sistem sedia mengesan lubang jalan secara automatik. Tekan butang di bawah untuk membuka kamera atau aktifkan sensor peranti semasa memandu.'
-                                        : filter === 'civic'
-                                        ? 'Sampaikan sebarang masalah kawasan anda menerusi rakaman suara ringkas atau taipan di ruangan atas.'
-                                        : filter === 'verified'
-                                        ? 'Laporan yang disahkan oleh komuniti tempatan dan AI akan dipaparkan di sini untuk tindakan lanjut.'
-                                        : 'Belum ada laporan lagi di kawasan ini. Anda boleh terus hantar aduan pertama atau aktifkan pengesanan automatik semasa memandu.'}
-                                </p>
+                            <div className="w-14 h-14 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center shadow-lg mx-auto">
+                                <Layers className="w-7 h-7 text-[#C5A367]" />
                             </div>
 
-                            <div className="relative z-10 pt-2 flex flex-col items-center gap-3">
-                                <button
-                                    onClick={handleToggleDashcam}
-                                    className="px-5 py-3 rounded-2xl text-xs font-bold text-black bg-[#C5A367] hover:brightness-110 flex items-center gap-2 transition-all shadow-xl active:scale-95"
-                                >
-                                    <Video className="w-4 h-4 text-black" />
-                                    <span>Buka Kamera Dashcam & AR HUD</span>
-                                </button>
+                            <h4 className="font-sans text-lg font-bold text-white tracking-tight">
+                                Jom Bantu Jaga Kawasan Kita!
+                            </h4>
 
-                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-semibold">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>Sensor Fusion Inersia: Sentiasa Aktif (Always-On)</span>
-                                </div>
-                            </div>
+                            <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed font-medium">
+                                Belum ada aduan bagi kategori ini. Taip atau rakam suara anda di ruangan atas untuk menyalurkan aduan pertama kawasan anda kepada pihak berkuasa.
+                            </p>
                         </motion.div>
                     )}
                 </div>
             </div>
 
-            {/* === VIRAL SHARE CARD MODAL === */}
+            {/* ================================================================= */}
+            {/* 7. VIRAL SHARE CARD MODAL                                         */}
+            {/* ================================================================= */}
             <AnimatePresence>
                 {shareModalAnomaly && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -1334,7 +1388,6 @@ export default function AduanView() {
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
                             className="bg-[#0A0A0C] border-2 border-red-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
                         >
-                            {/* Header */}
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
                                     🚨 KAD ESKALASI AWAM (SLA)
@@ -1347,16 +1400,12 @@ export default function AduanView() {
                                 </button>
                             </div>
 
-                            {/* Ticket Card Image Preview */}
                             <div className="bg-gradient-to-br from-red-950/40 via-zinc-900 to-black border border-red-500/30 rounded-2xl p-5 mb-4 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 px-3 py-1 bg-red-600 text-[10px] font-black uppercase tracking-widest text-white rounded-bl-xl shadow-md">
-                                    HARI KE-14 UNRESOLVED
-                                </div>
                                 <h3 className="text-sm font-black text-red-400 mb-1 uppercase">
-                                    {shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'ADUAN INFRASTRUKTUR'}
+                                    {shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'ADUAN AWAM'}
                                 </h3>
                                 <p className="text-[10px] text-zinc-400 mb-3 font-mono">TICKET ID: #{shareModalAnomaly.id.slice(-6)}</p>
-                                
+
                                 <div className="space-y-2 text-xs mb-3">
                                     <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
                                         <span className="text-[9px] text-zinc-500 font-bold block uppercase">Lokasi / Kawasan</span>
@@ -1365,9 +1414,9 @@ export default function AduanView() {
                                         </span>
                                     </div>
                                     <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
-                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Keterangan Aduan & Terjemahan</span>
+                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Keterangan Aduan</span>
                                         <span className="text-zinc-300">
-                                            {shareModalAnomaly.translatedText || shareModalAnomaly.aiAnalysis?.riskAssessment || shareModalAnomaly.originalText || 'Kerosakan jalan teruk, berisiko bahaya kemalangan.'}
+                                            {shareModalAnomaly.translatedText || shareModalAnomaly.aiAnalysis?.riskAssessment || shareModalAnomaly.originalText || 'Aduan komuniti memerlukan tindakan pihak berkuasa.'}
                                         </span>
                                     </div>
                                 </div>
@@ -1377,32 +1426,30 @@ export default function AduanView() {
                                 </div>
                             </div>
 
-                            {/* Actions */}
                             <div className="space-y-2">
                                 <button
                                     onClick={() => {
                                         const issueTitle = shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'Aduan Warga';
                                         const loc = shareModalAnomaly.locationName ? `${shareModalAnomaly.locationName} (${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°)` : `${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°`;
                                         const quote = shareModalAnomaly.originalText ? `"${shareModalAnomaly.originalText}"` : `"${shareModalAnomaly.translatedText || ''}"`;
-                                        const caption = `🚨 ADUAN SIVIK TERBENGKALAI — KELANTAN!\n\n📌 Issue: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Aduan Warga: ${quote}\n⚠️ Status: Belum Dibaiki (Ticket #${shareModalAnomaly.id.slice(-6)})\n\nSila ambil tindakan segera! #KelantanFixOurRoads #NADI #PBTKelantan #AduanWarga`;
+                                        const caption = `🚨 ADUAN SIVIK — KELANTAN!\n\n📌 Isu: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Aduan Warga: ${quote}\n⚠️ Status: Belum Selesai (Ticket #${shareModalAnomaly.id.slice(-6)})\n\nSila ambil tindakan segera! #KelantanSivik #NADI #PBTKelantan #AduanWarga`;
                                         navigator.clipboard.writeText(caption);
                                         setCopiedToast(true);
                                         setTimeout(() => setCopiedToast(false), 2000);
                                     }}
                                     className="w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all"
                                 >
-                                    <Share2 className="w-4 h-4" /> {copiedToast ? '✓ Kapsyen Disalin!' : 'Salin Kapsyen TikTok/FB'}
+                                    <Share2 className="w-4 h-4" /> {copiedToast ? '✓ Kapsyen Disalin!' : 'Salin Kapsyen Media Sosial'}
                                 </button>
-                                <p className="text-[9px] text-zinc-500 text-center">
-                                    Kongsi di TikTok / FB dengan hashtag di atas untuk beri tekanan SLA kepada pihak berkuasa tempatan.
-                                </p>
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* === DIALECT AI FEEDBACK LOOP MODAL === */}
+            {/* ================================================================= */}
+            {/* 8. DIALECT AI FEEDBACK LOOP MODAL                                 */}
+            {/* ================================================================= */}
             <AnimatePresence>
                 {feedbackModalAnomaly && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -1425,7 +1472,7 @@ export default function AduanView() {
                             </div>
 
                             <p className="text-xs text-zinc-400 mb-3">
-                                Adakah terjemahan AI dialek kurang tepat? Masukkan maksud sebenar untuk melatih enjin AI NADI:
+                                Adakah terjemahan AI kurang tepat? Masukkan maksud sebenar untuk melatih enjin dialek NADI:
                             </p>
 
                             <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
@@ -1434,15 +1481,12 @@ export default function AduanView() {
                             </div>
 
                             <div className="space-y-1 mb-4">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-[9px] text-zinc-400 font-bold uppercase block">Maksud Sebenar (Opsional):</label>
-                                    <span className="text-[9px] text-purple-400 font-mono font-bold">+10 XP</span>
-                                </div>
+                                <label className="text-[9px] text-zinc-400 font-bold uppercase block">Maksud Sebenar:</label>
                                 <textarea
                                     value={feedbackCorrectText}
                                     onChange={(e) => setFeedbackCorrectText(e.target.value)}
                                     rows={3}
-                                    placeholder="Taip maksud sebenar di sini (opsional)... Cth: Sakit kepala / kelesuan fikiran (kiasan Kelantan)..."
+                                    placeholder="Taip maksud sebenar di sini..."
                                     className="w-full text-xs rounded-xl p-3 bg-zinc-950 border border-zinc-800 text-zinc-200 outline-none focus:border-purple-500 transition-colors"
                                 />
                             </div>
@@ -1455,23 +1499,22 @@ export default function AduanView() {
                                 >
                                     {isSubmittingFeedback ? (
                                         <>
-                                            <Loader2 className="w-4 h-4 animate-spin" /> Menghantar Ke Dialect Engine...
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Menghantar...
                                         </>
                                     ) : feedbackSuccessToast ? (
-                                        <>✓ AI Berjaya Di-kemaskini!</>
+                                        <>✓ AI Berjaya Dikemaskini!</>
                                     ) : (
                                         <>
-                                            <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI (+10 XP)
+                                            <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI
                                         </>
                                     )}
                                 </button>
-
                                 <button
                                     onClick={() => handleSendFeedback(true)}
                                     disabled={isSubmittingFeedback}
                                     className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all"
                                 >
-                                    Langkau (Cuma Hantar Feedback 👎)
+                                    Langkau
                                 </button>
                             </div>
                         </motion.div>

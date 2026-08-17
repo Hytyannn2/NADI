@@ -914,21 +914,32 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     // Define global init callback
     (window as any).googleTranslateElementInit = () => {
-      new (window as any).google.translate.TranslateElement(
-        {
-          pageLanguage: 'ms',
-          includedLanguages: 'ms,en,zh-CN,ta,ar',
-          autoDisplay: false,
-        },
-        'google_translate_element'
-      );
+      try {
+        new (window as any).google.translate.TranslateElement(
+          {
+            pageLanguage: 'ms',
+            includedLanguages: 'ms,en,zh-CN,ta,ar',
+            autoDisplay: false,
+          },
+          'google_translate_element'
+        );
+        document.body.style.top = '0px';
+      } catch {}
     };
+
+    // Prevent Google Translate from adding inline top: 40px to body
+    const observer = new MutationObserver(() => {
+      if (document.body.style.top && document.body.style.top !== '0px') {
+        document.body.style.top = '0px';
+      }
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
 
     // Inject Google Translate script if not already present
     if (!document.getElementById('google-translate-script')) {
       const script = document.createElement('script');
       script.id = 'google-translate-script';
-      script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
       script.async = true;
       document.head.appendChild(script);
     }

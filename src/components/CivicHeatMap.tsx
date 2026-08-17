@@ -23,6 +23,7 @@ import {
   ChevronUp,
   ChevronDown,
   SlidersHorizontal,
+  Car,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
@@ -59,6 +60,7 @@ interface ClusterPoint {
   count: number;
   points: HeatPoint[];
   type: HeatType;
+  radius?: number; // pixel radius for union-merged bounding blobs
   label?: string;
   sublabel?: string;
   severity?: number;
@@ -78,6 +80,112 @@ const TYPE_CONFIG: Record<
 
 // Default center (Kota Bharu, Kelantan)
 const DEFAULT_CENTER: [number, number] = [6.1256, 102.2386];
+
+// Web Mercator pixel projection at given zoom (256px tile standard)
+function projectLatLonToPixel(lat: number, lng: number, zoom: number): { x: number; y: number } {
+  const scale = 256 * Math.pow(2, zoom);
+  const x = ((lng + 180) / 360) * scale;
+  const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const phi = (clampedLat * Math.PI) / 180;
+  const y = ((1 - Math.log(Math.tan(Math.PI / 4 + phi / 2)) / Math.PI) / 2) * scale;
+  return { x, y };
+}
+
+// Inverse Web Mercator projection from pixels back to lat/lng at given zoom
+function unprojectPixelToLatLon(x: number, y: number, zoom: number): { lat: number; lng: number } {
+  const scale = 256 * Math.pow(2, zoom);
+  const lng = (x / scale) * 360 - 180;
+  const n = Math.PI - (2 * Math.PI * y) / scale;
+  const lat = (Math.atan(Math.sinh(n)) * 180) / Math.PI;
+  return { lat, lng };
+}
+
+// Bounding-Circle Union Merge Pass: Merges any overlapping circles tip-to-tip across all zoom levels
+function runUnionMergePass(items: ClusterPoint[], zoom: number): ClusterPoint[] {
+  let currentList: (ClusterPoint & { radius: number })[] = items.map((it) => ({
+    ...it,
+    radius: it.radius ?? (it.isCluster ? (Math.min(72, Math.max(38, Math.round(32 + Math.log2(it.count) * 6))) / 2) : (it.type === 'sensor' ? 14 : 11)),
+  }));
+
+  let changed = true;
+  let passes = 0;
+
+  while (changed && passes < 10) {
+    changed = false;
+    passes++;
+    const nextList: (ClusterPoint & { radius: number })[] = [];
+
+    for (let i = 0; i < currentList.length; i++) {
+      const item = currentList[i];
+      let merged = false;
+      const cA = projectLatLonToPixel(item.lat, item.lng, zoom);
+      const rA = item.radius || 11;
+
+      for (let j = 0; j < nextList.length; j++) {
+        const existing = nextList[j];
+        const cB = projectLatLonToPixel(existing.lat, existing.lng, zoom);
+        const rB = existing.radius || 11;
+
+        const dx = cB.x - cA.x;
+        const dy = cB.y - cA.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Merge test: pixel distance between centers < rA + rB (+ 1px epsilon)
+        if (dist < rA + rB + 1.0) {
+          // Calculate Merged Radius R = (dist + rA + rB) / 2 (tip-to-tip diameter span)
+          let mergedR = (dist + rA + rB) / 2;
+          mergedR = Math.min(90, Math.max(rA, rB, mergedR)); // Cap at 90px so one blob never eats the city
+
+          // Calculate Merged Center C = (cA + cB)/2 + u * (rB - rA)/2 (Midpoint of outer tips)
+          let cx: number;
+          let cy: number;
+          if (dist > 0.001) {
+            const ux = dx / dist;
+            const uy = dy / dist;
+            cx = (cA.x + cB.x) / 2 + (ux * (rB - rA)) / 2;
+            cy = (cA.y + cB.y) / 2 + (uy * (rB - rA)) / 2;
+          } else {
+            cx = cA.x;
+            cy = cA.y;
+            mergedR = Math.min(90, Math.max(rA, rB) + 1.5);
+          }
+
+          const newCenter = unprojectPixelToLatLon(cx, cy, zoom);
+          const unionPoints = [...existing.points, ...item.points];
+          const totalCount = existing.count + item.count;
+
+          // Dominant type for color styling
+          const counts: Record<string, number> = {};
+          unionPoints.forEach((p) => {
+            counts[p.type] = (counts[p.type] || 0) + 1;
+          });
+          const dominantType = (Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || existing.type) as HeatType;
+
+          existing.lat = newCenter.lat;
+          existing.lng = newCenter.lng;
+          existing.radius = mergedR;
+          existing.count = totalCount;
+          existing.points = unionPoints;
+          existing.type = dominantType;
+          existing.isCluster = true;
+          existing.id = `union-${existing.lat.toFixed(5)}-${existing.lng.toFixed(5)}-${totalCount}`;
+
+          merged = true;
+          changed = true;
+          break;
+        }
+      }
+
+      if (!merged) {
+        nextList.push({ ...item });
+      }
+    }
+
+    currentList = nextList;
+  }
+
+  return currentList;
+}
 
 // Major Flood Risk Corridor Zones (hydro-geological centroids of Kelantan river basins)
 const FALLBACK_FLOOD_ZONES: { name: string; center: [number, number]; radius: number }[] = [
@@ -109,38 +217,43 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
 
 // Calculate dynamic spatial grid size in degrees based on floating zoom level
 function getGridSizeForZoom(zoom: number): number {
-  if (zoom <= 10.5) return 0.25;    // Statewide view: 1-2 huge circles
-  if (zoom <= 11.8) return 0.12;    // Regional view: ~12km grid
-  if (zoom <= 12.8) return 0.055;   // Town view: ~5.5km grid (e.g. Pasir Mas = 1 circle)
-  if (zoom <= 13.8) return 0.022;   // Sub-district view: ~2.2km grid
-  if (zoom <= 14.8) return 0.008;   // Neighborhood view: ~800m grid
-  return 0;                         // Street level view (zoom > 14.8): Breaks apart completely into individual street pins!
+  if (zoom <= 10.5) return 0.28;    // Statewide view: 1-2 huge circles
+  if (zoom <= 11.8) return 0.14;    // Regional view: ~14km grid
+  if (zoom <= 12.8) return 0.065;   // Town view: ~6.5km grid
+  if (zoom <= 13.8) return 0.028;   // Sub-district view: ~2.8km grid
+  if (zoom <= 14.8) return 0.012;   // Neighborhood view: ~1.2km grid
+  if (zoom <= 15.8) return 0.005;   // Street block view: ~500m grid
+  return 0;                         // Deep street view (zoom > 15.8): Individual street pins
 }
 
-// Create custom Leaflet HTML DivIcon with white number badge inside circle
-const createClusterIcon = (count: number, color: string) => {
+// Create custom Leaflet HTML DivIcon with glowing translucent glassmorphism circle & count inside
+const createClusterIcon = (count: number, color: string, diameter?: number) => {
   if (typeof window === 'undefined') return undefined;
   try {
     const L = require('leaflet');
-    const size = Math.min(54, 34 + Math.log2(count) * 4);
+    const size = Math.min(180, Math.max(26, Math.round(diameter ?? (32 + Math.log2(count) * 6))));
+    const fontSize = size >= 48 ? 14 : (size >= 32 ? 12 : 10);
     return L.divIcon({
       html: `<div style="
-        background-color: ${color};
+        background-color: ${color}45;
         width: ${size}px;
         height: ${size}px;
         border-radius: 50%;
-        border: 3px solid #ffffff;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+        border: 2.5px solid ${color};
+        box-shadow: 0 0 20px ${color}88, inset 0 0 12px ${color}44, 0 8px 24px rgba(0,0,0,0.6);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         color: #ffffff;
         font-weight: 900;
-        font-size: 13px;
+        font-size: ${fontSize}px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: system-ui, -apple-system, sans-serif;
         cursor: pointer;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
       ">${count}</div>`,
-      className: 'nadi-cluster-badge',
+      className: 'nadi-translucent-cluster-badge',
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
     });
@@ -149,21 +262,55 @@ const createClusterIcon = (count: number, color: string) => {
   }
 };
 
-// Fixed Map event listener component (Only updates state on actual zoomend / moveend to prevent re-render loops)
+// Fixed Map event listener component (Stores active map instance & updates state safely on zoom/move)
 function MapEventsController({
+  onMapInit,
   onMapChange,
 }: {
+  onMapInit: (map: any) => void;
   onMapChange: (zoom: number, bounds: any) => void;
 }) {
   const { useMapEvents } = require('react-leaflet');
+
+  const safeUpdateState = useCallback(() => {
+    try {
+      if (map && map._loaded && typeof map.getZoom === 'function' && typeof map.getBounds === 'function') {
+        const z = map.getZoom();
+        const b = map.getBounds();
+        if (z !== undefined && b && b.getSouthWest) {
+          onMapChange(z, b);
+        }
+      }
+    } catch {}
+  }, [onMapChange]);
+
   const map = useMapEvents({
-    zoomend: () => {
-      onMapChange(map.getZoom(), map.getBounds());
-    },
-    moveend: () => {
-      onMapChange(map.getZoom(), map.getBounds());
-    },
+    zoomend: safeUpdateState,
+    moveend: safeUpdateState,
   });
+
+  useEffect(() => {
+    if (map) {
+      try {
+        onMapInit(map);
+      } catch {}
+      safeUpdateState();
+
+      const timer = setTimeout(() => {
+        try {
+          if (map && map.invalidateSize) map.invalidateSize();
+          safeUpdateState();
+        } catch {}
+      }, 150);
+
+      return () => {
+        clearTimeout(timer);
+        try {
+          onMapInit(null);
+        } catch {}
+      };
+    }
+  }, [map, onMapInit, safeUpdateState]);
 
   return null;
 }
@@ -192,10 +339,11 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   const [searchSuggestions, setSearchSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
-  const mapRef = useRef<any>(null);
+  const [activeMap, setActiveMap] = useState<any>(null);
   const supabase = useMemo(() => createClient(), []);
 
   const { userLat, userLng } = useWeather();
+  const mapInstanceKey = useMemo(() => `nadi-map-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, []);
 
   useEffect(() => {
     setMounted(true);
@@ -206,11 +354,13 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     if (userLat !== null && userLng !== null && !isNaN(userLat) && !isNaN(userLng)) {
       const loc: [number, number] = [userLat, userLng];
       setUserLocation(loc);
-      if (mapRef.current) {
-        mapRef.current.flyTo(loc, 13, { duration: 1.5 });
+      if (activeMap) {
+        try {
+          activeMap.flyTo(loc, 13, { duration: 1.5 });
+        } catch {}
       }
     }
-  }, [userLat, userLng]);
+  }, [userLat, userLng, activeMap]);
 
   // Fetch real flood risk zones from Supabase nadi_bencana_zones if available
   useEffect(() => {
@@ -282,8 +432,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   };
 
   const handleSelectLocation = (lat: number, lng: number) => {
-    if (mapRef.current) {
-      mapRef.current.flyTo([lat, lng], 14, { duration: 1.2 });
+    if (activeMap) {
+      try {
+        activeMap.flyTo([lat, lng], 14, { duration: 1.2 });
+      } catch {}
     }
     setSearchQuery('');
     setSearchSuggestions([]);
@@ -315,21 +467,23 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     try {
       const { data: infraData } = await supabase
         .from('nadi_infra_reports')
-        .select('latitude, longitude, issue_type, title, severity')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (infraData) {
-        infraData.forEach((r) => {
-          if (r.latitude && r.longitude) {
-            const reportType = r.issue_type === 'flood' ? 'flood' : 'pothole';
+        infraData.forEach((r: any) => {
+          const lat = r.latitude || r.lat;
+          const lng = r.longitude || r.lng;
+          if (lat && lng) {
+            const reportType = (r.issue_type === 'flood' || r.ai_analysis?.type === 'flood') ? 'flood' : 'pothole';
             heatPoints.push({
-              lat: r.latitude,
-              lng: r.longitude,
+              lat: Number(lat),
+              lng: Number(lng),
               type: reportType,
-              label: r.title || (isMs ? 'Laporan Awam' : 'Civic Report'),
-              sublabel: r.issue_type,
-              severity: r.severity || 3,
+              label: r.title || r.ai_analysis?.summary || (isMs ? 'Laporan Awam' : 'Civic Report'),
+              sublabel: r.issue_type || r.status || '',
+              severity: Number(r.severity || r.ai_analysis?.severity || 3),
             });
           }
         });
@@ -342,18 +496,20 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     try {
       const { data: jobsData } = await supabase
         .from('nadi_bencana_jobs')
-        .select('latitude, longitude, title, district, status')
+        .select('*')
         .limit(50);
 
       if (jobsData) {
-        jobsData.forEach((j) => {
-          if (j.latitude && j.longitude) {
+        jobsData.forEach((j: any) => {
+          const lat = j.latitude || j.lat;
+          const lng = j.longitude || j.lng;
+          if (lat && lng) {
             heatPoints.push({
-              lat: j.latitude,
-              lng: j.longitude,
+              lat: Number(lat),
+              lng: Number(lng),
               type: 'volunteer',
-              label: j.title || (isMs ? 'Misi Sukarelawan' : 'Volunteer Task'),
-              sublabel: j.district,
+              label: j.title || j.name || (isMs ? 'Misi Sukarelawan' : 'Volunteer Task'),
+              sublabel: j.district || j.dist || j.area || '',
               severity: 4,
             });
           }
@@ -520,7 +676,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     setFilters((prev) => ({ ...prev, [type]: !prev[type] }));
   };
 
-  // Real Dynamic Spatial Grid Clustering Engine with Dynamic Zoom Scaling & Spiderfy Offset
+  // Real Dynamic Spatial Grid Clustering + Bounding-Circle Union Merge Engine
   const clusterPoints = useMemo<ClusterPoint[]>(() => {
     // 1. Filter base points by layer chip filter & radius filter & viewport bounds
     const basePoints = points.filter((p) => {
@@ -537,30 +693,12 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       return true;
     });
 
-    // 2. Spiderfy offset for co-located points (prevents 100% stacking when unclustered)
-    const coordMap: Record<string, number> = {};
-    const spiderfiedPoints = basePoints.map((p) => {
-      const coordKey = `${p.lat.toFixed(4)}_${p.lng.toFixed(4)}`;
-      const count = coordMap[coordKey] || 0;
-      coordMap[coordKey] = count + 1;
-
-      if (count === 0) return p;
-
-      // Apply a tiny spiderfy spiral offset (~30m radius) so stacked pins sit side-by-side cleanly
-      const angle = (count * 120 * Math.PI) / 180;
-      const offset = 0.00035 * Math.ceil(count / 3);
-      return {
-        ...p,
-        lat: Number((p.lat + Math.sin(angle) * offset).toFixed(6)),
-        lng: Number((p.lng + Math.cos(angle) * offset).toFixed(6)),
-      };
-    });
-
     const gridSize = getGridSizeForZoom(zoomLevel);
+    let initialItems: ClusterPoint[] = [];
 
-    // 3. If zoomLevel >= 15 (Street level), un-cluster completely into individual small circles
+    // 2. Deep zoom (zoomLevel > 15.8): Start with individual points
     if (gridSize === 0) {
-      return spiderfiedPoints.map((p, idx) => ({
+      initialItems = basePoints.map((p, idx) => ({
         id: `p-${idx}-${p.lat}-${p.lng}`,
         isCluster: false,
         lat: p.lat,
@@ -571,57 +709,59 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         label: p.label,
         sublabel: p.sublabel,
         severity: p.severity,
+        radius: p.type === 'sensor' ? 14 : 11,
       }));
+    } else {
+      // 3. Otherwise, initial spatial grid grouping
+      const gridMap: Record<string, HeatPoint[]> = {};
+      basePoints.forEach((p) => {
+        const key = `${Math.floor(p.lat / gridSize)}_${Math.floor(p.lng / gridSize)}`;
+        if (!gridMap[key]) gridMap[key] = [];
+        gridMap[key].push(p);
+      });
+
+      Object.entries(gridMap).forEach(([key, group], idx) => {
+        if (group.length === 1) {
+          const p = group[0];
+          initialItems.push({
+            id: `single-${key}-${idx}`,
+            isCluster: false,
+            lat: p.lat,
+            lng: p.lng,
+            count: 1,
+            points: [p],
+            type: p.type,
+            label: p.label,
+            sublabel: p.sublabel,
+            severity: p.severity,
+            radius: p.type === 'sensor' ? 14 : 11,
+          });
+        } else {
+          const avgLat = group.reduce((sum, item) => sum + item.lat, 0) / group.length;
+          const avgLng = group.reduce((sum, item) => sum + item.lng, 0) / group.length;
+          const counts: Record<string, number> = {};
+          group.forEach((item) => {
+            counts[item.type] = (counts[item.type] || 0) + 1;
+          });
+          const dominantType = (Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'pps') as HeatType;
+          const initialRadius = Math.min(45, Math.max(19, Math.round(16 + Math.log2(group.length) * 3)));
+
+          initialItems.push({
+            id: `cluster-${key}-${idx}`,
+            isCluster: true,
+            lat: avgLat,
+            lng: avgLng,
+            count: group.length,
+            points: group,
+            type: dominantType,
+            radius: initialRadius,
+          });
+        }
+      });
     }
 
-    // 4. Otherwise, group nearby points into dynamic spatial grid clusters based on zoomLevel
-    const gridMap: Record<string, HeatPoint[]> = {};
-
-    spiderfiedPoints.forEach((p) => {
-      const key = `${Math.floor(p.lat / gridSize)}_${Math.floor(p.lng / gridSize)}`;
-      if (!gridMap[key]) gridMap[key] = [];
-      gridMap[key].push(p);
-    });
-
-    const result: ClusterPoint[] = [];
-    Object.entries(gridMap).forEach(([key, group], idx) => {
-      if (group.length === 1) {
-        const p = group[0];
-        result.push({
-          id: `single-${key}-${idx}`,
-          isCluster: false,
-          lat: p.lat,
-          lng: p.lng,
-          count: 1,
-          points: [p],
-          type: p.type,
-          label: p.label,
-          sublabel: p.sublabel,
-          severity: p.severity,
-        });
-      } else {
-        const avgLat = group.reduce((sum, item) => sum + item.lat, 0) / group.length;
-        const avgLng = group.reduce((sum, item) => sum + item.lng, 0) / group.length;
-
-        const counts: Record<string, number> = {};
-        group.forEach((item) => {
-          counts[item.type] = (counts[item.type] || 0) + 1;
-        });
-        const dominantType = (Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'pps') as HeatType;
-
-        result.push({
-          id: `cluster-${key}-${idx}`,
-          isCluster: true,
-          lat: avgLat,
-          lng: avgLng,
-          count: group.length,
-          points: group,
-          type: dominantType,
-        });
-      }
-    });
-
-    return result;
+    // 4. Bounding-Circle Union Merge Pass: Merges any overlapping circles tip-to-tip across ALL zooms!
+    return runUnionMergePass(initialItems, zoomLevel);
   }, [points, filters, radiusFilter, userLocation, zoomLevel, mapBounds]);
 
   const countByType = (type: HeatType) => points.filter((p) => p.type === type).length;
@@ -632,10 +772,12 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   }, []);
 
   const handleZoomCluster = useCallback((lat: number, lng: number) => {
-    if (mapRef.current) {
-      mapRef.current.flyTo([lat, lng], Math.min(16, zoomLevel + 2.5), { duration: 0.8 });
+    if (activeMap) {
+      try {
+        activeMap.flyTo([lat, lng], Math.min(16, zoomLevel + 2.5), { duration: 0.8 });
+      } catch {}
     }
-  }, [zoomLevel]);
+  }, [activeMap, zoomLevel]);
 
   const modalContent = (
     <motion.div
@@ -794,33 +936,16 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
       {/* Map Canvas Container */}
       <div className="flex-1 relative w-full h-full min-h-0">
-        {mapReady ? (
+        {mapReady && mapInstanceKey ? (
           <MapContainer
-            key="nadi-civic-heatmap-container"
+            key={mapInstanceKey}
             center={userLocation || DEFAULT_CENTER}
             zoom={13}
             preferCanvas={true}
             style={{ height: '100%', width: '100%' }}
             zoomControl={false}
-            ref={mapRef}
-            whenReady={() => {
-              const map = mapRef.current;
-              if (map) {
-                setZoomLevel(map.getZoom());
-                setMapBounds(map.getBounds());
-
-                [100, 300, 600].forEach((delay) => {
-                  setTimeout(() => {
-                    map.invalidateSize();
-                  }, delay);
-                });
-                if (userLocation) {
-                  map.flyTo(userLocation, 13, { duration: 1.5 });
-                }
-              }
-            }}
           >
-            <MapEventsController onMapChange={handleMapChange} />
+            <MapEventsController onMapInit={setActiveMap} onMapChange={handleMapChange} />
 
             <TileLayer
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -851,9 +976,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               const distFromUser =
                 userLocation ? getDistanceKm(userLocation[0], userLocation[1], cluster.lat, cluster.lng) : null;
 
-              // Render Cluster Marker (HTML DivIcon Badge with white count printed inside!)
-              if (cluster.isCluster) {
-                const clusterIcon = createClusterIcon(cluster.count, cfg.color);
+              // Render Cluster / Union-Merged Marker (HTML DivIcon Badge with tip-to-tip geometric diameter)
+              if (cluster.isCluster || cluster.count > 1) {
+                const diameter = cluster.radius ? cluster.radius * 2 : undefined;
+                const clusterIcon = createClusterIcon(cluster.count, cfg.color, diameter);
                 return (
                   <Marker
                     key={cluster.id}
@@ -868,87 +994,123 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
               // Render Individual Circle Marker (Small crisp circle when zoomed in)
               const point = cluster.points[0] || cluster;
+              const TypeIcon = cfg.icon;
               return (
                 <CircleMarker
                   key={cluster.id}
                   center={[point.lat, point.lng]}
-                  radius={point.type === 'sensor' ? 9 : 4.5}
+                  radius={point.type === 'sensor' ? 14 : 11}
                   pathOptions={{
-                    color: '#ffffff',
+                    color: cfg.color,
                     fillColor: cfg.color,
-                    fillOpacity: 0.9,
-                    weight: 1.5,
+                    fillOpacity: 0.38,
+                    weight: 2.5,
                   }}
                 >
-                  <Popup>
-                    <div className="p-2 font-sans bg-zinc-950 text-white rounded-2xl border border-zinc-800 shadow-2xl min-w-[200px]">
-                      <strong className="text-sm font-bold text-white block leading-tight">{point.label}</strong>
-                      {point.sublabel && <span className="text-[11px] text-zinc-400 block mt-0.5">{point.sublabel}</span>}
-                      {distFromUser !== null && (
-                        <span className="text-[10px] font-semibold text-blue-400 block mt-1">
-                          📍 {distFromUser} km {isMs ? 'dari lokasi anda' : 'from your location'}
-                        </span>
-                      )}
+                  <Popup className="nadi-popup">
+                    <div className="nadi-popup-card p-3.5 flex flex-col gap-2.5 relative font-sans text-white">
+                      {/* a) TOP HAIRLINE */}
+                      <div
+                        className="h-[2px] w-full absolute top-0 left-0 right-0"
+                        style={{ background: `linear-gradient(90deg, ${cfg.color}, transparent)` }}
+                      />
 
-                      <div className="flex items-center gap-1.5 mt-2 mb-2.5">
-                        <span
-                          className="inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider"
-                          style={{ background: cfg.color }}
+                      {/* b) HEADER ROW */}
+                      <div className="flex items-start gap-2.5 pt-0.5">
+                        <div
+                          className="w-[34px] h-[34px] rounded-xl flex items-center justify-center shrink-0 border"
+                          style={{ backgroundColor: cfg.color + '22', borderColor: cfg.color + '44' }}
                         >
+                          <TypeIcon className="w-4 h-4" style={{ color: cfg.color }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-[13px] font-bold text-white leading-tight line-clamp-2 pr-6">{point.label}</h4>
+                          {point.sublabel && (
+                            <p className="text-[10px] text-zinc-400 truncate mt-0.5">{point.sublabel}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* c) STATUS STRIP */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: cfg.color }} />
+                        <span className="text-[9px] uppercase tracking-widest font-bold" style={{ color: cfg.color }}>
                           {isMs ? cfg.labelMs : cfg.labelEn}
                         </span>
                       </div>
 
-                      {/* Live IoT Sensor Telemetry Card */}
-                      {point.type === 'sensor' && (
-                        <div className="my-2 p-2.5 rounded-xl bg-zinc-900/90 text-white font-sans border border-purple-500/40 shadow-inner">
-                          <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold mb-1">
-                            <span>📡 IoT TELEMETRY</span>
-                            <span className="text-emerald-400 font-bold flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                      {/* d) META ROW */}
+                      <div className="flex flex-col gap-1">
+                        {distFromUser !== null && (
+                          <div className="flex items-center gap-1 text-[10px] font-semibold">
+                            <Navigation className="w-3 h-3 text-blue-400 shrink-0" />
+                            <span className="text-blue-400">
+                              {distFromUser} km {isMs ? 'dari lokasi anda' : 'from your location'}
                             </span>
                           </div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-black text-purple-400">
-                              {(liveSensorData?.water_level ?? 1.74).toFixed(2)}m
-                            </span>
-                            <span className="text-[10px] text-zinc-400">
-                              ({Math.round((liveSensorData?.water_level ?? 1.74) * 100)} cm)
-                            </span>
-                          </div>
-                          <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden my-1.5 border border-zinc-700">
-                            <div
-                              className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                              style={{ width: `${Math.min(100, Math.max(10, ((liveSensorData?.water_level ?? 1.74) / 3.0) * 100))}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-between text-[8px] text-zinc-400 font-medium">
-                            <span>Biasa &lt;1.8m</span>
-                            <span className="text-amber-400">Amaran 1.8m</span>
-                            <span className="text-red-400 font-bold">Bahaya 3.0m</span>
-                          </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* 1-Tap Navigation Buttons */}
+                        {/* Live IoT Sensor Telemetry Card */}
+                        {point.type === 'sensor' && (
+                          <div className="my-1 p-2.5 rounded-xl bg-zinc-900/80 text-white font-sans border border-purple-500/30">
+                            <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold mb-1">
+                              <span>📡 IoT TELEMETRY</span>
+                              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                              </span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base font-black text-purple-400">
+                                {(liveSensorData?.water_level ?? 1.74).toFixed(2)}m
+                              </span>
+                              <span className="text-[10px] text-zinc-400">
+                                ({Math.round((liveSensorData?.water_level ?? 1.74) * 100)} cm)
+                              </span>
+                            </div>
+                            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden my-1 border border-zinc-700">
+                              <div
+                                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(100, Math.max(10, ((liveSensorData?.water_level ?? 1.74) / 3.0) * 100))}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-[8px] text-zinc-400 font-medium">
+                              <span>Biasa &lt;1.8m</span>
+                              <span className="text-amber-400">Amaran 1.8m</span>
+                              <span className="text-red-400 font-bold">Bahaya 3.0m</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* e) ACTION ROW (Hidden for sensor type) */}
                       {point.type !== 'sensor' && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
+                        <div className="grid grid-cols-2 gap-2 h-[34px] mt-0.5">
                           <a
                             href={`https://www.waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 py-1.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold text-center no-underline transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                            className="bg-blue-600 hover:bg-blue-500 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
                           >
-                            🚙 Waze
+                            <Car className="w-3.5 h-3.5 text-white shrink-0" />
+                            <span className="text-white">Waze</span>
                           </a>
                           <a
                             href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center no-underline transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                            className="bg-emerald-600 hover:bg-emerald-500 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
                           >
-                            🗺️ Maps
+                            <Map className="w-3.5 h-3.5 text-white shrink-0" />
+                            <span className="text-white">Maps</span>
                           </a>
+                        </div>
+                      )}
+
+                      {/* f) TRUST FOOTER (PPS only) */}
+                      {point.type === 'pps' && (
+                        <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[8px] uppercase tracking-widest text-zinc-500 font-semibold">
+                          <span>RASMI · JKM / NADMA</span>
+                          <span className="text-emerald-500 font-bold">DISAHKAN</span>
                         </div>
                       )}
                     </div>
@@ -964,8 +1126,11 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                 radius={8}
                 pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.8, weight: 3 }}
               >
-                <Popup>
-                  <div className="text-xs font-bold text-zinc-900">{isMs ? 'Lokasi Anda' : 'Your Location'}</div>
+                <Popup className="nadi-popup">
+                  <div className="nadi-popup-card p-3 font-sans text-xs font-bold text-white flex items-center gap-2">
+                    <Navigation className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>{isMs ? 'Lokasi Anda' : 'Your Location'}</span>
+                  </div>
                 </Popup>
               </CircleMarker>
             )}
@@ -983,10 +1148,14 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         <div className="absolute bottom-20 right-4 sm:bottom-28 sm:right-6 z-[500]">
           <button
             onClick={() => {
-              if (userLocation && mapRef.current) {
-                mapRef.current.flyTo(userLocation, 14, { duration: 1.2 });
-              } else if (mapRef.current) {
-                mapRef.current.flyTo(DEFAULT_CENTER, 14, { duration: 1.2 });
+              if (userLocation && activeMap) {
+                try {
+                  activeMap.flyTo(userLocation, 14, { duration: 1.2 });
+                } catch {}
+              } else if (activeMap) {
+                try {
+                  activeMap.flyTo(DEFAULT_CENTER, 14, { duration: 1.2 });
+                } catch {}
               }
             }}
             className="p-3 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-blue-400 border border-zinc-700/80 shadow-2xl transition-all active:scale-95 group backdrop-blur-xl"

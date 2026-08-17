@@ -87,4 +87,7 @@ __pycache__/
 gamification_plan.md
 neural_network_plan.md
 maps_files.md
-*_plan.md
+*_plan.md
+
+# Geocoded Cache (Local Work In Progress Coordinates)
+src/data/geocoded_cache.json

@@ -1,11 +1,13 @@
 /**
- * NADI — PWA Service Worker Cache Engine
- * =====================================
- * Cache-first strategy for static assets, Google Fonts, icons, and CSS/JS bundles.
- * Network-first strategy for API routes to guarantee fresh telemetry.
+ * NADI — PWA Service Worker Cache Engine (v4.0.0)
+ * ===============================================
+ * - Strictly same-origin: NEVER intercepts cross-origin CDN tiles (Carto, OSM, Open-Meteo, Supabase).
+ * - Cache-first strategy for static assets (icons, manifest, app shell).
+ * - Network-first strategy for internal API routes.
+ * - Robust try/catch fallback to prevent unhandled fetch rejections.
  */
 
-const CACHE_NAME = 'nadi-v3.5.0-cache';
+const CACHE_NAME = 'nadi-v4.1.0-cache';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -16,17 +18,28 @@ const STATIC_ASSETS = [
   '/images/malaysia-flag.png'
 ];
 
-// Install Event — Pre-cache core shell assets
+// Install Event — Pre-cache core shell assets safely without atomic failure
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await Promise.allSettled(
+        STATIC_ASSETS.map(async (asset) => {
+          try {
+            const res = await fetch(asset);
+            if (res.ok) {
+              await cache.put(asset, res);
+            }
+          } catch {
+            // Non-critical asset failure — never abort SW install
+          }
+        })
+      );
     })
   );
   self.skipWaiting();
 });
 
-// Activate Event — Clean up stale caches
+// Activate Event — Clean up stale caches & claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -42,17 +55,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Event — Network-first for APIs, Cache-first for Static Assets & Fonts
+// Fetch Event — Network-first for APIs, Cache-first for Static Assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests or browser extensions
+  // 1. MUST BE SAME ORIGIN — Let Carto tiles, OSM, Supabase, OpenWeather, Groq pass through natively!
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // 2. Skip non-GET requests or unsupported schemes
   if (event.request.method !== 'GET' || !url.protocol.startsWith('http')) {
     return;
   }
 
-  // Network-first for API routes & Supabase requests
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase.co')) {
+  // 3. Network-first for internal API routes with offline fallback
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request).catch(() => {
         return caches.match(event.request);
@@ -61,16 +79,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first strategy for static assets, Google Fonts & images
+  // 4. Cache-first with stale-while-revalidate for local static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Fetch background update for stale assets
+        // Background revalidation
         fetch(event.request)
           .then((networkResponse) => {
-            if (networkResponse.status === 200) {
+            if (networkResponse && networkResponse.status === 200) {
+              const responseClone = networkResponse.clone();
               caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, networkResponse);
+                cache.put(event.request, responseClone);
               });
             }
           })
@@ -78,20 +97,27 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
 
-      return fetch(event.request).then((networkResponse) => {
-        if (
-          networkResponse.status === 200 &&
-          (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|ico|css|js|woff2)$/) ||
-            url.hostname.includes('fonts.googleapis.com') ||
-            url.hostname.includes('fonts.gstatic.com'))
-        ) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return networkResponse;
-      });
+      return fetch(event.request)
+        .then((networkResponse) => {
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            url.pathname.match(/\.(png|jpg|jpeg|svg|gif|ico|css|js|woff2|json)$/)
+          ) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Offline fallback for navigation requests
+          if (event.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+          return caches.match(event.request);
+        });
     })
   );
 });

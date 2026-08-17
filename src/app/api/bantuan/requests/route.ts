@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 import { randomUUID, timingSafeEqual } from 'crypto';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+
+// Supabase admin client (service role — bypasses RLS for anonymous bantuan ops)
+function getAdminSupabase() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    return createSupabaseClient(supabaseUrl, serviceKey);
+}
 
 // SECURITY: Constant-time string comparison to prevent timing attacks
 function safeCompare(a: string, b: string): boolean {
@@ -15,9 +23,6 @@ function safeCompare(a: string, b: string): boolean {
         return false;
     }
 }
-
-// In-memory store for mutual aid requests (MVP — replace with Supabase in production)
-const requestsStore: any[] = [];
 
 // Simple in-memory rate limiter for fulfill actions
 const fulfillRateLimit = new Map<string, number>();
@@ -45,18 +50,36 @@ function sanitizeString(val: unknown, maxLen = 500): string {
 
 // GET /api/bantuan/requests — fetch all mutual aid requests (exclude secret tokens)
 export async function GET() {
-    const sorted = [...requestsStore].sort((a, b) => b.submittedAt - a.submittedAt);
-    const formatted = sorted.map(({ secretToken, ...r }) => ({
-        ...r,
-        time: formatTime(r.submittedAt),
-    }));
-    return NextResponse.json({ success: true, requests: formatted });
+    try {
+        const supabase = getAdminSupabase();
+        const { data, error } = await supabase
+            .from('nadi_bantuan_requests')
+            .select('id, poster, type, title, description, location, category, contact, fulfilled, created_at')
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+        if (error) {
+            console.error('Bantuan GET error:', error);
+            return NextResponse.json({ success: true, requests: [] });
+        }
+
+        const formatted = (data || []).map((r: any) => ({
+            ...r,
+            time: formatTime(new Date(r.created_at).getTime()),
+        }));
+
+        return NextResponse.json({ success: true, requests: formatted });
+    } catch (error) {
+        console.error('Bantuan GET error:', error);
+        return NextResponse.json({ success: true, requests: [] });
+    }
 }
 
 // POST /api/bantuan/requests — submit or fulfill a request
 export async function POST(request: Request) {
     try {
         const body = await request.json();
+        const supabase = getAdminSupabase();
 
         // Fulfill action — requires secret token authorization + rate limiting
         if (body.action === 'fulfill' && body.requestId) {
@@ -76,17 +99,32 @@ export async function POST(request: Request) {
             }
             fulfillRateLimit.set(reqId, Date.now());
 
-            const req = requestsStore.find(r => r.id === reqId);
-            if (!req) {
+            // Fetch the request including its secret_token for verification
+            const { data: req, error: fetchErr } = await supabase
+                .from('nadi_bantuan_requests')
+                .select('id, secret_token')
+                .eq('id', reqId)
+                .single();
+
+            if (fetchErr || !req) {
                 return NextResponse.json({ success: false, error: 'Request not found.' }, { status: 404 });
             }
 
             // SECURITY: Require authorization secret token matching the created request (constant-time check)
-            if (!providedToken || !req.secretToken || !safeCompare(providedToken, req.secretToken)) {
+            if (!providedToken || !req.secret_token || !safeCompare(providedToken, req.secret_token)) {
                 return NextResponse.json({ success: false, error: 'Unauthorized: Valid token required to fulfill request.' }, { status: 401 });
             }
 
-            req.fulfilled = true;
+            const { error: updateErr } = await supabase
+                .from('nadi_bantuan_requests')
+                .update({ fulfilled: true })
+                .eq('id', reqId);
+
+            if (updateErr) {
+                console.error('Bantuan fulfill error:', updateErr);
+                return NextResponse.json({ success: false, error: 'Failed to fulfill request.' }, { status: 500 });
+            }
+
             return NextResponse.json({ success: true });
         }
 
@@ -106,9 +144,8 @@ export async function POST(request: Request) {
         }
 
         const secretToken = generateSecureId();
-        const newRequest = {
-            id: generateSecureId(),
-            secretToken,
+        const newRow = {
+            secret_token: secretToken,
             poster: 'Anonymous Warga',
             type: cleanType,
             title: cleanTitle,
@@ -116,16 +153,29 @@ export async function POST(request: Request) {
             location: cleanLocation,
             category: cleanCategory,
             contact: cleanContact,
-            submittedAt: Date.now(),
-            time: 'Just now',
             fulfilled: false,
         };
 
-        requestsStore.unshift(newRequest);
-        if (requestsStore.length > 100) requestsStore.splice(100);
+        const { data: inserted, error: insertErr } = await supabase
+            .from('nadi_bantuan_requests')
+            .insert(newRow)
+            .select()
+            .single();
+
+        if (insertErr) {
+            console.error('Bantuan insert error:', insertErr);
+            return NextResponse.json({ success: false, error: 'Failed to save request.' }, { status: 500 });
+        }
 
         // Return request with secretToken only to the author upon creation
-        return NextResponse.json({ success: true, request: newRequest });
+        const response = {
+            ...inserted,
+            secretToken: inserted.secret_token,
+            time: 'Just now',
+        };
+        delete response.secret_token;
+
+        return NextResponse.json({ success: true, request: response });
     } catch (error) {
         console.error('Bantuan request error:', error);
         return NextResponse.json({ success: false, error: 'Failed to process request.' }, { status: 500 });
