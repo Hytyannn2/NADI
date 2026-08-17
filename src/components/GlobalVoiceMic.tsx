@@ -43,7 +43,7 @@ export default function GlobalVoiceMic({ onTranscript, size = 'md', className = 
 
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            alert('Pelayar anda tidak menyokong Speech Recognition. Sila gunakan Chrome.');
+            alert('Pelayar anda tidak menyokong rakaman suara. Sila gunakan pelayar Chrome.');
             return;
         }
 

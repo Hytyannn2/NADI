@@ -10,19 +10,19 @@ const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-kelantan.app";
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "NADI — Sistem Operasi Sivik & Respons Bencana Kebangsaan",
+    default: "NADI — Platform Komuniti & Respons Bencana",
     template: "%s | NADI",
   },
   description:
-    "Platform Operasi Sivik & Respons Bencana Kebangsaan Malaysia. Pemantauan paras air JPS, aduan jalan berlubang dialek AI Groq Llama 3.3, dan padanan bantuan B40.",
+    "Platform komuniti untuk aduan isu kawasan, amaran banjir dan paras air sungai, serta carian bantuan kebajikan & sukarelawan di Malaysia.",
   keywords: [
     "NADI",
-    "Sistem Operasi Sivik",
-    "Aduan Pothole Malaysia",
-    "JPS Kelantan River Level",
-    "Respons Bencana Banjir",
-    "AI Dialek Kelantan",
-    "Bantuan Komuniti B40",
+    "Aduan Awam",
+    "Aduan Jalan Berlubang",
+    "Paras Air Sungai",
+    "Amaran Banjir",
+    "Bantuan Kebajikan",
+    "Sukarelawan Malaysia",
   ],
   authors: [{ name: "NADI Malaysia Team" }],
   alternates: {
@@ -41,11 +41,11 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "NADI — Sistem Operasi Sivik & Respons Bencana Kebangsaan",
+    title: "NADI — Platform Komuniti & Respons Bencana",
     description:
-      "Platform Operasi Sivik & Respons Bencana Kebangsaan Malaysia. Pemantauan paras air JPS, aduan dialek AI Groq Llama 3.3, dan padanan bantuan B40.",
+      "Platform komuniti untuk aduan isu kawasan, amaran banjir dan paras air sungai, serta carian bantuan kebajikan & sukarelawan di Malaysia.",
     url: baseUrl,
-    siteName: "NADI National Dashboard",
+    siteName: "NADI",
     locale: "ms_MY",
     type: "website",
     images: [

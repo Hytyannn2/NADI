@@ -197,7 +197,7 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                 <div className="flex items-center justify-between p-4 border-b border-zinc-800">
                     <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-[#C5A367]" />
-                        <h3 className="text-sm font-bold text-white">Community</h3>
+                        <h3 className="text-sm font-bold text-white">Komuniti & Lapor Sulit</h3>
                     </div>
                     <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                 </div>
@@ -205,10 +205,10 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                 {/* Tabs */}
                 <div className="flex p-1.5 mx-4 mt-3 rounded-2xl border bg-[#050505] border-zinc-800">
                     <button onClick={() => setTab('feed')} className={`flex-1 py-2.5 text-[9px] uppercase tracking-widest font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${tab === 'feed' ? 'bg-zinc-800 text-white border border-zinc-700' : 'text-zinc-600'}`}>
-                        <MessageSquare className="w-3 h-3" /> Feed
+                        <MessageSquare className="w-3 h-3" /> Suara Warga
                     </button>
                     <button onClick={() => setTab('whistle')} className={`flex-1 py-2.5 text-[9px] uppercase tracking-widest font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${tab === 'whistle' ? 'bg-zinc-800 text-white border border-zinc-700' : 'text-zinc-600'}`}>
-                        <Shield className="w-3 h-3" /> Whistle-Blower
+                        <Shield className="w-3 h-3" /> Lapor Sulit
                     </button>
                 </div>
 
@@ -218,17 +218,17 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                         <>
                             <button onClick={() => setShowCompose(!showCompose)}
                                 className="w-full mb-4 flex items-center gap-2 p-3 rounded-2xl border border-dashed border-zinc-800 text-zinc-500 hover:text-[#C5A367] hover:border-[#C5A367]/20 transition-all text-xs font-bold"
-                            ><Plus className="w-4 h-4" /> Share with your community</button>
+                            ><Plus className="w-4 h-4" /> Kongsi mesej dengan komuniti anda</button>
 
                             <AnimatePresence>
                                 {showCompose && (
                                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-4">
                                         <div className="bg-[#121214] border border-zinc-800 rounded-2xl p-4">
-                                            <textarea value={content} onChange={e => setContent(e.target.value)} onKeyDown={handleKeyDown} rows={3} placeholder="What's happening in your community?"
+                                            <textarea value={content} onChange={e => setContent(e.target.value)} onKeyDown={handleKeyDown} rows={3} placeholder="Apa perkembangan di kawasan anda?"
                                                 className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 outline-none resize-none mb-3" />
                                             <button onClick={handlePost} disabled={posting || !content.trim()}
                                                 className="bg-gradient-to-r from-[#C5A367] to-[#B8860B] text-[#0A0A0C] px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-40 flex items-center gap-1.5"
-                                            >{posting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Post</button>
+                                            >{posting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Hantar</button>
                                         </div>
                                     </motion.div>
                                 )}
@@ -238,7 +238,7 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-zinc-700" /></div>
                             ) : posts.length === 0 ? (
                                 <div className="text-center py-12 text-zinc-600 border border-dashed border-zinc-800 rounded-3xl text-[10px] font-bold uppercase tracking-widest">
-                                    No posts yet. Be the first!
+                                    Belum ada mesej lagi. Jadilah yang pertama!
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -354,45 +354,45 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                         <div className="space-y-4">
                             <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4 text-center">
                                 <Shield className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                                <h4 className="text-sm font-bold text-red-300 mb-1">Anonymous Report</h4>
-                                <p className="text-[10px] text-red-400/60">Zero-PII submission. Your identity is never recorded.</p>
+                                <h4 className="text-sm font-bold text-red-300 mb-1">Lapor Sulit Tanpa Nama</h4>
+                                <p className="text-[10px] text-red-400/60">Identiti anda dilindungi sepenuhnya dan tidak akan disimpan.</p>
                             </div>
 
                             {wbSuccess && (
                                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                                     className="bg-[#10B981]/10 border border-[#10B981]/20 rounded-2xl p-4 text-center text-xs font-bold text-[#10B981]"
-                                > Report submitted anonymously. Reference ID generated.</motion.div>
+                                > Laporan telah dihantar secara rahsia.</motion.div>
                             )}
 
                             <div>
-                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Category</label>
+                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Kategori Isu</label>
                                 <select value={wbCategory} onChange={e => setWbCategory(e.target.value)}
                                     className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white outline-none"
                                 >
-                                    <option value="corruption">Corruption</option>
-                                    <option value="illegal_dumping">Illegal Dumping</option>
-                                    <option value="safety_violation">Safety Violation</option>
-                                    <option value="fraud">Fraud</option>
-                                    <option value="other">Other</option>
+                                    <option value="corruption">Rasuah / Salah Guna Kuasa</option>
+                                    <option value="illegal_dumping">Pembuangan Sampah Haram</option>
+                                    <option value="safety_violation">Pelanggaran Keselamatan</option>
+                                    <option value="fraud">Penipuan</option>
+                                    <option value="other">Lain-lain</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Description</label>
-                                <textarea value={wbDesc} onChange={e => setWbDesc(e.target.value)} rows={4} placeholder="Describe the incident in detail..."
+                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Keterangan Isu</label>
+                                <textarea value={wbDesc} onChange={e => setWbDesc(e.target.value)} rows={4} placeholder="Terangkan kejadian dengan jelas..."
                                     className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none resize-none mb-4" />
                                     
-                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">General Location (Optional)</label>
-                                <input value={wbLocation} onChange={e => setWbLocation(e.target.value)} placeholder="e.g. Behind SMK Kota Bharu"
+                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Kawasan / Lokasi (Pilihan)</label>
+                                <input value={wbLocation} onChange={e => setWbLocation(e.target.value)} placeholder="cth. Belakang Sekolah Kebangsaan Kota Bharu"
                                     className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none mb-4" />
                                     
-                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Evidence Photo (Optional - EXIF Scrubbed)</label>
+                                <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5 block">Gambar Bukti (Pilihan - Maklumat Lokasi Dipadamkan)</label>
                                 <input type="file" accept="image/*" onChange={handleImageUpload}
                                     className="w-full bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-400 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:uppercase file:tracking-widest file:bg-zinc-800 file:text-white hover:file:bg-zinc-700" />
                                 {wbImage && (
                                     <div className="mt-3 relative rounded-xl overflow-hidden border border-zinc-800">
                                         <img src={wbImage} alt="Scrubbed evidence" className="w-full h-auto" />
                                         <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-[8px] text-[#10B981] font-bold uppercase tracking-widest flex items-center gap-1">
-                                            <Shield className="w-3 h-3" /> EXIF Scrubbed
+                                            <Shield className="w-3 h-3" /> Privasi Dilindungi
                                         </div>
                                         <button onClick={() => setWbImage(null)} className="absolute top-2 left-2 bg-black/60 p-1.5 rounded-full text-white hover:bg-red-500/80 transition-colors"><X className="w-3 h-3" /></button>
                                     </div>
@@ -400,7 +400,7 @@ export default function CommunityFeed({ onClose, initialTab = 'feed' }: { onClos
                             </div>
                             <button onClick={handleWhistle} disabled={wbSubmitting || !wbDesc.trim()}
                                 className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-40 flex items-center justify-center gap-2"
-                            >{wbSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />} Submit Anonymous Report</button>
+                            >{wbSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />} Hantar Laporan Sulit</button>
                         </div>
                     )}
                 </div>

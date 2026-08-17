@@ -381,12 +381,12 @@ export default function BantuanView() {
                     <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            LIVE 📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : 'Kota Bharu, Kelantan'}
+                            📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : 'Kota Bharu, Kelantan'}
                         </span>
                     </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-white font-serif">NADI Bantuan & Sukarelawan</h2>
+                    <h2 className="text-2xl font-bold tracking-tight text-white font-serif">Bantuan & Sukarelawan</h2>
                     <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                        Program Bantuan Kebajikan & Peluang Sukarelawan · Kelantan
+                        Cari program bantuan kewangan dan peluang sukarelawan di Kelantan.
                     </p>
                 </div>
             </motion.div>
@@ -425,7 +425,7 @@ export default function BantuanView() {
                             ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
                             : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
                     }`}
-                >{t('bantuan.tab_aid')}</button>
+                >Program Bantuan</button>
                 <button
                     onClick={() => setActiveTab('volunteer')}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${
@@ -433,7 +433,7 @@ export default function BantuanView() {
                             ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
                             : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
                     }`}
-                >{t('bantuan.tab_vol')}</button>
+                >Sukarelawan</button>
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -489,7 +489,7 @@ export default function BantuanView() {
                                     {[
                                         {
                                             id: 'all',
-                                            label: 'Semua Kategori',
+                                            label: 'Semua',
                                             icon: Globe,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.22) 0%, rgba(245, 158, 11, 0.16) 100%)', color: '#FCD34D', borderColor: '#F59E0B', boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
@@ -503,14 +503,14 @@ export default function BantuanView() {
                                         },
                                         {
                                             id: 'ngo',
-                                            label: 'NGO Bantuan',
+                                            label: 'NGO',
                                             icon: HandHeart,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.22) 0%, rgba(147, 51, 234, 0.16) 100%)', color: '#E9D5FF', borderColor: '#A855F7', boxShadow: '0 4px 16px rgba(168, 85, 247, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
                                         },
                                         {
                                             id: 'zakat',
-                                            label: 'Zakat & Baitulmal',
+                                            label: 'Zakat',
                                             icon: Building,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%)', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
@@ -589,7 +589,7 @@ export default function BantuanView() {
                                                                     <span>Semak Kelayakan</span>
                                                                 </h4>
                                                                 <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                                                    Semak program mana yang anda layak mohon secara serta-merta.
+                                                                    Semak bantuan yang anda layak secara serta-merta.
                                                                 </p>
                                                             </div>
                                                             <motion.button
@@ -619,7 +619,7 @@ export default function BantuanView() {
                                                         <div className="p-4 rounded-2xl shadow-md space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)' }}>
                                                             <div className="flex justify-between items-center mb-3">
                                                                 <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                                                    <span>Profil Isi Rumah</span>
+                                                                    <span>Maklumat Diri</span>
                                                                 </h4>
                                                                 <motion.button
                                                                     whileHover={{ scale: 1.15, rotate: 90 }}
@@ -637,9 +637,9 @@ export default function BantuanView() {
                                                                         <input type="number" required placeholder="e.g. 28" value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                                                                     </div>
                                                                     <div>
-                                                                        <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan Kasar Sebulan (RM)</label>
-                                                                        <input type="number" required placeholder="e.g. 2500 (Gaji Kasar)" value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
-                                                                        <span className="text-[8px] opacity-75 block mt-0.5" style={{ color: 'var(--text-muted)' }}>*Gaji kasar sebulan sebelum potongan KWSP/cukai</span>
+                                                                        <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">Pendapatan Sebulan (RM)</label>
+                                                                        <input type="number" required placeholder="e.g. 2500" value={profile.income} onChange={e => setProfile({ ...profile, income: e.target.value })} className="w-full rounded-xl px-3 py-2 text-xs outline-none" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                                                                        <span className="text-[8px] opacity-75 block mt-0.5" style={{ color: 'var(--text-muted)' }}>*Jumlah pendapatan kasar sebulan</span>
                                                                     </div>
                                                                     <div>
                                                                         <label className="text-[9px] font-bold uppercase tracking-widest block mb-1">{t('bantuan.status')}</label>
@@ -805,13 +805,13 @@ export default function BantuanView() {
                             {/* --- SECTION 1: URGENT LOCAL SOS --- */}
                             <div className="mb-8">
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{t('vol.urgent_sos')}</p>
+                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Bantuan Komuniti (SOS)</p>
                                     <button
                                         onClick={() => setShowJobForm(true)}
                                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all"
                                         style={{ background: 'var(--danger-muted)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
                                     >
-                                        <Plus className="w-3 h-3" /> {t('bencana.request_help')}
+                                        <Plus className="w-3 h-3" /> Mohon Bantuan
                                     </button>
                                 </div>
 
@@ -887,12 +887,12 @@ export default function BantuanView() {
                             <div className="pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
                                 {/* Header */}
                                 <div className="flex items-center justify-between mb-3 mt-4">
-                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{t('vol.nationwide')}</p>
+                                    <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Misi Sukarelawan</p>
                                     <button
                                         onClick={() => mutateVolOpportunities()}
                                         className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
                                         style={{ background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-default)' }}
-                                    >{t('vol.refresh')}</button>
+                                    >Kemas Kini</button>
                                 </div>
 
                                 {/* Volunteer Search */}
@@ -1073,7 +1073,7 @@ export default function BantuanView() {
                                     {selectedProgram.name}
                                 </h3>
                                 <p className="text-xs font-semibold mb-6 opacity-80" style={{ color: 'var(--text-muted)' }}>
-                                    {t('bantuan.provider')} <span className="font-bold text-zinc-100">{selectedProgram.provider}</span>
+                                    Dianjurkan oleh <span className="font-bold text-zinc-100">{selectedProgram.provider}</span>
                                 </p>
 
                                 {/* AI Match Status (If Available) */}
@@ -1112,7 +1112,7 @@ export default function BantuanView() {
                                 <div className="space-y-5">
                                     <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1.5">
                                         <h5 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
-                                            <Package className="w-4 h-4 text-amber-400" /> Penerangan Program & Kadar Bantuan
+                                            <Package className="w-4 h-4 text-amber-400" /> Keterangan Program
                                         </h5>
                                         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                                             {selectedProgram.description}
@@ -1121,7 +1121,7 @@ export default function BantuanView() {
 
                                     <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1.5">
                                         <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
-                                            <Users className="w-4 h-4 text-emerald-400" /> Syarat-Syarat Kelayakan Rasmi
+                                            <Users className="w-4 h-4 text-emerald-400" /> Syarat Kelayakan
                                         </h5>
                                         <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-primary)' }}>
                                             {selectedProgram.eligibility}
@@ -1132,7 +1132,7 @@ export default function BantuanView() {
                                         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3">
                                             <MapPin className="w-5 h-5 text-blue-400 shrink-0" />
                                             <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Wilayah Liputan</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Kawasan</p>
                                                 <p className="text-xs font-bold text-zinc-100">{selectedProgram.location}</p>
                                             </div>
                                         </div>
@@ -1140,7 +1140,7 @@ export default function BantuanView() {
                                         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3">
                                             <Clock className="w-5 h-5 text-purple-400 shrink-0" />
                                             <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status Permohonan</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Tarikh Tutup</p>
                                                 <p className="text-xs font-bold text-zinc-100">{selectedProgram.deadline || 'Berterusan'}</p>
                                             </div>
                                         </div>

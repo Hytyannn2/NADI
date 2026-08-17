@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { AlertTriangle, Home, ClipboardList, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, Home, ClipboardList, ShieldAlert } from 'lucide-react';
 
 export const metadata = {
-  title: 'Halaman Tidak Dijumpai (404) | NADI',
+  title: 'Halaman Tidak Ditemui (404) | NADI',
   description: 'Halaman yang anda cari tidak wujud atau telah dipindahkan dalam platform NADI.',
 };
 
@@ -16,7 +16,7 @@ export default function NotFound() {
       <div className="max-w-md w-full text-center space-y-6 relative z-10">
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-widest">
-          <AlertTriangle className="w-4 h-4 text-red-400" /> Ralat 404 • Halaman Tidak Dijumpai
+          <AlertTriangle className="w-4 h-4 text-red-400" /> Ralat 404 • Halaman Tidak Ditemui
         </div>
 
         {/* Big Code */}
@@ -27,10 +27,10 @@ export default function NotFound() {
         {/* Subtitle & Message */}
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-white font-serif">
-            Halaman Ini Tiada Dalam Rekod NADI
+            Halaman Tidak Ditemui
           </h2>
           <p className="text-xs text-zinc-400 leading-relaxed max-w-sm mx-auto">
-            Halaman atau laluan URL yang anda cuba layari tidak wujud, telah dipindahkan, atau memerlukan kebenaran akses sistem.
+            Halaman yang anda cari tiada atau telah dipindahkan.
           </p>
         </div>
 
@@ -46,15 +46,16 @@ export default function NotFound() {
             href="/?tab=aduan"
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs font-bold hover:bg-zinc-800 transition-all active:scale-95"
           >
-            <ClipboardList className="w-4 h-4 text-[#C5A367]" /> Aduan Desk
+            <ClipboardList className="w-4 h-4 text-[#C5A367]" /> Hantar Aduan
           </Link>
         </div>
 
         {/* Emergency Assistance Footer */}
         <div className="pt-6 border-t border-zinc-800/80 flex items-center justify-center gap-2 text-[10px] text-zinc-500 font-mono font-bold uppercase tracking-wider">
-          <ShieldAlert className="w-3.5 h-3.5 text-red-400" /> Kecemasan Bencana? Hubungi MERS 999
+          <ShieldAlert className="w-3.5 h-3.5 text-red-400" /> Perlu bantuan kecemasan? Hubungi 999
         </div>
       </div>
     </div>
   );
 }
+

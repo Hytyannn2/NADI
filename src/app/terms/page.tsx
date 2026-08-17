@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { ArrowLeft, Scale, ShieldAlert, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export const metadata = {
-  title: 'Terma & Syarat Perkhidmatan | NADI',
-  description: 'Terma dan Syarat Perkhidmatan Penggunaan Platform Operasi Sivik & Respons Bencana NADI.',
+  title: 'Terma & Syarat | NADI',
+  description: 'Terma dan Syarat Penggunaan Platform NADI.',
 };
 
 export default function TermsPage() {
@@ -24,13 +24,13 @@ export default function TermsPage() {
         {/* Header */}
         <div className="space-y-3 border-b border-zinc-800/80 pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest">
-            <Scale className="w-4 h-4" /> Terma Perkhidmatan NADI
+            <Scale className="w-4 h-4" /> Terma Perkhidmatan
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white font-serif">
-            Terma & Syarat Perkhidmatan
+            Terma & Syarat
           </h1>
           <p className="text-xs text-zinc-400">
-            Tarikh Kemaskini Terakhir: 6 Ogos 2026 • Versi 3.2.0
+            Kemaskini Terakhir: 6 Ogos 2026
           </p>
         </div>
 
@@ -39,39 +39,40 @@ export default function TermsPage() {
           {/* Section 1 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-400" /> 1. Penerimaan Terma
+              <CheckCircle className="w-4 h-4 text-emerald-400" /> 1. Penggunaan Platform
             </h2>
             <p>
-              Dengan mengakses atau menggunakan platform NADI, anda bersetuju untuk terikat dengan Terma Perkhidmatan ini. NADI menyediakan platform laporan sivik awam, pemantauan paras air sungai JPS, dan maklumat bencana secara masa nyata.
+              Dengan menggunakan platform NADI, anda bersetuju untuk mematuhi terma ini. NADI menyediakan kemudahan laporan isu kawasan, maklumat amaran bencana, dan carian bantuan awam.
             </p>
           </section>
 
           {/* Section 2 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" /> 2. Integriti Pelaporan & Penalti Palsu
+              <AlertTriangle className="w-4 h-4 text-amber-400" /> 2. Ketepatan Maklumat Aduan
             </h2>
             <p>
-              Pengguna adalah bertanggungjawab sepenuhnya atas ketepatan maklumat yang dihantar. Pelaporan palsu, sabotaj data sensor, atau salah guna talian kecemasan SOS adalah dilarang keras di bawah undang-undang Malaysia.
+              Pastikan sebarang aduan atau maklumat yang dihantar adalah benar. Pelaporan palsu atau salah guna talian kecemasan tidak dibenarkan.
             </p>
           </section>
 
           {/* Section 3 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-400" /> 3. Penafian Kecemasan Kritikal
+              <ShieldAlert className="w-4 h-4 text-red-400" /> 3. Situasi Kecemasan
             </h2>
             <p>
-              NADI berfungsi sebagai platform sokongan kesedaran sivik dan pemantauan awam. Untuk situasi kecemasan yang mengancam nyawa serta-merta, pengguna hendaklah menghubungi talian kecemasan kebangsaan <strong>MERS 999</strong> secara terus.
+              NADI berfungsi sebagai platform maklumat awam. Untuk sebarang situasi kecemasan yang memerlukan bantuan segera, sila hubungi talian kecemasan MERS 999 secara terus.
             </p>
           </section>
         </div>
 
         {/* Footer */}
         <div className="pt-6 border-t border-zinc-800/80 text-center text-[10px] text-zinc-500 font-mono">
-          NADI — Platform Operasi Sivik & Respons Bencana Kebangsaan Malaysia © 2026
+          NADI © 2026
         </div>
       </div>
     </div>
   );
 }
+

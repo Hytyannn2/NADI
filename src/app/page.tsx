@@ -268,7 +268,7 @@ export default function App() {
                   <p className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{t('header.notifications')}</p>
                 </div>
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>All caught up! </p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Tiada notifikasi baharu</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('header.notif_hint')}</p>
                 </div>
               </motion.div>
@@ -298,7 +298,7 @@ export default function App() {
                   {/* Profile Header */}
                   <div className="p-5 pb-6" style={{ borderBottom: '1px solid var(--border-default)' }}>
                     <div className="flex items-center justify-between mb-5">
-                      <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Profile</h2>
+                      <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Profil Pengguna</h2>
                       <button onClick={() => setShowProfile(false)} className="p-2 rounded-xl" style={{ color: 'var(--text-muted)' }}>
                         <X className="w-5 h-5" />
                       </button>
@@ -322,20 +322,20 @@ export default function App() {
 
                   {/* Account Info */}
                   <div className="p-5" style={{ borderBottom: '1px solid var(--border-default)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Account</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Maklumat Akaun</p>
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Shield className="w-4 h-4" style={{ color: 'var(--success, #10B981)' }} />
                         <div>
-                          <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Auth Provider</p>
-                          <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{user?.app_metadata?.provider === 'google' ? 'Google' : 'Email'}</p>
+                          <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Kaedah Log Masuk</p>
+                          <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{user?.app_metadata?.provider === 'google' ? 'Google' : 'E-mel'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Calendar className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                         <div>
-                          <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Joined</p>
-                          <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString('en-MY', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</p>
+                          <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>Tarikh Daftar</p>
+                          <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</p>
                         </div>
                       </div>
                     </div>
@@ -349,14 +349,14 @@ export default function App() {
                       style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
                     >
                       <Award className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-xs font-semibold">Replay Tutorial</span>
+                      <span className="text-xs font-semibold">Ulang Panduan</span>
                     </button>
                     <button onClick={() => { signOut(); setShowProfile(false); }}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
                       style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', color: '#EF4444' }}
                     >
                       <LogOut className="w-4 h-4" />
-                      <span className="text-xs font-semibold">Sign Out</span>
+                      <span className="text-xs font-semibold">Log Keluar</span>
                     </button>
                   </div>
                 </motion.div>

@@ -41,7 +41,7 @@ export function DashcamHudOverlay({
         <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/30">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
           <span className="text-[11px] font-mono font-semibold tracking-wider text-emerald-400 uppercase">
-            NADI EDGE VISION • REC
+            IMBASAN JALAN RAYA • RAKAM
           </span>
         </div>
 
@@ -49,7 +49,7 @@ export function DashcamHudOverlay({
           {isProcessingBgFrame && (
             <div className="flex items-center gap-1.5 bg-amber-500/20 backdrop-blur-md border border-amber-500/40 px-3 py-1 rounded-full text-amber-300 text-xs font-medium animate-pulse">
               <Sparkles className="w-3.5 h-3.5 animate-spin" />
-              <span>AI Vision Processing...</span>
+              <span>Sedang Mengimbas...</span>
             </div>
           )}
 
@@ -82,7 +82,7 @@ export function DashcamHudOverlay({
         <div className="bg-black/80 backdrop-blur-md rounded-xl p-2.5 border border-cyan-500/30 text-center shadow-lg pointer-events-auto">
           <div className="flex items-center justify-center gap-1.5 mb-1 text-cyan-400 text-[10px] font-mono font-bold uppercase">
             <Disc className="w-3 h-3 animate-spin text-cyan-400" />
-            <span>COMPUTER VISION AR TARGET</span>
+            <span>PENGESANAN KEROSAKAN JALAN</span>
           </div>
 
           <div className="grid grid-cols-3 gap-1 py-1 border-y border-zinc-800 text-white font-mono">
@@ -91,7 +91,7 @@ export function DashcamHudOverlay({
               <div className="text-xs font-bold text-cyan-300">{diameter}</div>
             </div>
             <div>
-              <div className="text-[9px] text-zinc-400 uppercase">LUAS (AREA)</div>
+              <div className="text-[9px] text-zinc-400 uppercase">KELUASAN</div>
               <div className="text-xs font-bold text-emerald-300">{area}</div>
             </div>
             <div>

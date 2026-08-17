@@ -152,7 +152,7 @@ export default function DashboardView() {
                             Selamat Datang, {userName}
                         </h2>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            Sistem Operasi Sivik & Respons Bencana Kebangsaan NADI.
+                            Platform maklum balas, bantuan, dan maklumat komuniti anda.
                         </p>
                     </div>
                 </div>
@@ -165,7 +165,7 @@ export default function DashboardView() {
                 transition={{ delay: 0.25 }}
                 className="mb-5 space-y-3"
             >
-                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Local Conditions</h3>
+                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Keadaan Semasa</h3>
 
                 <div className="rounded-2xl p-4 relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                     <div className="flex items-center justify-between mb-3">
@@ -173,7 +173,7 @@ export default function DashboardView() {
                         {isWeatherLoading ? (
                             <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-muted)' }} />
                         ) : weather ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Live</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Terkini</span>
                         ) : null}
                     </div>
 
@@ -191,7 +191,7 @@ export default function DashboardView() {
                                     {weather ? Math.round(weather.temp) : '--'}°C
                                 </div>
                                 <div className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
-                                    {weather ? `Feels like ${Math.round(weather.feelsLike)}°C` : 'Loading...'}
+                                    {weather ? `Rasa seperti ${Math.round(weather.feelsLike)}°C` : 'Memuatkan...'}
                                 </div>
                             </div>
                         </div>
@@ -227,9 +227,9 @@ export default function DashboardView() {
                     >
                         <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                         <div>
-                            <h4 className="text-sm font-bold mb-1">Heavy Rain Alert</h4>
-                            <p className="text-xs opacity-90 mb-2">High rainfall detected. Potential flash flood risk.</p>
-                            <button onClick={() => switchToTab('bencana')} className="text-xs font-bold underline">View Bencana Map →</button>
+                            <h4 className="text-sm font-bold mb-1">Amaran Hujan Lebat</h4>
+                            <p className="text-xs opacity-90 mb-2">Hujan lebat dikesan. Berisiko berlaku banjir kilat.</p>
+                            <button onClick={() => switchToTab('bencana')} className="text-xs font-bold underline">Lihat Peta Bencana →</button>
                         </div>
                     </motion.div>
                 )}
@@ -248,7 +248,7 @@ export default function DashboardView() {
                     <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-emerald-400" />
                         <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-primary)' }}>
-                            Suara Warga (Live Community Feed)
+                            Suara Warga
                         </h3>
                     </div>
                     <div className="flex items-center gap-2">
@@ -283,7 +283,7 @@ export default function DashboardView() {
                                 value={newPostContent}
                                 onChange={(e) => { setNewPostContent(e.target.value); setPostError(null); }}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Apa perkembangan atau pesanan untuk warga tempatan?"
+                                placeholder="Kongsikan perkembangan atau pesanan untuk komuniti anda..."
                                 rows={2}
                                 className="w-full text-xs rounded-xl p-3 resize-none outline-none transition-all"
                                 style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
@@ -357,7 +357,7 @@ export default function DashboardView() {
                     ) : (
                         <div className="p-8 text-center">
                             <Users className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
-                            <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Belum ada mesej komuniti. Jadilah yang pertama!</p>
+                            <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Belum ada mesej di sini. Tulis mesej pertama anda untuk komuniti.</p>
                         </div>
                     )}
                 </div>
@@ -369,14 +369,14 @@ export default function DashboardView() {
                     NADI
                 </p>
                 <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                    Platform Digital Komuniti & Respon Warga
+                    Platform Komuniti & Respons Bencana
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] mt-3 font-medium" style={{ color: 'var(--text-muted)' }}>
                     <span>v{pkg.version}</span>
                     <span>•</span>
                     <span>Hak Cipta Terpelihara © {new Date().getFullYear()} NADI</span>
                     <span>•</span>
-                    <span>Pusat Khidmat & Maklumat Digital</span>
+                    <span>Pusat Khidmat Warga</span>
                 </div>
             </footer>
 

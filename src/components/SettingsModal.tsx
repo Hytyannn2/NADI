@@ -143,7 +143,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-blue-500" />
-                        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Clock Format</p>
+                        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Format Jam</p>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
                         {clockFormat === '12h' ? '1:30 PM' : '13:30'}
@@ -170,7 +170,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
               {/* System & Display Preferences */}
               <section>
                 <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <SlidersHorizontal className="w-4 h-4" /> System & Display
+                  <SlidersHorizontal className="w-4 h-4" /> Sistem & Paparan
                 </h3>
                 
                 <div className="space-y-3">
@@ -178,7 +178,7 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                   <div className="p-3 rounded-2xl" style={{ background: 'var(--bg-subtle)' }}>
                     <div className="flex items-center gap-2 mb-2">
                       <RefreshCw className="w-4 h-4 text-emerald-500" />
-                      <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Data Refresh Rate</p>
+                      <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Kadar Kemaskini Data</p>
                     </div>
                     <div className="grid grid-cols-4 gap-1.5">
                       {(['30s', '1m', '5m', 'off'] as AutoRefreshRate[]).map(rate => (
@@ -201,8 +201,8 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}><LayoutGrid className="w-4 h-4" /></div>
                         <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Compact UI Density</p>
-                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Reduce spacing and card padding for dense views</p>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Paparan Padat</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Kurangkan jarak elemen untuk muat lebih banyak maklumat</p>
                         </div>
                       </div>
                       <input type="checkbox" checked={compactView} onChange={(e) => setCompactView(e.target.checked)} className="w-5 h-5 accent-[var(--accent)]" />
@@ -212,8 +212,8 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}><Volume2 className="w-4 h-4" /></div>
                         <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Sound Effects</p>
-                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Play audio chimes for level-ups & notifications</p>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Kesan Bunyi</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bunyi untuk makluman dan pemberitahuan</p>
                         </div>
                       </div>
                       <input type="checkbox" checked={soundEnabled} onChange={(e) => setSoundEnabled(e.target.checked)} className="w-5 h-5 accent-[var(--accent)]" />

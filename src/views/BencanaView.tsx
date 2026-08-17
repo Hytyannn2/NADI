@@ -11,7 +11,7 @@ const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
     loading: () => (
         <div className="w-full h-full flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Loading Satellite Map...</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Memuatkan Peta...</p>
         </div>
     )
 });
@@ -91,11 +91,11 @@ export default function BencanaView() {
     });
     const sensorStatus = sensorData.status;
     const sensorLabels: Record<string, { text: string; style: string }> = {
-        safe: { text: t('bencana.sensor_safe') || 'LVL 1: SELAMAT', style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
-        warning: { text: t('bencana.sensor_warning') || 'LVL 2: AMARAN', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
-        danger: { text: t('bencana.sensor_danger') || 'LVL 3: BAHAYA', style: 'bg-red-500/20 text-red-500 border border-red-500/30' },
-        offline: { text: isMs ? 'TERPUTUS' : 'OFFLINE', style: 'bg-zinc-800 text-zinc-400 border border-zinc-700' },
-        sensor_fault: { text: isMs ? 'SENSOR ROSAK' : 'HARDWARE FAULT', style: 'bg-red-500/20 text-red-400 border border-red-500/40' },
+        safe: { text: 'SELAMAT', style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
+        warning: { text: 'AMARAN', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
+        danger: { text: 'BAHAYA', style: 'bg-red-500/20 text-red-500 border border-red-500/30' },
+        offline: { text: 'TERPUTUS', style: 'bg-zinc-800 text-zinc-400 border border-zinc-700' },
+        sensor_fault: { text: 'SENSOR ROSAK', style: 'bg-red-500/20 text-red-400 border border-red-500/40' },
     };
     const currentSensor = sensorLabels[sensorStatus] || sensorLabels.offline;
 
@@ -369,7 +369,7 @@ export default function BencanaView() {
                         {t('bencana.title')}
                     </h1>
                     <p className="text-xs text-zinc-400 mt-0.5">
-                        Pantau paras air & cuaca kawasan anda
+                        Pantau paras air sungai, cuaca, dan pusat pemindahan di kawasan anda.
                     </p>
                 </div>
 
@@ -424,13 +424,13 @@ export default function BencanaView() {
                             <div className="flex items-start justify-between relative z-10">
                                 <div>
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1 mb-1">
-                                        <Cloud className="w-3.5 h-3.5" /> {isMs ? 'CUACA' : 'WEATHER'}
+                                        <Cloud className="w-3.5 h-3.5" /> CUACA
                                     </span>
                                     <h3 className="text-3xl font-bold text-white tracking-tight leading-none">
                                         {weather.temp}°<span className="text-xl font-normal text-zinc-400">C</span>
                                     </h3>
                                     <p className="text-xs text-zinc-300 mt-1">
-                                        {isMs ? 'Rasa seperti' : 'Feels like'} <strong className="text-white">{weather.feelsLike}°C</strong>
+                                        Rasa seperti <strong className="text-white">{weather.feelsLike}°C</strong>
                                     </p>
                                 </div>
                                 <div className="p-3 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400">
@@ -450,7 +450,7 @@ export default function BencanaView() {
                             <div className="flex items-start justify-between relative z-10 mb-3">
                                 <div>
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1 mb-1">
-                                        <Activity className="w-3.5 h-3.5" /> {isMs ? 'KUALITI UDARA' : 'AIR QUALITY'}
+                                        <Activity className="w-3.5 h-3.5" /> KUALITI UDARA
                                     </span>
                                     <div className="flex items-baseline gap-2">
                                         <span className={`text-3xl font-bold ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
@@ -459,7 +459,7 @@ export default function BencanaView() {
                                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                                             weather.aqi > 100 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : weather.aqi > 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                                         }`}>
-                                            {weather.aqi <= 50 ? (isMs ? 'BAIK' : 'GOOD') : weather.aqi <= 100 ? (isMs ? 'SEDERHANA' : 'MODERATE') : (isMs ? 'TIDAK SIHAT' : 'UNHEALTHY')}
+                                            {weather.aqi <= 50 ? 'BAIK' : weather.aqi <= 100 ? 'SEDERHANA' : 'TIDAK SIHAT'}
                                         </span>
                                     </div>
                                 </div>
@@ -485,7 +485,7 @@ export default function BencanaView() {
                                 <Droplets className="w-5 h-5" />
                             </div>
                             <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{isMs ? 'Hujan' : 'Rain'}</span>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Hujan</span>
                                 <span className="text-base font-bold text-white">{weather.rainMm} <span className="text-xs font-normal text-zinc-400">mm</span></span>
                             </div>
                         </div>
@@ -495,7 +495,7 @@ export default function BencanaView() {
                                 <Wind className="w-5 h-5" />
                             </div>
                             <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{isMs ? 'Angin' : 'Wind'}</span>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Angin</span>
                                 <span className="text-base font-bold text-white">{weather.windSpeed} <span className="text-xs font-normal text-zinc-400">km/h</span></span>
                             </div>
                         </div>
@@ -505,9 +505,9 @@ export default function BencanaView() {
                                 <AlertTriangle className="w-5 h-5" />
                             </div>
                             <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{isMs ? 'Risiko Banjir' : 'Flood Risk'}</span>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Risiko Banjir</span>
                                 <span className={`text-base font-bold ${weather.floodRisk === 'High' ? 'text-red-400' : weather.floodRisk === 'Moderate' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                    {weather.floodRisk === 'High' ? (isMs ? 'TINGGI' : 'HIGH') : weather.floodRisk === 'Moderate' ? (isMs ? 'SEDERHANA' : 'MODERATE') : (isMs ? 'RENDAH' : 'LOW')}
+                                    {weather.floodRisk === 'High' ? 'TINGGI' : weather.floodRisk === 'Moderate' ? 'SEDERHANA' : 'RENDAH'}
                                 </span>
                             </div>
                         </div>
@@ -526,7 +526,7 @@ export default function BencanaView() {
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-white">{isMs ? 'Pengesan Paras Air' : 'River Water Level Sensor'}</span>
+                            <span className="font-bold text-xs text-white">Paras Air Sungai</span>
                         </div>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
                             Sungai Kelantan Node A
@@ -581,9 +581,9 @@ export default function BencanaView() {
                 }}
             >
                 {([
-                    { key: 'map' as const, label: isMs ? 'Peta Interaktif & PPS' : 'Interactive Map & PPS', icon: MapPin },
-                    { key: 'sensors' as const, label: isMs ? 'Sensor IoT & Ramalan' : 'IoT Sensors & Forecast', icon: Radio },
-                    { key: 'zones' as const, label: isMs ? 'Kawasan Berisiko Banjir' : 'High Risk Flood Zones', icon: ShieldAlert },
+                    { key: 'map' as const, label: 'Peta & PPS', icon: MapPin },
+                    { key: 'sensors' as const, label: 'Sensor & Paras Air', icon: Radio },
+                    { key: 'zones' as const, label: 'Kawasan Berisiko', icon: ShieldAlert },
                 ]).map(tab => {
                     const IconComponent = tab.icon;
                     const isActive = activeTab === tab.key;
@@ -646,7 +646,7 @@ export default function BencanaView() {
                                                 >
                                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-6 py-3 rounded-full font-bold uppercase tracking-widest shadow-2xl flex items-center gap-3">
                                                         <ShieldAlert className="w-6 h-6" />
-                                                        EVACUATE IMMEDIATELY
+                                                        BERPINDAH SEGERA
                                                     </div>
                                                 </motion.div>
                                             )}
@@ -680,10 +680,10 @@ export default function BencanaView() {
                                     <div>
                                         <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
                                             <AlertTriangle className="w-4 h-4 text-emerald-400" />
-                                            Official Kelantan Evacuation Centers (PPS)
+                                            Pusat Pemindahan Sementara (PPS)
                                         </h3>
                                         <p className="text-[11px] text-zinc-400 mt-1">
-                                            Registered Centers: <span className="text-emerald-400 font-bold">{filteredEvacCenters.length}</span> of {allProcessedEvacCenters.length} across Kelantan
+                                            PPS Berdaftar: <span className="text-emerald-400 font-bold">{filteredEvacCenters.length}</span> daripada {allProcessedEvacCenters.length} di Kelantan
                                         </p>
                                     </div>
 
@@ -692,7 +692,7 @@ export default function BencanaView() {
                                         <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                                         <input
                                             type="text"
-                                            placeholder="Cari pusat pemindahan (e.g. SK, Masjid, Dewan)..."
+                                            placeholder="Cari nama sekolah, masjid, atau dewan..."
                                             value={searchPps}
                                             onChange={(e) => {
                                                 setSearchPps(e.target.value);
@@ -846,7 +846,7 @@ export default function BencanaView() {
                                                         onClick={() => setDisplayLimit(prev => Math.min(filteredEvacCenters.length, prev + 24))}
                                                         className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
                                                     >
-                                                        Lihat Lagi (+24 Pusat)
+                                                        Lihat Lagi (+24 PPS)
                                                     </button>
                                                     <button
                                                         onClick={() => setDisplayLimit(filteredEvacCenters.length)}
@@ -879,9 +879,9 @@ export default function BencanaView() {
                                     <div className="mb-4 p-3 rounded-xl flex items-center gap-3 animate-pulse relative z-10" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                                         <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
                                         <div>
-                                            <p className="text-xs font-bold text-red-400"> EARLY WARNING: Rapid Rise Detected</p>
+                                            <p className="text-xs font-bold text-red-400"> AMARAN: Paras Air Naik Cepat</p>
                                             <p className="text-[10px] text-red-400/80 mt-0.5">
-                                                Water rising {sensorData.rise_rate_cm_hr} cm/hr — estimated {Math.max(1, Math.round((120 - sensorData.water_level) / sensorData.rise_rate_cm_hr))} hours to danger level
+                                                Paras air naik {sensorData.rise_rate_cm_hr} cm/jam — dianggarkan {Math.max(1, Math.round((120 - sensorData.water_level) / sensorData.rise_rate_cm_hr))} jam sebelum tahap bahaya
                                             </p>
                                         </div>
                                     </div>
@@ -997,10 +997,10 @@ export default function BencanaView() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
                                     <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
                                         <Gauge className="w-3.5 h-3.5 text-emerald-400" />
-                                        Official JPS Benchmark — Sg. Kelantan di Tambatan D'Raja (0730671WL)
+                                        Paras Penanda JPS — Sungai Kelantan (Tambatan D'Raja)
                                     </span>
                                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 w-fit">
-                                        JPS InfoBanjir Verified
+                                        Disahkan JPS
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
@@ -1029,10 +1029,10 @@ export default function BencanaView() {
                                     <div>
                                         <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--accent)' }}>
                                             <Radio className="w-4 h-4 text-emerald-400" />
-                                            Stesen Telemetri Sungai JPS Kelantan ({JPS_KELANTAN_STATIONS.length} Stesen Rasmi)
+                                            Stesen Paras Air Sungai JPS ({JPS_KELANTAN_STATIONS.length} Stesen Rasmi)
                                         </h3>
                                         <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                                            Paras air sungai terkini dan threshold amaran rasmi Jabatan Pengairan dan Saliran
+                                            Paras air sungai terkini dan tahap amaran rasmi daripada Jabatan Pengairan dan Saliran
                                         </p>
                                     </div>
                                     <div className="relative w-full md:w-72">
@@ -1144,13 +1144,13 @@ export default function BencanaView() {
                             <div className="flex items-center gap-2 mb-4 p-3 rounded-xl" style={{ background: 'var(--accent-muted)', border: '1px solid var(--border-default)' }}>
                                 <Info className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} />
                                 <p className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                                    Kelantan flood risk by district. Data based on historical flood records (2014-2024).
+                                    Risiko banjir mengikut daerah berdasarkan rekod banjir lalu (2014-2024).
                                 </p>
                             </div>
 
                             {floodZones.length === 0 && (
                                 <div className="text-center py-12 rounded-3xl text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
-                                    No zones documented
+                                    Tiada rekod kawasan berisiko
                                 </div>
                             )}
 
@@ -1229,8 +1229,8 @@ export default function BencanaView() {
                                         <Phone className="w-6 h-6 animate-pulse" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold">Talian Kecemasan Malaysia</h3>
-                                        <p className="text-xs text-zinc-400">Panggilan Darurat & Kecemasan Bencana 24-Jam</p>
+                                        <h3 className="text-base font-bold">Talian Kecemasan Bencana</h3>
+                                        <p className="text-xs text-zinc-400">Panggilan bantuan dan penyelamat 24 jam</p>
                                     </div>
                                 </div>
 

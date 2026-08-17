@@ -81,7 +81,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
                 <div className="flex items-center justify-between p-4 border-b border-zinc-800">
                     <div>
                         <h3 className="text-sm font-bold text-white">{jobName}</h3>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]">● Volunteer Chat</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-[#10B981]">● Sembang Sukarelawan</p>
                     </div>
                     <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                 </div>
@@ -101,7 +101,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
                     <button type="button" className="p-3 text-zinc-500 hover:text-[#C5A367] rounded-xl hover:bg-zinc-800 transition-colors">
                         <Camera className="w-4 h-4" />
                     </button>
-                    <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message..."
+                    <input value={input} onChange={e => setInput(e.target.value)} placeholder="Tulis mesej di sini..."
                         className="flex-1 bg-[#121214] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none" />
                     <button type="submit" disabled={!input.trim()}
                         className="px-4 bg-gradient-to-r from-[#C5A367] to-[#B8860B] text-[#0A0A0C] rounded-xl disabled:opacity-30"

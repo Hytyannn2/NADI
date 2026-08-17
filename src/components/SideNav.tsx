@@ -111,7 +111,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
                 <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain shrink-0 drop-shadow-md" />
               </div>
               <p className="text-[10px] font-extrabold uppercase tracking-wider mt-0.5 whitespace-nowrap shrink-0" style={{ color: 'var(--text-muted)' }}>
-                National Dashboard
+                Platform Komuniti & Respons Bencana
               </p>
             </motion.div>
           )}
@@ -237,7 +237,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
                 </span>
               </div>
               <p className="text-[10px] leading-relaxed truncate" style={{ color: 'var(--text-muted)' }}>
-                Platform Digital Komuniti & Respon Warga
+                Platform Komuniti & Respons Bencana
               </p>
               <div className="pt-2 border-t flex items-center justify-center gap-3 text-[9px] font-semibold text-zinc-400" style={{ borderColor: 'var(--border-default)' }}>
                 <Link href="/privacy" className="hover:text-white transition-colors">Privasi</Link>

@@ -3,7 +3,7 @@ import { ArrowLeft, ShieldCheck, Lock, EyeOff, Server, FileText } from 'lucide-r
 
 export const metadata = {
   title: 'Dasar Privasi | NADI',
-  description: 'Dasar Privasi dan Perlindungan Data Peribadi Platform NADI mengikut Akta Perlindungan Data Peribadi 2010 (PDPA) Malaysia.',
+  description: 'Dasar Privasi dan Perlindungan Data Peribadi Platform NADI.',
 };
 
 export default function PrivacyPolicyPage() {
@@ -24,13 +24,13 @@ export default function PrivacyPolicyPage() {
         {/* Header */}
         <div className="space-y-3 border-b border-zinc-800/80 pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest">
-            <ShieldCheck className="w-4 h-4" /> Patuh PDPA 2010 Malaysia
+            <ShieldCheck className="w-4 h-4" /> Perlindungan Privasi (PDPA)
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white font-serif">
-            Dasar Privasi & Perlindungan Data
+            Dasar Privasi
           </h1>
           <p className="text-xs text-zinc-400">
-            Tarikh Kemaskini Terakhir: 6 Ogos 2026 • Versi 3.2.0
+            Kemaskini Terakhir: 6 Ogos 2026
           </p>
         </div>
 
@@ -39,54 +39,55 @@ export default function PrivacyPolicyPage() {
           {/* Section 1 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Lock className="w-4 h-4 text-[#C5A367]" /> 1. Pengumpulan Data Sivik & Telemetri
+              <Lock className="w-4 h-4 text-[#C5A367]" /> 1. Maklumat Yang Disimpan
             </h2>
             <p>
-              Platform NADI mengumpul data terhad yang diperlukan khusus untuk perkhidmatan operasi sivik dan respons bencana negara. Data ini merangkumi:
+              Kami hanya mengumpul maklumat yang diperlukan untuk membantu anda membuat aduan dan menerima amaran bencana:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-zinc-400">
-              <li>Data Akselerometer & G-Sensor telefon pintar semasa pelaporan jalan berlubang.</li>
-              <li>Lokasi GPS semasa hantaran aduan sivik atau semakan stesen sungai JPS.</li>
-              <li>Transkripsi suara aduan pengguna yang diproses menggunakan AI Dialek Groq Llama 3.3.</li>
+              <li>Lokasi GPS semasa membuat aduan atau menyemak amaran bencana.</li>
+              <li>Rakaman atau teks aduan yang anda serahkan.</li>
+              <li>Maklumat pengesanan jalan rosak (jika diaktifkan).</li>
             </ul>
           </section>
 
           {/* Section 2 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <EyeOff className="w-4 h-4 text-emerald-400" /> 2. Kerahsiaan & Anonimiti Aduan
+              <EyeOff className="w-4 h-4 text-emerald-400" /> 2. Privasi Identiti
             </h2>
             <p>
-              Identiti pelapor dilindungi secara lalai (default anonymity). Aduan awam yang dipaparkan pada papan pemuka tidak mendedahkan nombor kad pengenalan, nombor telefon, atau alamat kediaman pelapor.
+              Identiti anda tidak akan dipaparkan secara terbuka. Aduan yang ditunjukkan kepada umum tidak mendedahkan nombor telefon, nombor kad pengenalan, atau alamat kediaman anda.
             </p>
           </section>
 
           {/* Section 3 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Server className="w-4 h-4 text-blue-400" /> 3. Keselamatan Pelayan & Supabase RLS
+              <Server className="w-4 h-4 text-blue-400" /> 3. Keselamatan Data
             </h2>
             <p>
-              Semua simpanan rekod pangkalan data dikawal oleh dasar Keselamatan Peringkat Baris (Row Level Security - RLS) melalui pangkalan data Supabase yang disulitkan secara terbina (AES-256 at rest & TLS in transit).
+              Maklumat anda disimpan secara selamat dengan penyulitan data dan kawalan keselamatan yang ketat.
             </p>
           </section>
 
           {/* Section 4 */}
           <section className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800/80 space-y-2">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <FileText className="w-4 h-4 text-purple-400" /> 4. Hak Pengguna Terhadap Data
+              <FileText className="w-4 h-4 text-purple-400" /> 4. Hak Anda
             </h2>
             <p>
-              Mengikut Akta Perlindungan Data Peribadi 2010 (PDPA), pengguna berhak meminta pemadaman rekod aduan atau kemaskini profil pada bila-bila masa melalui tetapan akaun NADI.
+              Anda berhak meminta untuk memadamkan rekod aduan atau mengemaskini maklumat akaun anda pada bila-bila masa.
             </p>
           </section>
         </div>
 
         {/* Footer */}
         <div className="pt-6 border-t border-zinc-800/80 text-center text-[10px] text-zinc-500 font-mono">
-          NADI — Platform Operasi Sivik & Respons Bencana Kebangsaan Malaysia © 2026
+          NADI © 2026
         </div>
       </div>
     </div>
   );
 }
+

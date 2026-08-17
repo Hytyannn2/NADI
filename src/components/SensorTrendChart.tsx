@@ -343,7 +343,7 @@ export default function SensorTrendChart({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
                     <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                        HYDROLOGICAL WAVE FORECAST (DAMPED OLS)
+                        RAMALAN PARAS AIR SUNGAI
                     </p>
                     <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-400">
                         {calculatedRateCmHr > 1 ? (
@@ -353,14 +353,14 @@ export default function SensorTrendChart({
                         ) : (
                             <Minus className="w-3.5 h-3.5 text-zinc-500" />
                         )}
-                        {calculatedRateCmHr > 0 ? `+${calculatedRateCmHr.toFixed(1)}` : calculatedRateCmHr.toFixed(1)} cm/hr
+                        {calculatedRateCmHr > 0 ? `+${calculatedRateCmHr.toFixed(1)}` : calculatedRateCmHr.toFixed(1)} cm/j
                     </div>
                 </div>
 
                 {/* Range Selector Bar */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-500 mr-1 flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> Forecast Range:
+                        <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> Tempoh Ramalan:
                     </span>
                     {availableRanges.map((rng) => (
                         <button
@@ -382,9 +382,9 @@ export default function SensorTrendChart({
             {combinedChartData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-44 rounded-xl gap-2 border border-dashed border-zinc-800">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                        WAITING FOR ESP32 HARDWARE PING...
+                        MENUNGGU BACAAN PENDERIA...
                     </p>
-                    <span className="text-[9px] text-zinc-500">Every 5-second pulse from your ESP32 sonar will plot live points &amp; project future waves</span>
+                    <span className="text-[9px] text-zinc-500">Bacaan paras air daripada penderia sungai akan dipaparkan secara langsung di sini.</span>
                 </div>
             ) : (
                 <div className="h-64 w-full relative">
@@ -393,10 +393,10 @@ export default function SensorTrendChart({
                         <div className="absolute inset-0 z-30 bg-zinc-950/85 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-4 border border-red-500/30 text-center">
                             <AlertTriangle className="w-8 h-8 text-red-500 animate-bounce mb-2" />
                             <p className="text-xs font-bold uppercase tracking-widest text-red-400">
-                                ⚠️ SENSOR OFFLINE / DISCONNECTED
+                                ⚠️ PENDERIA LUAR TALIAN
                             </p>
                             <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">
-                                ESP32 hardware or sonar transducer is not transmitting data. Telemetry paused for safety.
+                                Penderia sungai tidak menghantar data pada masa ini.
                             </p>
                         </div>
                     )}
@@ -429,8 +429,8 @@ export default function SensorTrendChart({
                             <Tooltip content={<CustomTooltip />} />
 
                             {/* Danger & Warning threshold lines */}
-                            <ReferenceLine y={120} stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: 'DANGER 120cm', position: 'right', fill: '#EF4444', fontSize: 8 }} />
-                            <ReferenceLine y={80} stroke="#F97316" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: 'WARN 80cm', position: 'right', fill: '#F97316', fontSize: 8 }} />
+                            <ReferenceLine y={120} stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: 'BAHAYA 120cm', position: 'right', fill: '#EF4444', fontSize: 8 }} />
+                            <ReferenceLine y={80} stroke="#F97316" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: 'AMARAN 80cm', position: 'right', fill: '#F97316', fontSize: 8 }} />
 
                             {/* Live Real Hardware Data Line (Solid Emerald Green) */}
                             <Area

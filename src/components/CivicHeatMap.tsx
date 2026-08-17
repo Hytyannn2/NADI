@@ -795,10 +795,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <h3 className="text-xs sm:text-base font-bold text-white tracking-wide leading-none">
-              {isMs ? 'Peta Haba' : 'Heat Map'}
+              {isMs ? 'Peta Aduan' : 'Heat Map'}
             </h3>
             <p className="hidden sm:block text-[11px] text-zinc-400 mt-0.5">
-              {isMs ? 'Jalan Berlubang, Banjir, Sukarelawan & PPS' : 'Potholes, Flood Risk, Volunteers & PPS'}
+              {isMs ? 'Kerosakan Jalan, Banjir, Sukarelawan & PPS' : 'Potholes, Flood Risk, Volunteers & PPS'}
             </p>
           </div>
         </div>
@@ -1184,10 +1184,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                  {isMs ? 'Titik Isyarat Berdekatan' : 'Signals Near You'}
+                  {isMs ? 'Senarai Aduan Berdekatan' : 'Signals Near You'}
                 </p>
                 <p className="text-xl font-bold text-white">
-                  {clusterPoints.length} <span className="text-xs font-medium text-zinc-400">{isMs ? 'titik/kluster' : 'points/clusters'}</span>
+                  {clusterPoints.length} <span className="text-xs font-medium text-zinc-400">{isMs ? 'kawasan' : 'points/clusters'}</span>
                 </p>
               </div>
               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

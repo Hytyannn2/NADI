@@ -767,14 +767,14 @@ export default function AduanView() {
             >
                 <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20">
-                        Sistem Sivik & Aduan Warga
+                        Aduan Awam
                     </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-100 to-zinc-400">
-                    Aduan Sivik
+                    Lapor Isu Kawasan
                 </h1>
                 <p className="text-xs sm:text-sm font-medium mt-1 text-zinc-400">
-                    NADI mendengar. Lapor apa sahaja — jalan rosak, banjir kilat, lampu terpadam, atau sampah.
+                    Lapor isu seperti jalan rosak, banjir, atau sampah supaya tindakan segera dapat diambil.
                 </p>
             </motion.div>
 
@@ -846,7 +846,7 @@ export default function AduanView() {
                                 <p className="text-xs font-bold text-white flex items-center gap-1.5">
                                     <ImageIcon className="w-3.5 h-3.5 text-[#C5A367]" /> Foto Dilampirkan
                                 </p>
-                                <p className="text-[10px] text-zinc-400">Analisis AI Vision akan diproses semasa hantar</p>
+                                <p className="text-[10px] text-zinc-400">Gambar akan disertakan bersama aduan anda</p>
                             </div>
                         </div>
                         <button
@@ -866,7 +866,7 @@ export default function AduanView() {
                         rows={2}
                         value={manualDescription}
                         onChange={(e) => handleDescriptionChange(e.target.value)}
-                        placeholder="Taip atau cakap aduan anda di sini..."
+                        placeholder="Tulis atau sebut isu di kawasan anda..."
                         className="w-full text-xs sm:text-sm rounded-2xl p-3.5 sm:p-4 bg-[#060608]/90 border border-zinc-800/70 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#C5A367]/60 focus:ring-1 focus:ring-[#C5A367]/20 transition-all resize-none leading-relaxed shadow-inner"
                         disabled={isParsingVoice}
                         onKeyDown={(e) => {
@@ -897,7 +897,7 @@ export default function AduanView() {
                             ) : (
                                 <MapPin className="w-3.5 h-3.5 text-blue-400" />
                             )}
-                            <span>{userGpsLocation ? `📍 ${userGpsLocation.lat}°, ${userGpsLocation.lng}°` : 'Guna Lokasi Saya (GPS)'}</span>
+                            <span>{userGpsLocation ? `📍 ${userGpsLocation.lat}°, ${userGpsLocation.lng}°` : 'Lokasi Saya'}</span>
                         </button>
                         {userGpsLocation && (
                             <button
@@ -941,7 +941,7 @@ export default function AduanView() {
                         >
                             {isParsingVoice ? (
                                 <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proses AI...
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memproses...
                                 </>
                             ) : (
                                 <>
@@ -967,7 +967,7 @@ export default function AduanView() {
                         <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-400 block mb-0.5">
-                                Aduan Diterima
+                                Jumlah Aduan
                             </span>
                             <span className="text-xl font-bold text-white font-mono">{totalReports}</span>
                         </div>
@@ -979,7 +979,7 @@ export default function AduanView() {
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-emerald-400 block mb-0.5">
-                                Disahkan AI & Warga
+                                Disahkan
                             </span>
                             <span className="text-xl font-bold text-emerald-400 font-mono">{totalVerified}</span>
                         </div>
@@ -991,7 +991,7 @@ export default function AduanView() {
                         <div className="w-2.5 h-2.5 rounded-full bg-[#C5A367] shadow-[0_0_8px_rgba(197,163,103,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367] block mb-0.5">
-                                Selesai & Tindakan
+                                Selesai
                             </span>
                             <span className="text-xl font-bold text-[#C5A367] font-mono">{estimatedResolved} minggu ini</span>
                         </div>
@@ -1037,7 +1037,7 @@ export default function AduanView() {
                     className="flex items-center justify-between px-1 mb-5 flex-wrap gap-2"
                 >
                     <span className="text-xs uppercase font-bold tracking-widest text-zinc-300">
-                        Senarai Aduan Kawasan
+                        Aduan Terkini
                     </span>
                     <div className="flex gap-1.5 flex-wrap">
                         <button
@@ -1143,15 +1143,15 @@ export default function AduanView() {
                                     <div className="flex flex-wrap gap-2">
                                         {a.source === 'voice' ? (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-300 flex items-center gap-1">
-                                                <Mic className="w-3 h-3" /> Input Suara
+                                                <Mic className="w-3 h-3" /> Suara
                                             </span>
                                         ) : a.photoBase64 ? (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400 flex items-center gap-1">
-                                                <ImageIcon className="w-3 h-3" /> Bukti Bergambar
+                                                <ImageIcon className="w-3 h-3" /> Gambar
                                             </span>
                                         ) : (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-zinc-800/80 text-zinc-400 border-zinc-700">
-                                                Laporan Teks
+                                                Teks
                                             </span>
                                         )}
 
@@ -1169,7 +1169,7 @@ export default function AduanView() {
 
                                         {a.confidenceScore != null && a.confidenceScore > 0 && (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                                                <Shield className="w-3 h-3 inline mr-1" />Keyakinan AI {a.confidenceScore}%
+                                                <Shield className="w-3 h-3 inline mr-1" />Disahkan {a.confidenceScore}%
                                             </span>
                                         )}
 
@@ -1186,14 +1186,14 @@ export default function AduanView() {
                                             <div>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block">
-                                                        💬 Keterangan Warga
+                                                        💬 Laporan Asal
                                                     </span>
                                                     <button
                                                         onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
                                                         className="flex items-center gap-1 text-[9px] font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95"
                                                         title="Sintesis Suara AI"
                                                     >
-                                                        <Volume2 className="w-3 h-3" /> Sebutan AI
+                                                        <Volume2 className="w-3 h-3" /> Dengar
                                                     </button>
                                                 </div>
                                                 <p className="text-xs sm:text-sm text-zinc-200 font-medium italic bg-zinc-900/70 p-3 rounded-xl border border-zinc-800/60">
@@ -1204,7 +1204,7 @@ export default function AduanView() {
                                             {a.userIntendedMeaning && (
                                                 <div className="pt-2 border-t border-zinc-800/80">
                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-1">
-                                                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Rumusan / Maksud AI (NLP)
+                                                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Ringkasan Maksud
                                                     </span>
                                                     <p className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
                                                         {a.userIntendedMeaning}
@@ -1215,7 +1215,7 @@ export default function AduanView() {
                                             {/* Dialect Feedback Loop */}
                                             <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2">
                                                 <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                                    Adakah Terjemahan AI Tepat?
+                                                    Adakah maksud ini tepat?
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     {a.feedbackGiven === 'up' ? (
@@ -1274,28 +1274,28 @@ export default function AduanView() {
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
                                                 {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                                                Analisis AI
+                                                Semak AI
                                             </button>
                                             <button
                                                 onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
                                                 disabled={a.isAnalyzing}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
-                                                <Camera className="w-3.5 h-3.5" /> Foto
+                                                <Camera className="w-3.5 h-3.5" /> Gambar
                                             </button>
                                             <button
                                                 onClick={() => setShareModalAnomaly(a)}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
                                                 title="Jana Kad Eskalasi Awam"
                                             >
-                                                <Share2 className="w-3.5 h-3.5" /> Eskalasi Awam
+                                                <Share2 className="w-3.5 h-3.5" /> Kongsi
                                             </button>
                                             <button
                                                 onClick={() => generateAduanPdf(a)}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
                                                 title="Jana Borang Aduan Rasmi PBT (PDF)"
                                             >
-                                                <FileText className="w-3.5 h-3.5 text-purple-400" /> Export PDF
+                                                <FileText className="w-3.5 h-3.5 text-purple-400" /> PDF
                                             </button>
                                         </div>
 
@@ -1365,11 +1365,11 @@ export default function AduanView() {
                             </div>
 
                             <h4 className="font-sans text-lg font-bold text-white tracking-tight">
-                                Jom Bantu Jaga Kawasan Kita!
+                                Tiada aduan dalam kategori ini
                             </h4>
 
                             <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed font-medium">
-                                Belum ada aduan bagi kategori ini. Taip atau rakam suara anda di ruangan atas untuk menyalurkan aduan pertama kawasan anda kepada pihak berkuasa.
+                                Belum ada aduan di sini. Tulis atau sebut aduan anda di atas untuk memaklumkannya kepada pihak berkuasa.
                             </p>
                         </motion.div>
                     )}
@@ -1390,7 +1390,7 @@ export default function AduanView() {
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
-                                    🚨 KAD ESKALASI AWAM (SLA)
+                                    📢 KONGSI ADUAN
                                 </span>
                                 <button
                                     onClick={() => setShareModalAnomaly(null)}
@@ -1461,7 +1461,7 @@ export default function AduanView() {
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
-                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> BANTU AI BELAJAR DIALEK
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> PERBETULKAN MAKSUD DIALEK
                                 </span>
                                 <button
                                     onClick={() => setFeedbackModalAnomaly(null)}
@@ -1472,7 +1472,7 @@ export default function AduanView() {
                             </div>
 
                             <p className="text-xs text-zinc-400 mb-3">
-                                Adakah terjemahan AI kurang tepat? Masukkan maksud sebenar untuk melatih enjin dialek NADI:
+                                Jika maksud di atas tidak tepat, beritahu kami maksud sebenar:
                             </p>
 
                             <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
@@ -1505,7 +1505,7 @@ export default function AduanView() {
                                         <>✓ AI Berjaya Dikemaskini!</>
                                     ) : (
                                         <>
-                                            <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI
+                                            <Send className="w-3.5 h-3.5" /> Hantar Maksud Sebenar
                                         </>
                                     )}
                                 </button>
