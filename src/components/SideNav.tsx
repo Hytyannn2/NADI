@@ -52,16 +52,19 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
   if (!tabs || !Array.isArray(tabs)) return null;
 
   return (
-    <motion.nav
+    <nav
       className="hidden md:flex flex-col h-full fixed left-0 top-0 bottom-0 shrink-0 z-[100] border-r select-none transition-none overflow-hidden"
       style={{
         width: `${sidebarWidth}px`,
         background: 'var(--bg-card)',
         borderColor: 'var(--border-default)',
-        padding: isCollapsed ? '16px 8px' : '16px 12px',
+        paddingTop: '16px',
+        paddingBottom: '16px',
+        paddingLeft: isCollapsed ? '8px' : '14px',
+        paddingRight: isCollapsed ? '12px' : '18px', // Generous right padding so buttons NEVER touch or slip under resizer
       }}
     >
-      {/* ===== 5px THICK RESIZABLE SEPARATOR HANDLE ===== */}
+      {/* ===== 4px RESIZABLE SEPARATOR HANDLE ===== */}
       <div
         onPointerDown={handlePointerDown}
         className={`absolute top-0 right-0 bottom-0 w-[5px] cursor-col-resize z-[110] transition-colors select-none group flex items-center justify-center ${
@@ -69,19 +72,18 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
         }`}
         title="Tarik untuk ubah saiz bar navigasi (Resize Sidebar)"
       >
-        <motion.div
-          animate={{
+        <div
+          style={{
             height: isResizing ? '85%' : '35%',
             width: isResizing ? '3px' : '1px',
             opacity: isResizing ? 1 : 0.6,
           }}
-          transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-          className="bg-zinc-400 group-hover:bg-white rounded-full"
+          className="bg-zinc-400 group-hover:bg-white rounded-full transition-all"
         />
       </div>
 
       {/* ===== BRAND HEADER WITH RIGID NON-SQUISHING LAYOUT ===== */}
-      <div className={`mb-8 mt-2 flex items-center overflow-hidden w-full ${isCollapsed ? 'justify-center px-0' : 'px-2'}`}>
+      <div className={`mb-8 mt-2 flex items-center overflow-hidden w-full ${isCollapsed ? 'justify-center px-0' : 'px-1'}`}>
         <AnimatePresence mode="wait">
           {isCollapsed ? (
             <motion.div
@@ -129,15 +131,12 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
           if (tab.isCenter) {
             return (
               <motion.button
-                layout
                 id={`tour-${tab.id}`}
                 key={tab.id}
                 aria-label={`Navigate to ${tab.name}`}
-                animate={{ y: isActive ? -1 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                whileTap={{ scale: 0.96 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => onTabSwitch(tab.id)}
-                className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 p-0' : 'w-full px-3 py-2.5 gap-3.5'} rounded-2xl relative overflow-hidden group mb-4 mt-2 mx-auto shrink-0`}
+                className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 p-0' : 'w-full px-3.5 py-2.5 gap-3.5'} rounded-2xl relative overflow-hidden group mb-4 mt-2 mx-auto shrink-0 transition-all`}
                 style={{
                   background: isActive ? 'linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #000))' : 'var(--bg-subtle)',
                   border: '1px solid var(--border-default)',
@@ -147,7 +146,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
                 {isActive && !isCollapsed && (
                   <motion.div className="absolute inset-0 opacity-20" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }} animate={{ x: ['-100%', '200%'] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', repeatDelay: 1 }} />
                 )}
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative z-10" style={{ background: isActive ? 'transparent' : 'var(--bg-card)' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative z-10" style={{ background: isActive ? 'transparent' : 'var(--bg-card)' }}>
                   <Icon className="w-5 h-5 shrink-0" style={{ color: isActive ? 'white' : 'var(--text-secondary)' }} />
                 </div>
                 <AnimatePresence>
@@ -164,32 +163,31 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
           // --- STANDARD TABS ---
           return (
             <motion.button
-              layout
               id={`tour-${tab.id}`}
               key={tab.id}
               title={isCollapsed ? tab.name : undefined}
               aria-label={`Navigate to ${tab.name}`}
               onClick={() => onTabSwitch(tab.id)}
-              initial={{ opacity: 0, x: isCollapsed ? -10 : 0 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ type: "spring", stiffness: 450, damping: 22, delay: index * 0.03 }}
-              whileHover={{ x: isCollapsed ? 0 : 3 }}
-              whileTap={{ scale: 0.96 }}
-              className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 p-0' : 'w-full px-3 py-2.5 gap-3.5'} rounded-xl transition-colors mx-auto shrink-0 ${isActive ? 'shadow-sm' : ''}`}
+              whileTap={{ scale: 0.97 }}
+              className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 p-0' : 'w-full px-3.5 py-2.5 gap-3.5'} rounded-2xl transition-all mx-auto shrink-0 ${
+                isActive
+                  ? 'border shadow-sm'
+                  : 'border border-transparent hover:bg-zinc-800/40 hover:border-zinc-800/60'
+              }`}
               style={{
                 background: isActive ? 'var(--accent-muted)' : 'transparent',
-                border: isActive ? '1px solid var(--accent)' : '1px solid transparent',
+                borderColor: isActive ? 'var(--accent)' : undefined,
               }}
             >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
                 <Icon className="w-5 h-5 shrink-0 transition-colors" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }} />
               </div>
               <AnimatePresence>
                 {!isCollapsed && (
                   <motion.span
-                    initial={{ opacity: 0, x: -15, width: 0 }}
+                    initial={{ opacity: 0, x: -10, width: 0 }}
                     animate={{ opacity: 1, x: 0, width: 'auto' }}
-                    exit={{ opacity: 0, x: -15, width: 0 }}
+                    exit={{ opacity: 0, x: -10, width: 0 }}
                     transition={{ duration: 0.12 }}
                     className="text-sm font-bold whitespace-nowrap overflow-hidden shrink-0 text-left transition-colors"
                     style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)' }}
@@ -248,6 +246,6 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
           )}
         </AnimatePresence>
       </div>
-    </motion.nav>
+    </nav>
   );
 }

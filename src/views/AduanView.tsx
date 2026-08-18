@@ -23,7 +23,9 @@ import {
     X,
     MapPin,
     Volume2,
-    Compass
+    Compass,
+    AlertTriangle,
+    Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
@@ -35,9 +37,9 @@ import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
 
 // =============================================================================
-// CIVIC CATEGORIES (WHAT YOU REPORT — ORTHOGONAL TO INPUT METHOD)
+// OPTIMAL 7 CITIZEN-EYE CATEGORIES (SYMPTOMS CITIZENS REPORT)
 // =============================================================================
-export type CivicCategory = 'jalan' | 'banjir' | 'lampu' | 'sampah' | 'infra' | 'lain';
+export type CivicCategory = 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain';
 
 export interface CivicCategoryConfig {
     id: CivicCategory;
@@ -48,6 +50,7 @@ export interface CivicCategoryConfig {
     activeBorder: string;
     activeGlow: string;
     keywords: string[];
+    suggestedAgency: string; // Invisible routing: JKR, JPS, TNB, Alam Flora, Landskap, PBT
 }
 
 export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
@@ -59,17 +62,19 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         activeBg: 'bg-amber-500/15',
         activeBorder: 'border-amber-500/30',
         activeGlow: 'shadow-[0_0_12px_rgba(245,158,11,0.15)]',
-        keywords: ['jalan', 'lubang', 'berlubang', 'tar', 'pothole', 'pecah', 'lerek', 'kelebok', 'perok', 'retak', 'bonggol', 'mendap']
+        keywords: ['jalan', 'lubang', 'berlubang', 'tar', 'pothole', 'pecah', 'lerek', 'kelebok', 'perok', 'retak', 'bonggol', 'mendap', 'lekuk', 'lopak', 'turap'],
+        suggestedAgency: 'JKR / PBT'
     },
     {
-        id: 'banjir',
-        label: 'Banjir & Saliran',
+        id: 'saliran',
+        label: 'Longkang & Saliran',
         image: '/images/aduan/flood.png',
         color: 'text-sky-400',
         activeBg: 'bg-sky-500/15',
         activeBorder: 'border-sky-500/30',
         activeGlow: 'shadow-[0_0_12px_rgba(56,189,248,0.15)]',
-        keywords: ['banjir', 'air', 'sungai', 'parit', 'longkang', 'saliran', 'tersumbat', 'melimpah', 'lemas', 'hujan', 'takung', 'lumpur']
+        keywords: ['longkang', 'parit', 'saliran', 'tersumbat', 'melimpah', 'parit busuk', 'air bertakung', 'takung', 'lumpur', 'culvert', 'kotoran parit', 'tali air', 'parit pecah'],
+        suggestedAgency: 'JPS / PBT'
     },
     {
         id: 'lampu',
@@ -79,39 +84,74 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         activeBg: 'bg-yellow-500/15',
         activeBorder: 'border-yellow-500/30',
         activeGlow: 'shadow-[0_0_12px_rgba(234,179,8,0.15)]',
-        keywords: ['lampu', 'tiang', 'gelap', 'padam', 'mentol', 'wayar', 'kabel', 'elektrik', 'tnb', 'putus', 'terpadam']
+        keywords: ['lampu', 'tiang', 'gelap', 'padam', 'mentol', 'wayar', 'kabel', 'elektrik', 'tnb', 'putus', 'terpadam', 'lampu jalan', 'fius', 'tiang condong'],
+        suggestedAgency: 'TNB / PBT'
     },
     {
         id: 'sampah',
-        label: 'Sampah & Sisa',
+        label: 'Sampah & Pembuangan',
         image: '/images/aduan/garbage.png',
         color: 'text-emerald-400',
         activeBg: 'bg-emerald-500/15',
         activeBorder: 'border-emerald-500/30',
         activeGlow: 'shadow-[0_0_12px_rgba(16,185,129,0.15)]',
-        keywords: ['sampah', 'bau', 'longgokan', 'busuk', 'kotor', 'sisa', 'pembuangan', 'haram', 'bangkai', 'lalat', 'timbunan']
+        keywords: ['sampah', 'bau', 'longgokan', 'busuk', 'kotor', 'sisa', 'pembuangan', 'haram', 'bangkai', 'lalat', 'timbunan', 'pungutan', 'tong sampah', 'tong penuh'],
+        suggestedAgency: 'Alam Flora / PBT'
     },
     {
-        id: 'infra',
-        label: 'Infrastruktur',
+        id: 'pokok',
+        label: 'Pokok & Landskap',
+        image: '/images/aduan/treeNew.png',
+        color: 'text-green-400',
+        activeBg: 'bg-green-500/15',
+        activeBorder: 'border-green-500/30',
+        activeGlow: 'shadow-[0_0_12px_rgba(34,197,94,0.15)]',
+        keywords: ['pokok', 'dahan', 'tumbang', 'reput', 'rumput', 'semak', 'ranting', 'lalang', 'dahan patah', 'pokok condong', 'cantasan', 'hutan kecil', 'semak samun', 'pokok mati'],
+        suggestedAgency: 'Jabatan Landskap / PBT'
+    },
+    {
+        id: 'kemudahan',
+        label: 'Kemudahan Awam',
         image: '/images/aduan/infrastructure.png',
         color: 'text-purple-400',
         activeBg: 'bg-purple-500/15',
         activeBorder: 'border-purple-500/30',
         activeGlow: 'shadow-[0_0_12px_rgba(168,85,247,0.15)]',
-        keywords: ['jambatan', 'pagar', 'taman', 'pokok', 'tumbang', 'reput', 'kemudahan', 'tandas', 'papan', 'tanda', 'benteng', 'balairaya']
+        keywords: ['perhentian bas', 'bus stop', 'taman permainan', 'pagar', 'tandas', 'papan tanda', 'signboard', 'jejantas', 'benches', 'kerusi awam', 'balairaya', 'kemudahan', 'pagar rosak', 'taman awam'],
+        suggestedAgency: 'PBT'
     },
     {
         id: 'lain',
         label: 'Lain-lain',
-        image: '/images/aduan/other.png',
+        image: '/images/aduan/checklist.png',
         color: 'text-zinc-300',
         activeBg: 'bg-zinc-700/25',
         activeBorder: 'border-zinc-500/40',
         activeGlow: 'shadow-[0_0_12px_rgba(161,161,170,0.15)]',
-        keywords: ['lain', 'umum', 'cadangan', 'bantuan', 'aduan']
+        keywords: ['haiwan', 'anjing', 'monyet', 'kucing terbiar', 'kacau ganggu', 'lain', 'cadangan', 'umum', 'bantuan'],
+        suggestedAgency: 'PBT / Jabatan Berkaitan'
     }
 ];
+
+// Disaster Emergency Keywords for Real-Time Handoff Banner
+const EMERGENCY_DISASTER_KEYWORDS = [
+    'banjir besar',
+    'banjir kilat teruk',
+    'air naik mendadak',
+    'terperangkap banjir',
+    'arus deras',
+    'pindah banjir',
+    'lemas',
+    'tanah runtuh besar',
+    'rumah tenggelam',
+    'paras bahaya',
+    'bencana alam'
+];
+
+function isEmergencyDisasterText(text: string): boolean {
+    const lower = text.toLowerCase();
+    return EMERGENCY_DISASTER_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 function detectCategoryFromText(text: string): CivicCategory {
     const lower = text.toLowerCase();
@@ -135,6 +175,7 @@ interface AiAnalysis {
     riskAssessment: string;
     nearestRoadType: string;
     recommendedAction: string;
+    routingAgency?: string;
 }
 
 interface ClusterInfo {
@@ -172,6 +213,7 @@ interface Anomaly {
     dialectWords?: string[];
     userIntendedMeaning?: string;
     feedbackGiven?: 'up' | 'down';
+    suggestedAgency?: string;
 }
 
 function getDeviceFingerprint(): string {
@@ -185,9 +227,13 @@ function getDeviceFingerprint(): string {
     return fp;
 }
 
-export default function AduanView() {
+interface AduanViewProps {
+    onNavigateToBencana?: () => void;
+}
+
+export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) {
     const { formatTime } = useTheme();
-    const [filter, setFilter] = useState<'all' | 'jalan' | 'banjir' | 'lampu' | 'sampah' | 'infra' | 'lain' | 'verified'>('all');
+    const [filter, setFilter] = useState<'all' | 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
@@ -218,6 +264,10 @@ export default function AduanView() {
     const dashcam = useDashcam();
 
     const isDesktop = typeof window !== 'undefined' && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    const isEmergencyDetected = useMemo(() => {
+        return isEmergencyDisasterText(manualDescription);
+    }, [manualDescription]);
 
     const handleDescriptionChange = (text: string) => {
         setManualDescription(text);
@@ -377,6 +427,7 @@ export default function AduanView() {
             lat: reportLat,
             lng: reportLng,
             category: reportCategory,
+            suggestedAgency: catConfig?.suggestedAgency || 'PBT',
             zDropped: 0,
             verifications: 1,
             status: photoToProcess ? 'verified' : 'pending',
@@ -403,7 +454,8 @@ export default function AduanView() {
                 priorityScore: visionAnalysis.priorityScore || 75,
                 riskAssessment: visionAnalysis.riskAssessment || intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: visionAnalysis.recommendedAction || 'Penugasan Skuad Tindakan Tapak'
+                recommendedAction: visionAnalysis.recommendedAction || 'Penugasan Skuad Tindakan Tapak',
+                routingAgency: catConfig?.suggestedAgency || 'PBT'
             } : {
                 severityScore: urgency === 'High' ? 4 : urgency === 'Medium' ? 3 : 2,
                 severityLabel: `Aduan ${catConfig?.label}`,
@@ -415,7 +467,8 @@ export default function AduanView() {
                 priorityScore: urgency === 'High' ? 88 : urgency === 'Medium' ? 68 : 48,
                 riskAssessment: intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: 'Penugasan Skuad Tindakan Tapak'
+                recommendedAction: 'Penugasan Skuad Tindakan Tapak',
+                routingAgency: catConfig?.suggestedAgency || 'PBT'
             }
         };
 
@@ -584,6 +637,7 @@ export default function AduanView() {
             lat: det.lat,
             lng: det.lng,
             category: 'jalan',
+            suggestedAgency: 'JKR / PBT',
             zDropped: det.zDrop,
             verifications: 1,
             status: 'pending',
@@ -767,14 +821,14 @@ export default function AduanView() {
             >
                 <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20">
-                        Aduan Awam
+                        Sistem Sivik & Aduan Warga
                     </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-100 to-zinc-400">
-                    Lapor Isu Kawasan
+                    Aduan Sivik
                 </h1>
                 <p className="text-xs sm:text-sm font-medium mt-1 text-zinc-400">
-                    Lapor isu seperti jalan rosak, banjir, atau sampah supaya tindakan segera dapat diambil.
+                    NADI mendengar. Lapor apa sahaja — jalan rosak, longkang tersumbat, lampu terpadam, pokok tumbang, atau sampah.
                 </p>
             </motion.div>
 
@@ -788,7 +842,7 @@ export default function AduanView() {
             />
 
             {/* ================================================================= */}
-            {/* 2. UNIVERSAL COMPOSER WITH IMAGE ICONS                            */}
+            {/* 2. UNIVERSAL COMPOSER WITH 7 CATEGORIES & EMERGENCY HANDOFF        */}
             {/* ================================================================= */}
             <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -805,9 +859,9 @@ export default function AduanView() {
                 {/* Subtle Ambient Radial Glow */}
                 <div className="absolute top-0 right-1/4 w-72 h-36 bg-[#C5A367]/5 blur-3xl pointer-events-none rounded-full" />
 
-                {/* Category Type Chips (Using Custom Image Icons) */}
-                <div className="relative z-10 flex items-center gap-2 overflow-x-auto pb-3 mb-3 scrollbar-none">
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider mr-1 shrink-0 flex items-center gap-1">
+                {/* 7 Citizen-Eye Category Chips - Auto fit & wrap without horizontal scroll */}
+                <div className="relative z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 mb-3">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider mr-0.5 shrink-0 flex items-center gap-1">
                         <Compass className="w-3 h-3 text-[#C5A367]" /> Kategori:
                     </span>
                     {CIVIC_CATEGORIES.map(cat => {
@@ -820,7 +874,7 @@ export default function AduanView() {
                                     setSelectedCategory(cat.id);
                                     setHasManuallySelectedCategory(true);
                                 }}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 border active:scale-95 ${
+                                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition-all border active:scale-95 ${
                                     isSelected
                                         ? `${cat.activeBg} ${cat.color} ${cat.activeBorder} ${cat.activeGlow} font-bold ring-1 ring-white/10`
                                         : 'bg-zinc-900/80 border-zinc-800/90 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/70 hover:border-zinc-700'
@@ -829,9 +883,9 @@ export default function AduanView() {
                                 <img
                                     src={cat.image}
                                     alt={cat.label}
-                                    className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 rounded"
+                                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0 rounded"
                                 />
-                                <span>{cat.label}</span>
+                                <span className="whitespace-nowrap">{cat.label}</span>
                             </button>
                         );
                     })}
@@ -846,7 +900,7 @@ export default function AduanView() {
                                 <p className="text-xs font-bold text-white flex items-center gap-1.5">
                                     <ImageIcon className="w-3.5 h-3.5 text-[#C5A367]" /> Foto Dilampirkan
                                 </p>
-                                <p className="text-[10px] text-zinc-400">Gambar akan disertakan bersama aduan anda</p>
+                                <p className="text-[10px] text-zinc-400">Analisis AI Vision akan diproses semasa hantar</p>
                             </div>
                         </div>
                         <button
@@ -866,7 +920,7 @@ export default function AduanView() {
                         rows={2}
                         value={manualDescription}
                         onChange={(e) => handleDescriptionChange(e.target.value)}
-                        placeholder="Tulis atau sebut isu di kawasan anda..."
+                        placeholder="Taip atau cakap aduan anda di sini..."
                         className="w-full text-xs sm:text-sm rounded-2xl p-3.5 sm:p-4 bg-[#060608]/90 border border-zinc-800/70 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#C5A367]/60 focus:ring-1 focus:ring-[#C5A367]/20 transition-all resize-none leading-relaxed shadow-inner"
                         disabled={isParsingVoice}
                         onKeyDown={(e) => {
@@ -876,6 +930,48 @@ export default function AduanView() {
                         }}
                     />
                 </div>
+
+                {/* REAL-TIME EMERGENCY DISASTER HANDOFF BANNER */}
+                <AnimatePresence>
+                    {isEmergencyDetected && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="relative z-10 mb-3 overflow-hidden"
+                        >
+                            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 via-red-900/40 to-red-950/80 border border-red-500/40 text-red-200 flex items-center justify-between gap-3 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center shrink-0">
+                                        <AlertTriangle className="w-4 h-4 text-red-400 animate-bounce" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-red-300">
+                                            Kecemasan Bencana Dikesan
+                                        </p>
+                                        <p className="text-[11px] text-red-300/80 leading-snug">
+                                            Untuk situasi bencana & pemindahan segera, sila buka <strong>Modul Bencana</strong> atau hubungi talian kecemasan 999.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onNavigateToBencana) {
+                                            onNavigateToBencana();
+                                        } else {
+                                            window.location.href = '/?tab=bencana';
+                                        }
+                                    }}
+                                    className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shrink-0 transition-all active:scale-95 shadow-md flex items-center gap-1.5"
+                                >
+                                    <span>Buka Bencana</span>
+                                    <span>➔</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Bottom Tools Row */}
                 <div className="relative z-10 flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-zinc-800/50">
@@ -897,7 +993,7 @@ export default function AduanView() {
                             ) : (
                                 <MapPin className="w-3.5 h-3.5 text-blue-400" />
                             )}
-                            <span>{userGpsLocation ? `📍 ${userGpsLocation.lat}°, ${userGpsLocation.lng}°` : 'Lokasi Saya'}</span>
+                            <span>{userGpsLocation ? `📍 ${userGpsLocation.lat}°, ${userGpsLocation.lng}°` : 'Guna Lokasi Saya (GPS)'}</span>
                         </button>
                         {userGpsLocation && (
                             <button
@@ -941,7 +1037,7 @@ export default function AduanView() {
                         >
                             {isParsingVoice ? (
                                 <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memproses...
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proses AI...
                                 </>
                             ) : (
                                 <>
@@ -967,7 +1063,7 @@ export default function AduanView() {
                         <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-400 block mb-0.5">
-                                Jumlah Aduan
+                                Aduan Diterima
                             </span>
                             <span className="text-xl font-bold text-white font-mono">{totalReports}</span>
                         </div>
@@ -979,7 +1075,7 @@ export default function AduanView() {
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-emerald-400 block mb-0.5">
-                                Disahkan
+                                Disahkan AI & Warga
                             </span>
                             <span className="text-xl font-bold text-emerald-400 font-mono">{totalVerified}</span>
                         </div>
@@ -991,7 +1087,7 @@ export default function AduanView() {
                         <div className="w-2.5 h-2.5 rounded-full bg-[#C5A367] shadow-[0_0_8px_rgba(197,163,103,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367] block mb-0.5">
-                                Selesai
+                                Selesai & Tindakan
                             </span>
                             <span className="text-xl font-bold text-[#C5A367] font-mono">{estimatedResolved} minggu ini</span>
                         </div>
@@ -1027,7 +1123,7 @@ export default function AduanView() {
             )}
 
             {/* ================================================================= */}
-            {/* 4. FEED FILTERS WITH IMAGE ICONS                                  */}
+            {/* 4. FEED FILTERS WITH 7 CITIZEN CATEGORIES                          */}
             {/* ================================================================= */}
             <div className="flex-1 pb-10">
                 <motion.div
@@ -1037,9 +1133,9 @@ export default function AduanView() {
                     className="flex items-center justify-between px-1 mb-5 flex-wrap gap-2"
                 >
                     <span className="text-xs uppercase font-bold tracking-widest text-zinc-300">
-                        Aduan Terkini
+                        Senarai Aduan Kawasan
                     </span>
-                    <div className="flex gap-1.5 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap pb-1">
                         <button
                             onClick={() => setFilter('all')}
                             className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all ${
@@ -1114,10 +1210,14 @@ export default function AduanView() {
                                                 />
                                             </div>
                                             <div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border flex items-center gap-1 ${catConfig.activeBg} ${catConfig.color} ${catConfig.activeBorder}`}>
                                                         <img src={catConfig.image} alt="" className="w-2.5 h-2.5 object-contain" />
                                                         {catConfig.label}
+                                                    </span>
+                                                    <span className="text-[9px] font-mono text-zinc-400 font-bold bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-800 flex items-center gap-1">
+                                                        <Building2 className="w-2.5 h-2.5 text-[#C5A367]" />
+                                                        Agensi: {a.suggestedAgency || a.aiAnalysis?.routingAgency || catConfig.suggestedAgency}
                                                     </span>
                                                     <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
                                                         #{a.id.slice(-4)} • {a.time}
@@ -1143,15 +1243,15 @@ export default function AduanView() {
                                     <div className="flex flex-wrap gap-2">
                                         {a.source === 'voice' ? (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-300 flex items-center gap-1">
-                                                <Mic className="w-3 h-3" /> Suara
+                                                <Mic className="w-3 h-3" /> Input Suara
                                             </span>
                                         ) : a.photoBase64 ? (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400 flex items-center gap-1">
-                                                <ImageIcon className="w-3 h-3" /> Gambar
+                                                <ImageIcon className="w-3 h-3" /> Bukti Bergambar
                                             </span>
                                         ) : (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-zinc-800/80 text-zinc-400 border-zinc-700">
-                                                Teks
+                                                Laporan Teks
                                             </span>
                                         )}
 
@@ -1169,7 +1269,7 @@ export default function AduanView() {
 
                                         {a.confidenceScore != null && a.confidenceScore > 0 && (
                                             <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                                                <Shield className="w-3 h-3 inline mr-1" />Disahkan {a.confidenceScore}%
+                                                <Shield className="w-3 h-3 inline mr-1" />Keyakinan AI {a.confidenceScore}%
                                             </span>
                                         )}
 
@@ -1186,14 +1286,14 @@ export default function AduanView() {
                                             <div>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block">
-                                                        💬 Laporan Asal
+                                                        💬 Keterangan Warga
                                                     </span>
                                                     <button
                                                         onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
                                                         className="flex items-center gap-1 text-[9px] font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95"
                                                         title="Sintesis Suara AI"
                                                     >
-                                                        <Volume2 className="w-3 h-3" /> Dengar
+                                                        <Volume2 className="w-3 h-3" /> Sebutan AI
                                                     </button>
                                                 </div>
                                                 <p className="text-xs sm:text-sm text-zinc-200 font-medium italic bg-zinc-900/70 p-3 rounded-xl border border-zinc-800/60">
@@ -1204,7 +1304,7 @@ export default function AduanView() {
                                             {a.userIntendedMeaning && (
                                                 <div className="pt-2 border-t border-zinc-800/80">
                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-1">
-                                                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Ringkasan Maksud
+                                                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Rumusan / Maksud AI (NLP)
                                                     </span>
                                                     <p className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
                                                         {a.userIntendedMeaning}
@@ -1215,7 +1315,7 @@ export default function AduanView() {
                                             {/* Dialect Feedback Loop */}
                                             <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2">
                                                 <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                                    Adakah maksud ini tepat?
+                                                    Adakah Terjemahan AI Tepat?
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     {a.feedbackGiven === 'up' ? (
@@ -1274,28 +1374,28 @@ export default function AduanView() {
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
                                                 {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                                                Semak AI
+                                                Analisis AI
                                             </button>
                                             <button
                                                 onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
                                                 disabled={a.isAnalyzing}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
                                             >
-                                                <Camera className="w-3.5 h-3.5" /> Gambar
+                                                <Camera className="w-3.5 h-3.5" /> Foto
                                             </button>
                                             <button
                                                 onClick={() => setShareModalAnomaly(a)}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
                                                 title="Jana Kad Eskalasi Awam"
                                             >
-                                                <Share2 className="w-3.5 h-3.5" /> Kongsi
+                                                <Share2 className="w-3.5 h-3.5" /> Eskalasi Awam
                                             </button>
                                             <button
                                                 onClick={() => generateAduanPdf(a)}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
                                                 title="Jana Borang Aduan Rasmi PBT (PDF)"
                                             >
-                                                <FileText className="w-3.5 h-3.5 text-purple-400" /> PDF
+                                                <FileText className="w-3.5 h-3.5 text-purple-400" /> Export PDF
                                             </button>
                                         </div>
 
@@ -1328,6 +1428,11 @@ export default function AduanView() {
                                                         {a.aiAnalysis.severityScore > 0 && (
                                                             <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-amber-500/10 text-amber-400 border-amber-500/20">
                                                                 {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Tahap {a.aiAnalysis.severityScore}/5)
+                                                            </span>
+                                                        )}
+                                                        {a.aiAnalysis.routingAgency && (
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-300 flex items-center gap-1">
+                                                                <Building2 className="w-3 h-3" /> Agensi: {a.aiAnalysis.routingAgency}
                                                             </span>
                                                         )}
                                                         {a.aiAnalysis.recommendedAction && (
@@ -1365,11 +1470,11 @@ export default function AduanView() {
                             </div>
 
                             <h4 className="font-sans text-lg font-bold text-white tracking-tight">
-                                Tiada aduan dalam kategori ini
+                                Jom Bantu Jaga Kawasan Kita!
                             </h4>
 
                             <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed font-medium">
-                                Belum ada aduan di sini. Tulis atau sebut aduan anda di atas untuk memaklumkannya kepada pihak berkuasa.
+                                Belum ada aduan bagi kategori ini. Taip atau rakam suara anda di ruangan atas untuk menyalurkan aduan pertama kawasan anda kepada pihak berkuasa.
                             </p>
                         </motion.div>
                     )}
@@ -1390,7 +1495,7 @@ export default function AduanView() {
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
-                                    📢 KONGSI ADUAN
+                                    🚨 KAD ESKALASI AWAM (SLA)
                                 </span>
                                 <button
                                     onClick={() => setShareModalAnomaly(null)}
@@ -1461,7 +1566,7 @@ export default function AduanView() {
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
-                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> PERBETULKAN MAKSUD DIALEK
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> BANTU AI BELAJAR DIALEK
                                 </span>
                                 <button
                                     onClick={() => setFeedbackModalAnomaly(null)}
@@ -1472,7 +1577,7 @@ export default function AduanView() {
                             </div>
 
                             <p className="text-xs text-zinc-400 mb-3">
-                                Jika maksud di atas tidak tepat, beritahu kami maksud sebenar:
+                                Adakah terjemahan AI kurang tepat? Masukkan maksud sebenar untuk melatih enjin dialek NADI:
                             </p>
 
                             <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
@@ -1505,7 +1610,7 @@ export default function AduanView() {
                                         <>✓ AI Berjaya Dikemaskini!</>
                                     ) : (
                                         <>
-                                            <Send className="w-3.5 h-3.5" /> Hantar Maksud Sebenar
+                                            <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI
                                         </>
                                     )}
                                 </button>

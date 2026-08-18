@@ -181,64 +181,59 @@ export default function App() {
         >
 
           {/* ===== HEADER ===== */}
-          <header className="px-5 pt-5 pb-4 z-10 border-b shrink-0 flex justify-center" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-            <div className="w-full max-w-[1720px]">
-              {/* Top row */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <button
-                      id="user-avatar-btn"
-                      aria-label="View Profile"
-                      onClick={() => { setShowProfile(true); closeAllMenus(); }}
-                      className="w-10 h-10 rounded-full overflow-hidden border-2 transition-colors focus:outline-none flex items-center justify-center shrink-0" style={{ borderColor: 'var(--border-default)' }}
-                    >
-                      {userAvatar && !avatarError ? (
-                        <img
-                          src={userAvatar}
-                          alt="avatar"
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                          onError={() => setAvatarError(true)}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center font-bold text-sm" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
-                          {userInitial}
-                        </div>
-                      )}
-                    </button>
-                  </div>
-                  <div>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{greeting}</p>
-                    <h1 className="text-base font-bold tracking-tight leading-tight flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                      {userName.length > 14 ? userName.slice(0, 14) + '…' : userName}
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: 'var(--accent)', background: 'var(--accent-muted)' }}>NADI</span>
-                    </h1>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button id="tour-heatmap" aria-label="View Civic Heatmap" onClick={() => setShowHeatMap(true)} className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}>
-                    <Map className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
-                  </button>
-                  <button id="tour-whistleblower" aria-label="Lapor Sulit (Whistleblower)" onClick={() => { setCommunityTab('whistle'); setShowCommunity(true); }} className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Lapor Sulit (Whistleblower)">
-                    <WhistleIcon className="w-5 h-5 text-red-400" />
-                  </button>
-                  <button id="notif-btn" aria-label="View Notifications" onClick={() => { setShowNotif(!showNotif); setShowUserMenu(false); setShowLangPicker(false); }}
-                    className="relative p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}
+          <header className="px-5 py-3.5 z-10 border-b shrink-0 flex justify-center" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+            <div className="w-full max-w-[1720px] flex items-center justify-between">
+              {/* User greeting & avatar */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <button
+                    id="user-avatar-btn"
+                    aria-label="View Profile"
+                    onClick={() => { setShowProfile(true); closeAllMenus(); }}
+                    className="w-10 h-10 rounded-full overflow-hidden border-2 transition-colors focus:outline-none flex items-center justify-center shrink-0" style={{ borderColor: 'var(--border-default)' }}
                   >
-                    <Bell className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                    {userAvatar && !avatarError ? (
+                      <img
+                        src={userAvatar}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={() => setAvatarError(true)}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center font-bold text-sm" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
+                        {userInitial}
+                      </div>
+                    )}
                   </button>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{greeting}</p>
+                  <h1 className="text-base font-bold tracking-tight leading-tight flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                    {userName.length > 14 ? userName.slice(0, 14) + '…' : userName}
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: 'var(--accent)', background: 'var(--accent-muted)' }}>NADI</span>
+                  </h1>
                 </div>
               </div>
 
-              {/* Settings Button */}
-              <div className="flex items-center justify-end">
+              {/* Action Buttons (All in one unified row) */}
+              <div className="flex items-center gap-2">
+                <button id="tour-heatmap" aria-label="View Civic Heatmap" onClick={() => setShowHeatMap(true)} className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Peta Haba Sivik">
+                  <Map className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                </button>
+                <button id="tour-whistleblower" aria-label="Lapor Sulit (Whistleblower)" onClick={() => { setCommunityTab('whistle'); setShowCommunity(true); }} className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Lapor Sulit (Whistleblower)">
+                  <WhistleIcon className="w-5 h-5 text-red-400" />
+                </button>
+                <button id="notif-btn" aria-label="View Notifications" onClick={() => { setShowNotif(!showNotif); setShowUserMenu(false); setShowLangPicker(false); }}
+                  className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Notifikasi"
+                >
+                  <Bell className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                </button>
                 <button
                   id="settings-btn"
                   aria-label="Settings"
                   onClick={() => { setShowUserMenu(!showUserMenu); setShowNotif(false); }}
-                  className="shrink-0 p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }}
+                  className="shrink-0 p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Tetapan"
                 >
                   <Settings className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 </button>
@@ -381,7 +376,7 @@ export default function App() {
                   {activeTab === 'utama' && <DashboardView />}
                   {activeTab === 'bencana' && <BencanaView />}
                   {activeTab === 'bantuan' && <BantuanView />}
-                  {activeTab === 'aduan' && <AduanView />}
+                  {activeTab === 'aduan' && <AduanView onNavigateToBencana={() => setActiveTab('bencana')} />}
                   {activeTab === 'komuniti' && <KomunitiView />}
                 </motion.div>
               </div>
