@@ -13,29 +13,27 @@ export interface WeatherData {
 }
 
 const DEFAULT_WEATHER: WeatherData = {
-    temp: 31,
-    feelsLike: 33,
-    humidity: 78,
-    windSpeed: 12,
+    temp: 30,
+    feelsLike: 32,
+    humidity: 75,
+    windSpeed: 10,
     rainMm: 0,
     floodRisk: 'Low',
-    aqi: 42,
-    pm25: 9.8,
-    pm10: 18.2,
+    aqi: 50,
+    pm25: 10,
+    pm10: 20,
 };
-
-import { DEFAULT_LOCATION } from '@/src/config/constants';
 
 export function useWeather() {
     const [weather, setWeather] = useState<WeatherData>(DEFAULT_WEATHER);
     const [isWeatherLoading, setIsWeatherLoading] = useState(false);
-    const [locationLabel, setLocationLabel] = useState<string>(DEFAULT_LOCATION.label);
-    const [userLat, setUserLat] = useState<number | null>(DEFAULT_LOCATION.lat);
-    const [userLng, setUserLng] = useState<number | null>(DEFAULT_LOCATION.lng);
+    const [locationLabel, setLocationLabel] = useState<string>('Lokasi Semasa');
+    const [userLat, setUserLat] = useState<number | null>(null);
+    const [userLng, setUserLng] = useState<number | null>(null);
     const [isManualOverride, setIsManualOverride] = useState(false);
 
-    const lastLatRef = useRef<number | null>(DEFAULT_LOCATION.lat);
-    const lastLngRef = useRef<number | null>(DEFAULT_LOCATION.lng);
+    const lastLatRef = useRef<number | null>(null);
+    const lastLngRef = useRef<number | null>(null);
     const lastFetchTimeRef = useRef<number>(0);
 
     const setManualLocation = (lat: number, lng: number, label: string) => {
@@ -50,10 +48,37 @@ export function useWeather() {
                 localStorage.setItem('nadi_saved_user_location', JSON.stringify({ lat, lng, label }));
             } catch (e) {}
         }
+        setIsWeatherLoading(true);
         fetch(`/api/weather?lat=${lat}&lng=${lng}`)
             .then(r => r.json())
-            .then(d => { if (d.success && d.weather) setWeather(d.weather); })
-            .catch(() => {});
+            .then(d => {
+                if (d.weather) setWeather(d.weather);
+                if (d.location && !label) setLocationLabel(d.location);
+            })
+            .catch(() => {})
+            .finally(() => setIsWeatherLoading(false));
+    };
+
+    const fetchWeatherAndGeocode = (lat: number, lng: number) => {
+        const now = Date.now();
+        if (now - lastFetchTimeRef.current < 5000) return; // Throttle to max once per 5s
+        lastFetchTimeRef.current = now;
+
+        setIsWeatherLoading(true);
+        fetch(`/api/weather?lat=${lat}&lng=${lng}`)
+            .then(r => r.json())
+            .then(d => {
+                if (d.weather) setWeather(d.weather);
+                if (d.location) {
+                    setLocationLabel(d.location);
+                } else {
+                    setLocationLabel(`${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`);
+                }
+            })
+            .catch(() => {
+                setLocationLabel(`${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`);
+            })
+            .finally(() => setIsWeatherLoading(false));
     };
 
     useEffect(() => {
@@ -70,10 +95,8 @@ export function useWeather() {
                         setLocationLabel(parsed.label);
                         lastLatRef.current = parsed.lat;
                         lastLngRef.current = parsed.lng;
-                        fetch(`/api/weather?lat=${parsed.lat}&lng=${parsed.lng}`)
-                            .then(r => r.json())
-                            .then(d => { if (d.success && d.weather) setWeather(d.weather); })
-                            .catch(() => {});
+                        fetchWeatherAndGeocode(parsed.lat, parsed.lng);
+                        return;
                     }
                 }
             } catch (e) {}
@@ -83,26 +106,26 @@ export function useWeather() {
     useEffect(() => {
         let watchId: number | null = null;
 
-        const fetchLocationName = (lat: number, lng: number) => {
-            const now = Date.now();
-            if (now - lastFetchTimeRef.current < 15000) return; // Throttle to max once per 15s
-            lastFetchTimeRef.current = now;
-
-            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=12`, { headers: { 'User-Agent': 'NADI/1.0' } })
-                .then(r => r.json())
-                .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || DEFAULT_LOCATION.label); })
-                .catch(() => { setLocationLabel(DEFAULT_LOCATION.label); });
-
-            fetch(`/api/weather?lat=${lat}&lng=${lng}`)
-                .then(r => r.json())
-                .then(d => { if (d.success && d.weather) setWeather(d.weather); })
-                .catch(() => {});
-        };
-
         if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+            // Immediate fast GPS lock
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    if (isManualOverride) return;
+                    const { latitude, longitude } = pos.coords;
+                    lastLatRef.current = latitude;
+                    lastLngRef.current = longitude;
+                    setUserLat(latitude);
+                    setUserLng(longitude);
+                    fetchWeatherAndGeocode(latitude, longitude);
+                },
+                () => {},
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+
+            // Continuous GPS watch
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
-                    if (isManualOverride) return; // Do not overwrite user's saved location!
+                    if (isManualOverride) return;
                     const { latitude, longitude, accuracy } = position.coords;
                     if (accuracy < 5000) {
                         // Only update if moved by more than ~150 meters (0.0015 degrees)
@@ -119,13 +142,13 @@ export function useWeather() {
                         lastLngRef.current = longitude;
                         setUserLat(latitude);
                         setUserLng(longitude);
-                        fetchLocationName(latitude, longitude);
+                        fetchWeatherAndGeocode(latitude, longitude);
                     }
                 },
                 (error) => {
-                    console.info("Geolocation unavailable, using default location:", error.message || "Position unavailable");
+                    console.info("Geolocation info:", error.message || "Position update pending");
                 },
-                { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+                { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
             );
         }
 
@@ -142,6 +165,16 @@ export function useWeather() {
             try {
                 localStorage.removeItem('nadi_saved_user_location');
             } catch (e) {}
+        }
+        if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const { latitude, longitude } = pos.coords;
+                lastLatRef.current = latitude;
+                lastLngRef.current = longitude;
+                setUserLat(latitude);
+                setUserLng(longitude);
+                fetchWeatherAndGeocode(latitude, longitude);
+            });
         }
     };
 

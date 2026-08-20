@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { SEED_JOBS, SEED_VENDORS } from '@/src/data/fallbacks';
 
 function getAdminSupabase() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dxexikpuezslryywhnnf.supabase.co';
@@ -8,28 +7,55 @@ function getAdminSupabase() {
     return createSupabaseClient(supabaseUrl, serviceKey);
 }
 
-// Memory cache for runtime additions if table creation pending
-let IN_MEMORY_JOBS = [...SEED_JOBS];
-let IN_MEMORY_VENDORS = [...SEED_VENDORS];
+// In-memory store for newly advertised community jobs & vendors if DB is migrating
+let IN_MEMORY_JOBS: any[] = [];
+let IN_MEMORY_VENDORS: any[] = [];
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const locationParam = searchParams.get('location') || '';
+
     try {
         const adminSupa = getAdminSupabase();
 
-        let { data: jobs, error: jobsError } = await adminSupa.from('nadi_jobs').select('*').order('created_at', { ascending: false });
-        let { data: vendors, error: vendorsError } = await adminSupa.from('nadi_vendors').select('*').order('created_at', { ascending: false });
+        // 100% Community & Employer Advertised Data from Supabase
+        const { data: dbJobs, error: jobsError } = await adminSupa
+            .from('nadi_jobs')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-        if (jobsError || !jobs || jobs.length === 0) {
-            jobs = IN_MEMORY_JOBS;
-        }
+        const { data: dbVendors, error: vendorsError } = await adminSupa
+            .from('nadi_vendors')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-        if (vendorsError || !vendors || vendors.length === 0) {
-            vendors = IN_MEMORY_VENDORS;
-        }
+        const allJobs = [
+            ...(dbJobs || []),
+            ...IN_MEMORY_JOBS
+        ];
 
-        return NextResponse.json({ success: true, jobs, vendors });
+        const allVendors = [
+            ...(dbVendors || []),
+            ...IN_MEMORY_VENDORS
+        ];
+
+        // Deduplicate by ID
+        const uniqueJobs = Array.from(new Map(allJobs.map(j => [j.id, j])).values());
+        const uniqueVendors = Array.from(new Map(allVendors.map(v => [v.id, v])).values());
+
+        return NextResponse.json({
+            success: true,
+            location: locationParam || 'Malaysia',
+            jobs: uniqueJobs,
+            vendors: uniqueVendors
+        });
     } catch (err: any) {
-        return NextResponse.json({ success: true, jobs: IN_MEMORY_JOBS, vendors: IN_MEMORY_VENDORS });
+        return NextResponse.json({
+            success: true,
+            location: locationParam || 'Malaysia',
+            jobs: IN_MEMORY_JOBS,
+            vendors: IN_MEMORY_VENDORS
+        });
     }
 }
 
@@ -46,17 +72,23 @@ export async function POST(request: Request) {
                 title: itemData.title,
                 employer: itemData.employer,
                 location: itemData.location,
-                wageMYR: Number(itemData.wageMYR),
-                wageType: itemData.wageType || 'hourly',
-                category: itemData.category || 'general',
+                district: itemData.district || itemData.location,
+                state: itemData.state || 'Malaysia',
+                lat: Number(itemData.lat) || 0,
+                lng: Number(itemData.lng) || 0,
+                wageMYR: Number(itemData.wageMYR) || 0,
+                wageType: itemData.wageType || 'monthly',
+                category: itemData.category || 'Runcit',
                 description: itemData.description,
+                applyUrl: itemData.applyUrl || '',
                 whatsapp: itemData.whatsapp || '',
-                isFairWage: Number(itemData.wageMYR) >= (itemData.wageType === 'hourly' ? 6.5 : itemData.wageType === 'daily' ? 50 : 1500),
+                isFairWage: Number(itemData.wageMYR) >= (itemData.wageType === 'hourly' ? 7.5 : itemData.wageType === 'daily' ? 60 : 1700),
                 postedAt: Date.now(),
             };
 
             const { data, error } = await adminSupa.from('nadi_jobs').insert(newJob).select().single();
             if (error) {
+                console.warn('Supabase insert notice, saved to local store:', error.message);
                 IN_MEMORY_JOBS.unshift(newJob);
                 return NextResponse.json({ success: true, job: newJob });
             }
@@ -67,15 +99,20 @@ export async function POST(request: Request) {
                 name: itemData.name,
                 category: itemData.category || 'Makanan',
                 location: itemData.location,
+                district: itemData.district || itemData.location,
+                state: itemData.state || 'Malaysia',
+                lat: Number(itemData.lat) || 0,
+                lng: Number(itemData.lng) || 0,
                 description: itemData.description,
                 whatsapp: itemData.whatsapp || '',
-                rating: 5.0,
-                reviews: 1,
-                operatingHours: itemData.operatingHours || '8AM - 6PM',
+                rating: null,
+                reviews: 0,
+                operatingHours: itemData.operatingHours || '8:00 AM - 6:00 PM',
             };
 
             const { data, error } = await adminSupa.from('nadi_vendors').insert(newVendor).select().single();
             if (error) {
+                console.warn('Supabase vendor insert notice, saved to local store:', error.message);
                 IN_MEMORY_VENDORS.unshift(newVendor);
                 return NextResponse.json({ success: true, vendor: newVendor });
             }

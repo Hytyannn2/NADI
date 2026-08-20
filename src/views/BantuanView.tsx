@@ -8,9 +8,9 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
 import { useDebounce } from '@/src/hooks/useDebounce';
-import useSWR from 'swr';
+import { useWeather } from '@/src/hooks/useWeather';
 import { evaluateAllEligibility } from '@/src/utils/eligibilityEngine';
-import { DEFAULT_LOCATION } from '@/src/config/constants';
+import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -54,6 +54,7 @@ interface VolunteerJob {
 
 export default function BantuanView() {
     const { t, lang } = useLanguage();
+    const { locationLabel } = useWeather();
     const { applyLocationPrecision, locationPrecision } = useTheme();
     const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>('programs');
     const [searchQuery, setSearchQuery] = useState('');
@@ -387,12 +388,12 @@ export default function BantuanView() {
                     <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : `${DEFAULT_LOCATION.label}, ${DEFAULT_LOCATION.state}`}
+                            📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : (locationLabel || 'Lokasi Semasa')}
                         </span>
                     </div>
                     <h2 className="text-2xl font-bold tracking-tight text-white font-serif">{t('bantuan.header_title') || 'Bantuan & Sukarelawan'}</h2>
                     <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                        {t('bantuan.header_subtitle') || 'Cari program bantuan kewangan dan peluang sukarelawan di Kelantan.'}
+                        {t('bantuan.header_subtitle') || 'Cari program bantuan kewangan dan peluang sukarelawan berhampiran anda.'}
                     </p>
                 </div>
             </motion.div>

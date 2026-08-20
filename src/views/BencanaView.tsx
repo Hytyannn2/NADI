@@ -659,8 +659,10 @@ export default function BencanaView() {
                                                 <div className="flex items-center gap-3">
                                                     <Navigation className="w-4 h-4 shrink-0 text-blue-400" />
                                                     <div>
-                                                        <p className="text-[11px] font-bold text-white">GPS active · {locationLabel}</p>
-                                                        <p className="text-[9px] font-medium text-gray-300 mt-0.5 tracking-wider"> {userLat.toFixed(4)}°N, {userLng.toFixed(4)}°E</p>
+                                                        <p className="text-[11px] font-bold text-white">GPS active · {locationLabel || 'Lokasi Semasa'}</p>
+                                                        <p className="text-[9px] font-medium text-gray-300 mt-0.5 tracking-wider">
+                                                            {userLat && userLng ? `${userLat.toFixed(4)}°N, ${userLng.toFixed(4)}°E` : 'Mengesan koordinat...'}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -894,7 +896,7 @@ export default function BencanaView() {
                                         </div>
                                         <div>
                                             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{DEFAULT_SENSOR_NODE}</h3>
-                                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Kota Bharu · Ultrasonic · LoRaWAN</p>
+                                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Tambatan D&apos;Raja · Ultrasonic · LoRaWAN</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">

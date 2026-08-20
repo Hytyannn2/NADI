@@ -292,6 +292,23 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         }
     };
 
+    useEffect(() => {
+        if (!userGpsLocation && typeof navigator !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const adjusted = applyLocationPrecision(pos.coords.latitude, pos.coords.longitude);
+                    setUserGpsLocation({
+                        lat: adjusted.lat,
+                        lng: adjusted.lng,
+                        label: locationPrecision === 'fuzzy' ? 'Lokasi Anggaran (~500m Privasi)' : 'Lokasi Semasa (GPS Tepat)'
+                    });
+                },
+                () => {},
+                { enableHighAccuracy: locationPrecision === 'high', timeout: 5000 }
+            );
+        }
+    }, [userGpsLocation, applyLocationPrecision, locationPrecision]);
+
     const handleGetGps = () => {
         if (!navigator.geolocation) return;
         setIsGettingGps(true);
@@ -427,7 +444,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
         const catConfig = CIVIC_CATEGORIES.find(c => c.id === reportCategory);
         const intent = visionAnalysis?.damageType || resData?.intent || `Aduan ${catConfig?.label || 'Sivik'}`;
-        const locName = userGpsLocation?.label || resData?.location || DEFAULT_LOCATION.label;
+        const locName = userGpsLocation?.label || resData?.location || (userGpsLocation?.lat ? `${userGpsLocation.lat.toFixed(4)}°N, ${userGpsLocation.lng.toFixed(4)}°E` : 'Lokasi Semasa');
         const translation = resData?.simplifiedTranslation || textToProcess || visionAnalysis?.damageType || `Aduan ${catConfig?.label || 'Sivik'}`;
         const dialect = resData?.detectedDialect || 'kelantan';
         const urgency = (resData?.urgency || (visionAnalysis?.severityScore >= 4 ? 'High' : 'Medium')) as 'Low' | 'Medium' | 'High';
@@ -436,8 +453,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             ? Number(resData.confidenceScore)
             : Math.min(98, Math.max(75, 80 + (resData?.dialectWords?.length || 0) * 4));
 
-        const reportLat = userGpsLocation?.lat || resData?.coordinates?.lat || DEFAULT_LOCATION.lat;
-        const reportLng = userGpsLocation?.lng || resData?.coordinates?.lng || DEFAULT_LOCATION.lng;
+        const reportLat = userGpsLocation?.lat || resData?.coordinates?.lat || 0;
+        const reportLng = userGpsLocation?.lng || resData?.coordinates?.lng || 0;
 
         const newA: Anomaly = {
             id: `aduan-${Date.now()}`,
@@ -1241,7 +1258,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                     </span>
                                                 </div>
                                                 <h4 className="font-sans text-base font-bold text-white leading-snug mt-1">
-                                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || DEFAULT_LOCATION.label}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
+                                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Lokasi Kejadian'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
                                                 </h4>
                                             </div>
                                         </div>
