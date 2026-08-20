@@ -3,6 +3,7 @@ import Groq from 'groq-sdk';
 import { checkSuaraLimit } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 import { exportForPrompt } from '@/src/lib/dialect/engine';
+import { DEFAULT_LOCATION } from '@/src/config/constants';
 
 /**
  * Fetch dialect context from the native TypeScript engine.
@@ -63,7 +64,7 @@ Extract the intent and location from the following user report. Also provide a t
 
 CRITICAL RULES:
 - If the report specifies a real physical infrastructure issue (e.g. pothole, broken streetlight, blocked drain, water leak, trash dump), set "intent" to a clean 2-4 word Malay title (e.g. "Jalan Berlubang", "Lampu Jalan Rosak", "Longkang Tersumbat").
-- If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga" and set "location" to "Kota Bharu". DO NOT invent or hallucinate unmentioned physical damage.
+- If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga" and set "location" to "${DEFAULT_LOCATION.label}". DO NOT invent or hallucinate unmentioned physical damage.
 - In "simplifiedTranslation", provide an accurate standard Malay translation of what the user actually said.
 - In "userIntendedMeaning", explain the EXACT intent or metaphorical meaning of the user's dialect expression (e.g. "Ungkapan kelesuan/stres (Kiasan Kelantan: 'sakit kepala') — Tiada kerosakan fizikal" or "Aduan kerosakan fizikal jalan raya").
 - In "confidenceScore", provide an integer between 70 and 98 representing NLP parsing confidence.
@@ -73,8 +74,8 @@ User says: "${inputText}"
 Respond strictly with a JSON object in this format:
 {
   "intent": "Short title in Malay (e.g. Jalan Berlubang, Lampu Jalan Rosak, Aduan Warga)",
-  "location": "Extracted location name or 'Kota Bharu'",
-  "coordinates": {"lat": 6.0833, "lng": 102.2500},
+  "location": "Extracted location name or '${DEFAULT_LOCATION.label}'",
+  "coordinates": {"lat": ${DEFAULT_LOCATION.lat}, "lng": ${DEFAULT_LOCATION.lng}},
   "urgency": "Low, Medium, or High",
   "simplifiedTranslation": "Standard Malay translation of user input",
   "userIntendedMeaning": "Detailed explanation of what the user actually intended by their speech",

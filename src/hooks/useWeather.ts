@@ -24,19 +24,18 @@ const DEFAULT_WEATHER: WeatherData = {
     pm10: 18.2,
 };
 
-// Default Kelantan coordinates (Kota Bharu center)
-const KOTA_BHARU_DEFAULT = { lat: 6.1254, lng: 102.2381, label: 'Kota Bharu' };
+import { DEFAULT_LOCATION } from '@/src/config/constants';
 
 export function useWeather() {
     const [weather, setWeather] = useState<WeatherData>(DEFAULT_WEATHER);
     const [isWeatherLoading, setIsWeatherLoading] = useState(false);
-    const [locationLabel, setLocationLabel] = useState('Kota Bharu');
-    const [userLat, setUserLat] = useState<number | null>(KOTA_BHARU_DEFAULT.lat);
-    const [userLng, setUserLng] = useState<number | null>(KOTA_BHARU_DEFAULT.lng);
+    const [locationLabel, setLocationLabel] = useState<string>(DEFAULT_LOCATION.label);
+    const [userLat, setUserLat] = useState<number | null>(DEFAULT_LOCATION.lat);
+    const [userLng, setUserLng] = useState<number | null>(DEFAULT_LOCATION.lng);
     const [isManualOverride, setIsManualOverride] = useState(false);
 
-    const lastLatRef = useRef<number | null>(KOTA_BHARU_DEFAULT.lat);
-    const lastLngRef = useRef<number | null>(KOTA_BHARU_DEFAULT.lng);
+    const lastLatRef = useRef<number | null>(DEFAULT_LOCATION.lat);
+    const lastLngRef = useRef<number | null>(DEFAULT_LOCATION.lng);
     const lastFetchTimeRef = useRef<number>(0);
 
     const setManualLocation = (lat: number, lng: number, label: string) => {
@@ -91,8 +90,8 @@ export function useWeather() {
 
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=12`, { headers: { 'User-Agent': 'NADI/1.0' } })
                 .then(r => r.json())
-                .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || 'Kota Bharu'); })
-                .catch(() => { setLocationLabel('Kota Bharu'); });
+                .then(d => { const a = d.address || {}; setLocationLabel(a.suburb || a.town || a.city || a.county || DEFAULT_LOCATION.label); })
+                .catch(() => { setLocationLabel(DEFAULT_LOCATION.label); });
 
             fetch(`/api/weather?lat=${lat}&lng=${lng}`)
                 .then(r => r.json())

@@ -60,8 +60,8 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
         borderColor: 'var(--border-default)',
         paddingTop: '16px',
         paddingBottom: '16px',
-        paddingLeft: isCollapsed ? '8px' : '14px',
-        paddingRight: isCollapsed ? '12px' : '18px', // Generous right padding so buttons NEVER touch or slip under resizer
+        paddingLeft: isCollapsed ? '10px' : '14px',
+        paddingRight: isCollapsed ? '10px' : '14px',
       }}
     >
       {/* ===== 4px RESIZABLE SEPARATOR HANDLE ===== */}
@@ -82,8 +82,8 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
         />
       </div>
 
-      {/* ===== BRAND HEADER WITH RIGID NON-SQUISHING LAYOUT ===== */}
-      <div className={`mb-8 mt-2 flex items-center overflow-hidden w-full ${isCollapsed ? 'justify-center px-0' : 'px-1'}`}>
+      {/* ===== BRAND HEADER ===== */}
+      <div className={`mb-6 mt-1 flex items-center overflow-hidden w-full ${isCollapsed ? 'justify-center px-0' : 'px-1'}`}>
         <AnimatePresence mode="wait">
           {isCollapsed ? (
             <motion.div
@@ -92,10 +92,10 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.12, ease: 'easeOut' }}
-              className="w-14 h-14 rounded-2xl flex items-center justify-center cursor-pointer shrink-0"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer shrink-0"
               title="NADI — National Dashboard"
             >
-              <img src="/logo.png" alt="NADI Logo" className="w-14 h-14 object-contain drop-shadow-md shrink-0" />
+              <img src="/logo.png" alt="NADI Logo" className="w-12 h-12 object-contain drop-shadow-md shrink-0" />
             </motion.div>
           ) : (
             <motion.div
@@ -106,11 +106,11 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
               transition={{ duration: 0.12, ease: 'easeOut' }}
               className="flex flex-col shrink-0 overflow-hidden w-[210px]"
             >
-              <div className="text-3xl font-black tracking-tighter flex items-center gap-3 shrink-0">
+              <div className="text-2xl font-black tracking-tighter flex items-center gap-2.5 shrink-0">
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[var(--accent)] to-blue-500 shrink-0">
                   NADI
                 </span>
-                <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain shrink-0 drop-shadow-md" />
+                <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain shrink-0 drop-shadow-md" />
               </div>
               <p className="text-[10px] font-extrabold uppercase tracking-wider mt-0.5 whitespace-nowrap shrink-0" style={{ color: 'var(--text-muted)' }}>
                 Platform Komuniti & Respons Bencana
@@ -120,8 +120,8 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
         </AnimatePresence>
       </div>
 
-      {/* ===== NAV ITEMS WITH RIGID NON-SQUISHING BUTTON CONTENTS ===== */}
-      <div className="flex flex-col gap-2 flex-1 items-center justify-center overflow-y-auto no-scrollbar w-full my-auto">
+      {/* ===== NAV ITEMS (NATURAL TOP-ALIGNED LIST) ===== */}
+      <div className="flex flex-col gap-1.5 flex-1 overflow-y-auto no-scrollbar w-full">
         {tabs.map((tab, index) => {
           if (!tab) return null;
           const Icon = tab.icon;

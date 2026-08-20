@@ -291,13 +291,19 @@ export function usePotholeDetector({
             if (finalConfidence >= CONFIDENCE_MIN_THRESHOLD) {
               lastDetectionTimeRef.current = now;
 
+              const isFuzzy = typeof window !== 'undefined' && localStorage.getItem('nadi_locationprecision') === 'fuzzy';
+              const latOffset = isFuzzy ? (Math.sin(gpsCoordsRef.current.lat * 1000) * 0.0035) + 0.001 : 0;
+              const lngOffset = isFuzzy ? (Math.cos(gpsCoordsRef.current.lng * 1000) * 0.0035) + 0.001 : 0;
+              const finalLat = Number((gpsCoordsRef.current.lat + latOffset).toFixed(5));
+              const finalLng = Number((gpsCoordsRef.current.lng + lngOffset).toFixed(5));
+
               const anomalyEvent: SensorAnomalyEvent = {
                 id: `POTHOLE-${Math.floor(now)}`,
                 timestamp: Date.now(),
-                latitude: gpsCoordsRef.current.lat,
-                longitude: gpsCoordsRef.current.lng,
-                lat: gpsCoordsRef.current.lat,
-                lng: gpsCoordsRef.current.lng,
+                latitude: finalLat,
+                longitude: finalLng,
+                lat: finalLat,
+                lng: finalLng,
                 speedKmh: Math.round(currentSpeed),
                 magnitudeG: parseFloat(peakMag.toFixed(2)),
                 zDropRatio: parseFloat(peakZDrop.toFixed(2)),

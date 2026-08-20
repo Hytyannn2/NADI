@@ -30,11 +30,13 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDetector';
 import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
+import { DEFAULT_LOCATION } from '@/src/config/constants';
 
 // =============================================================================
 // OPTIMAL 7 CITIZEN-EYE CATEGORIES (SYMPTOMS CITIZENS REPORT)
@@ -232,7 +234,8 @@ interface AduanViewProps {
 }
 
 export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) {
-    const { formatTime } = useTheme();
+    const { t } = useLanguage();
+    const { formatTime, applyLocationPrecision, locationPrecision, playAlertSound } = useTheme();
     const [filter, setFilter] = useState<'all' | 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -249,9 +252,12 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     // Modals
     const [shareModalAnomaly, setShareModalAnomaly] = useState<Anomaly | null>(null);
     const [copiedToast, setCopiedToast] = useState(false);
+    const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
     const [feedbackCorrectText, setFeedbackCorrectText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
     const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
 
     // Photo Attachment
@@ -269,9 +275,18 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         return isEmergencyDisasterText(manualDescription);
     }, [manualDescription]);
 
+    const handleVoiceSuccess = (transcript: string) => {
+        if (!transcript.trim()) return;
+        setManualDescription(prev => prev ? `${prev} ${transcript}` : transcript);
+        if (!hasManuallySelectedCategory) {
+            const detected = detectCategoryFromText(transcript);
+            setSelectedCategory(detected);
+        }
+    };
+
     const handleDescriptionChange = (text: string) => {
         setManualDescription(text);
-        if (!hasManuallySelectedCategory && text.trim().length > 2) {
+        if (!hasManuallySelectedCategory) {
             const detected = detectCategoryFromText(text);
             setSelectedCategory(detected);
         }
@@ -282,18 +297,20 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         setIsGettingGps(true);
         navigator.geolocation.getCurrentPosition(
             (pos) => {
+                const adjusted = applyLocationPrecision(pos.coords.latitude, pos.coords.longitude);
                 setUserGpsLocation({
-                    lat: Number(pos.coords.latitude.toFixed(5)),
-                    lng: Number(pos.coords.longitude.toFixed(5)),
-                    label: 'Lokasi Semasa (GPS)'
+                    lat: adjusted.lat,
+                    lng: adjusted.lng,
+                    label: locationPrecision === 'fuzzy' ? 'Lokasi Anggaran (~500m Privasi)' : 'Lokasi Semasa (GPS Tepat)'
                 });
                 setIsGettingGps(false);
+                playAlertSound('beep');
             },
             (err) => {
                 console.warn('GPS location error:', err);
                 setIsGettingGps(false);
             },
-            { enableHighAccuracy: true, timeout: 5000 }
+            { enableHighAccuracy: locationPrecision === 'high', timeout: 5000 }
         );
     };
 
@@ -392,8 +409,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         imageBase64: cleanBase64,
-                        lat: userGpsLocation?.lat || resData?.coordinates?.lat || 6.0833,
-                        lng: userGpsLocation?.lng || resData?.coordinates?.lng || 102.2500,
+                        lat: userGpsLocation?.lat || resData?.coordinates?.lat || DEFAULT_LOCATION.lat,
+                        lng: userGpsLocation?.lng || resData?.coordinates?.lng || DEFAULT_LOCATION.lng,
                         zDropped: 0
                     })
                 });
@@ -410,7 +427,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
         const catConfig = CIVIC_CATEGORIES.find(c => c.id === reportCategory);
         const intent = visionAnalysis?.damageType || resData?.intent || `Aduan ${catConfig?.label || 'Sivik'}`;
-        const locName = userGpsLocation?.label || resData?.location || 'Kota Bharu';
+        const locName = userGpsLocation?.label || resData?.location || DEFAULT_LOCATION.label;
         const translation = resData?.simplifiedTranslation || textToProcess || visionAnalysis?.damageType || `Aduan ${catConfig?.label || 'Sivik'}`;
         const dialect = resData?.detectedDialect || 'kelantan';
         const urgency = (resData?.urgency || (visionAnalysis?.severityScore >= 4 ? 'High' : 'Medium')) as 'Low' | 'Medium' | 'High';
@@ -419,8 +436,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             ? Number(resData.confidenceScore)
             : Math.min(98, Math.max(75, 80 + (resData?.dialectWords?.length || 0) * 4));
 
-        const reportLat = userGpsLocation?.lat || resData?.coordinates?.lat || 6.0833;
-        const reportLng = userGpsLocation?.lng || resData?.coordinates?.lng || 102.2500;
+        const reportLat = userGpsLocation?.lat || resData?.coordinates?.lat || DEFAULT_LOCATION.lat;
+        const reportLng = userGpsLocation?.lng || resData?.coordinates?.lng || DEFAULT_LOCATION.lng;
 
         const newA: Anomaly = {
             id: `aduan-${Date.now()}`,
@@ -761,7 +778,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     useEffect(() => { setMounted(true); }, []);
 
     return (
-        <div className="p-4 sm:p-6 max-w-6xl mx-auto h-full flex flex-col relative z-0">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 max-w-6xl mx-auto h-full flex flex-col relative z-0">
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
 
             {/* Edge-to-edge Fullscreen Dashcam Portal */}
@@ -817,18 +834,18 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="mb-6"
+                className="mb-4 sm:mb-5"
             >
                 <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20">
-                        Sistem Sivik & Aduan Warga
+                        {t('aduan.badge') || 'Sistem Sivik & Aduan Warga'}
                     </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-100 to-zinc-400">
-                    Aduan Sivik
+                    {t('aduan.title') || 'Aduan Sivik'}
                 </h1>
                 <p className="text-xs sm:text-sm font-medium mt-1 text-zinc-400">
-                    NADI mendengar. Lapor apa sahaja — jalan rosak, longkang tersumbat, lampu terpadam, pokok tumbang, atau sampah.
+                    {t('aduan.subtitle') || 'NADI mendengar. Lapor apa sahaja — jalan rosak, longkang tersumbat, lampu terpadam, pokok tumbang, atau sampah.'}
                 </p>
             </motion.div>
 
@@ -1224,7 +1241,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                     </span>
                                                 </div>
                                                 <h4 className="font-sans text-base font-bold text-white leading-snug mt-1">
-                                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Kota Bharu'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
+                                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || DEFAULT_LOCATION.label}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
                                                 </h4>
                                             </div>
                                         </div>

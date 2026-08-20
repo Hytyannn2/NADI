@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { SEED_JOBS, SEED_VENDORS } from '@/src/data/fallbacks';
 
 function getAdminSupabase() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dxexikpuezslryywhnnf.supabase.co';
@@ -8,42 +9,8 @@ function getAdminSupabase() {
 }
 
 // Memory cache for runtime additions if table creation pending
-let IN_MEMORY_JOBS: any[] = [
-    {
-        id: 'j1', title: 'Pembantu Kedai Runcit', employer: 'Kedai Runcit Mak Cik Zah',
-        location: 'Kubang Kerian', wageMYR: 8.50, wageType: 'hourly', category: 'retail',
-        postedAt: Date.now() - 86400000, whatsapp: '60179876543',
-        description: 'Mencari pekerja sambilan untuk membantu di kedai runcit. Waktu fleksibel.',
-        isFairWage: true
-    },
-    {
-        id: 'j2', title: 'Tukang Masak Nasi Kerabu', employer: 'Warung Kak Ani',
-        location: 'Kota Bharu', wageMYR: 60, wageType: 'daily', category: 'f&b',
-        postedAt: Date.now() - 172800000, whatsapp: '60121234567',
-        description: 'Perlukan tukang masak berpengalaman untuk waktu pagi (6AM-12PM).',
-        isFairWage: true
-    },
-    {
-        id: 'j3', title: 'Pemandu Grab/e-Hailing', employer: 'Grab Kelantan Hub',
-        location: 'Kota Bharu', wageMYR: 2800, wageType: 'monthly', category: 'transport',
-        postedAt: Date.now() - 259200000,
-        description: 'Pendapatan anggaran RM2,800/bulan. Kereta sendiri diperlukan.',
-        isFairWage: true
-    },
-];
-
-let IN_MEMORY_VENDORS: any[] = [
-    {
-        id: 'v1', name: 'Keropok Lekor Mak Su', category: 'Makanan',
-        location: 'Pantai Cahaya Bulan', description: 'Keropok lekor asli Terengganu, goreng panas setiap hari.',
-        whatsapp: '60171234567', rating: 4.8, reviews: 142, operatingHours: '8AM - 6PM'
-    },
-    {
-        id: 'v2', name: 'Batik Canting Kak Jah', category: 'Kraf Tangan',
-        location: 'Kampung Kraftangan', description: 'Batik lukis tangan asli Kelantan. Tempahan khas untuk majlis.',
-        whatsapp: '60129876543', rating: 4.9, reviews: 87, operatingHours: '9AM - 5PM'
-    },
-];
+let IN_MEMORY_JOBS = [...SEED_JOBS];
+let IN_MEMORY_VENDORS = [...SEED_VENDORS];
 
 export async function GET() {
     try {

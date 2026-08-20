@@ -32,6 +32,8 @@ import { createClient } from '@/src/lib/supabase/client';
 import { useWeather } from '@/src/hooks/useWeather';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } from '@/src/data/kelantanPpsCenters';
+import { DEFAULT_LOCATION, DEFAULT_SENSOR_NODE } from '@/src/config/constants';
+import { FALLBACK_FLOOD_ZONES, FALLBACK_VENDORS } from '@/src/data/fallbacks';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const MapContainer = dynamic(() => import('react-leaflet').then((m) => m.MapContainer), { ssr: false });
@@ -79,7 +81,7 @@ const TYPE_CONFIG: Record<
 };
 
 // Default center (Kota Bharu, Kelantan)
-const DEFAULT_CENTER: [number, number] = [6.1256, 102.2386];
+const DEFAULT_CENTER: [number, number] = [DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng];
 
 // Web Mercator pixel projection at given zoom (256px tile standard)
 function projectLatLonToPixel(lat: number, lng: number, zoom: number): { x: number; y: number } {
@@ -186,23 +188,6 @@ function runUnionMergePass(items: ClusterPoint[], zoom: number): ClusterPoint[] 
 
   return currentList;
 }
-
-// Major Flood Risk Corridor Zones (hydro-geological centroids of Kelantan river basins)
-const FALLBACK_FLOOD_ZONES: { name: string; center: [number, number]; radius: number }[] = [
-  { name: 'Cekungan Sungai Kelantan (Kota Bharu)', center: [6.1200, 102.2250], radius: 3200 },
-  { name: 'Zon Limpahan Rantau Panjang (Sungai Golok)', center: [6.0212, 101.9741], radius: 4000 },
-  { name: 'Zon Banjir Pasir Mas (Limpahan Sungai)', center: [6.0425, 102.1450], radius: 3500 },
-  { name: 'Lembangan Sungai Kuala Krai', center: [5.5347, 102.1975], radius: 4500 },
-];
-
-// Static fallback Merchants across Kelantan
-const FALLBACK_VENDORS = [
-  { name: 'Warung Nasi Ulam Cikgu', category: 'Makanan & Minuman', lat: 6.1280, lng: 102.2370, district: 'Kota Bharu' },
-  { name: 'Kedai Runcit Pak Mat', category: 'Runcit & Bekalan', lat: 6.0450, lng: 102.1410, district: 'Pasir Mas' },
-  { name: 'Batik Canting Kak Jah', category: 'Kraf Tangan', lat: 6.1220, lng: 102.2410, district: 'Kota Bharu' },
-  { name: 'Kedai Serbaneka Pasar Siti Khadijah', category: 'Bekalan Makanan', lat: 6.1305, lng: 102.2388, district: 'Kota Bharu' },
-  { name: 'Depot Tabung Gas Pasir Puteh', category: 'Bekalan Asas', lat: 5.8340, lng: 102.4010, district: 'Pasir Puteh' },
-];
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -389,7 +374,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         const { data } = await supabase
           .from('nadi_bencana_sensors')
           .select('*')
-          .eq('name', 'Sungai Kelantan Node A')
+          .eq('name', DEFAULT_SENSOR_NODE)
           .single();
         if (data && data.water_level !== null && data.water_level !== undefined) {
           setLiveSensorData(data);
@@ -565,38 +550,38 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       const { data: sensorNodes } = await supabase.from('nadi_bencana_sensors').select('*');
       if (sensorNodes && sensorNodes.length > 0) {
         sensorNodes.forEach((node) => {
-          const sLat = node.latitude || (userLat ? userLat + 0.002 : 6.1256);
-          const sLng = node.longitude || (userLng ? userLng + 0.002 : 102.2386);
+          const sLat = node.latitude || (userLat ? userLat + 0.002 : DEFAULT_LOCATION.lat);
+          const sLng = node.longitude || (userLng ? userLng + 0.002 : DEFAULT_LOCATION.lng);
           heatPoints.push({
             lat: sLat,
             lng: sLng,
             type: 'sensor',
-            label: node.name || 'Sungai Kelantan Node A',
+            label: node.name || DEFAULT_SENSOR_NODE,
             sublabel: `Ultrasonic Sonar Telemetry · ${node.status || 'Active'}`,
             severity: 5,
           });
         });
       } else {
-        const sLat = userLat ? userLat + 0.002 : 6.1256;
-        const sLng = userLng ? userLng + 0.002 : 102.2386;
+        const sLat = userLat ? userLat + 0.002 : DEFAULT_LOCATION.lat;
+        const sLng = userLng ? userLng + 0.002 : DEFAULT_LOCATION.lng;
         heatPoints.push({
           lat: sLat,
           lng: sLng,
           type: 'sensor',
-          label: 'Sungai Kelantan Node A',
-          sublabel: 'Ultrasonic Sonar Telemetry · Kota Bharu',
+          label: DEFAULT_SENSOR_NODE,
+          sublabel: `Ultrasonic Sonar Telemetry · ${DEFAULT_LOCATION.label}`,
           severity: 5,
         });
       }
     } catch {
-      const sLat = userLat ? userLat + 0.002 : 6.1256;
-      const sLng = userLng ? userLng + 0.002 : 102.2386;
+      const sLat = userLat ? userLat + 0.002 : DEFAULT_LOCATION.lat;
+      const sLng = userLng ? userLng + 0.002 : DEFAULT_LOCATION.lng;
       heatPoints.push({
         lat: sLat,
         lng: sLng,
         type: 'sensor',
-        label: 'Sungai Kelantan Node A',
-        sublabel: 'Ultrasonic Sonar Telemetry · Kota Bharu',
+        label: DEFAULT_SENSOR_NODE,
+        sublabel: `Ultrasonic Sonar Telemetry · ${DEFAULT_LOCATION.label}`,
         severity: 5,
       });
     }

@@ -4,11 +4,13 @@ import { createPortal } from 'react-dom';
 import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import VolunteerChat from '@/src/components/VolunteerChat';
+import { useTheme } from '@/src/context/ThemeContext';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
 import { useDebounce } from '@/src/hooks/useDebounce';
 import useSWR from 'swr';
 import { evaluateAllEligibility } from '@/src/utils/eligibilityEngine';
+import { DEFAULT_LOCATION } from '@/src/config/constants';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -52,6 +54,7 @@ interface VolunteerJob {
 
 export default function BantuanView() {
     const { t, lang } = useLanguage();
+    const { applyLocationPrecision, locationPrecision } = useTheme();
     const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>('programs');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
@@ -75,12 +78,15 @@ export default function BantuanView() {
     useEffect(() => {
         if (typeof navigator !== 'undefined' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                (pos) => {
+                    const adjusted = applyLocationPrecision(pos.coords.latitude, pos.coords.longitude);
+                    setUserLoc({ lat: adjusted.lat, lng: adjusted.lng });
+                },
                 (err) => console.log('Geolocation unavailable/denied:', err),
-                { enableHighAccuracy: true }
+                { enableHighAccuracy: locationPrecision === 'high' }
             );
         }
-    }, []);
+    }, [applyLocationPrecision, locationPrecision]);
 
     const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}&lang=${lang}` : null;
     const { data: programsData, isLoading: programsLoading } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
@@ -381,12 +387,12 @@ export default function BantuanView() {
                     <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : 'Kota Bharu, Kelantan'}
+                            📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : `${DEFAULT_LOCATION.label}, ${DEFAULT_LOCATION.state}`}
                         </span>
                     </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-white font-serif">Bantuan & Sukarelawan</h2>
+                    <h2 className="text-2xl font-bold tracking-tight text-white font-serif">{t('bantuan.header_title') || 'Bantuan & Sukarelawan'}</h2>
                     <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                        Cari program bantuan kewangan dan peluang sukarelawan di Kelantan.
+                        {t('bantuan.header_subtitle') || 'Cari program bantuan kewangan dan peluang sukarelawan di Kelantan.'}
                     </p>
                 </div>
             </motion.div>
@@ -425,7 +431,7 @@ export default function BantuanView() {
                             ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
                             : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
                     }`}
-                >Program Bantuan</button>
+                >{t('bantuan.tab_aid') || 'Program Bantuan'}</button>
                 <button
                     onClick={() => setActiveTab('volunteer')}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${
@@ -433,7 +439,7 @@ export default function BantuanView() {
                             ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
                             : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
                     }`}
-                >Sukarelawan</button>
+                >{t('bantuan.tab_vol') || 'Sukarelawan'}</button>
             </motion.div>
 
             <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
@@ -468,15 +474,15 @@ export default function BantuanView() {
                                             className="appearance-none pl-9 pr-8 py-3 rounded-2xl text-xs font-bold outline-none cursor-pointer border transition-all"
                                             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                                         >
-                                            <option value="default">Default</option>
-                                            <option value="name_asc">Nama (A - Z)</option>
-                                            <option value="name_desc">Nama (Z - A)</option>
-                                            <option value="provider_asc">Agensi (A - Z)</option>
-                                            <option value="provider_desc">Agensi (Z - A)</option>
+                                            <option value="default">{t('sort.default') || 'Default'}</option>
+                                            <option value="name_asc">{t('sort.name_asc') || 'Nama (A - Z)'}</option>
+                                            <option value="name_desc">{t('sort.name_desc') || 'Nama (Z - A)'}</option>
+                                            <option value="provider_asc">{t('sort.provider_asc') || 'Agensi (A - Z)'}</option>
+                                            <option value="provider_desc">{t('sort.provider_desc') || 'Agensi (Z - A)'}</option>
                                             {Object.keys(matchResults).length > 0 && (
                                                 <>
-                                                    <option value="match_desc">Skor Kelayakan (Tertinggi)</option>
-                                                    <option value="match_asc">Skor Kelayakan (Terendah)</option>
+                                                    <option value="match_desc">{t('sort.match_desc') || 'Skor Kelayakan (Tertinggi)'}</option>
+                                                    <option value="match_asc">{t('sort.match_asc') || 'Skor Kelayakan (Terendah)'}</option>
                                                 </>
                                             )}
                                         </select>
@@ -489,28 +495,28 @@ export default function BantuanView() {
                                     {[
                                         {
                                             id: 'all',
-                                            label: 'Semua',
+                                            label: t('filter.all') || 'Semua',
                                             icon: Globe,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.22) 0%, rgba(245, 158, 11, 0.16) 100%)', color: '#FCD34D', borderColor: '#F59E0B', boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
                                         },
                                         {
                                             id: 'government',
-                                            label: 'Kerajaan',
+                                            label: t('filter.government') || 'Kerajaan',
                                             icon: Landmark,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(37, 99, 235, 0.16) 100%)', color: '#93C5FD', borderColor: '#3B82F6', boxShadow: '0 4px 16px rgba(59, 130, 246, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
                                         },
                                         {
                                             id: 'ngo',
-                                            label: 'NGO',
+                                            label: t('filter.ngo') || 'NGO',
                                             icon: HandHeart,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.22) 0%, rgba(147, 51, 234, 0.16) 100%)', color: '#E9D5FF', borderColor: '#A855F7', boxShadow: '0 4px 16px rgba(168, 85, 247, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
                                         },
                                         {
                                             id: 'zakat',
-                                            label: 'Zakat',
+                                            label: t('filter.zakat') || 'Zakat',
                                             icon: Building,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%)', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
@@ -544,7 +550,7 @@ export default function BantuanView() {
                                                 }
                                             >
                                                 <CheckCircle className="w-5 h-5" />
-                                                <span>Layak Sahaja</span>
+                                                <span>{t('bantuan.eligible_only') || 'Layak Sahaja'}</span>
                                             </button>
                                         </>
                                     )}
@@ -586,10 +592,10 @@ export default function BantuanView() {
                                                             <div>
                                                                 <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
                                                                     <Search className="w-4 h-4 text-[#C5A367]" />
-                                                                    <span>Semak Kelayakan</span>
+                                                                    <span>{t('bantuan.ai_title') || 'Semak Kelayakan AI'}</span>
                                                                 </h4>
                                                                 <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                                                    Semak bantuan yang anda layak secara serta-merta.
+                                                                    {t('bantuan.ai_desc') || 'Semak bantuan yang anda layak secara serta-merta.'}
                                                                 </p>
                                                             </div>
                                                             <motion.button
@@ -598,7 +604,7 @@ export default function BantuanView() {
                                                                 onClick={(e) => { e.stopPropagation(); setShowAIMatcher(true); }}
                                                                 className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#C5A367] text-white shadow-sm shrink-0 hover:bg-[#b59357] transition-colors"
                                                             >
-                                                                Semak Sekarang
+                                                                {t('bantuan.ai_btn') || 'Semak Sekarang'}
                                                             </motion.button>
                                                         </div>
                                                     </motion.div>

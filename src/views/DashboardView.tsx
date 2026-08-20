@@ -17,7 +17,8 @@ import {
 export default function DashboardView() {
     const { user } = useAuth();
     const { t } = useLanguage();
-    const { formatTime } = useTheme();
+    const { formatTime, getAutoRefreshIntervalMs } = useTheme();
+    const refreshInterval = getAutoRefreshIntervalMs();
     const { weather, isWeatherLoading, locationLabel } = useWeather();
 
     const [recentPosts, setRecentPosts] = useState<any[]>([]);
@@ -34,7 +35,13 @@ export default function DashboardView() {
 
     // Greeting based on time of day
     const hour = new Date().getHours();
-    const greetingKey = hour < 12 ? 'Selamat Pagi' : hour < 18 ? 'Selamat Petang' : 'Selamat Malam';
+    const greetingText = hour < 12 
+        ? (t('greeting.morning') || 'Selamat Pagi') 
+        : hour < 14 
+            ? (t('greeting.noon') || 'Selamat Tengah Hari') 
+            : hour < 19 
+                ? (t('greeting.evening') || 'Selamat Petang') 
+                : (t('greeting.night') || 'Selamat Malam');
 
     const [newPostContent, setNewPostContent] = useState('');
     const [newPostType, setNewPostType] = useState('general');
@@ -42,12 +49,21 @@ export default function DashboardView() {
     const [postError, setPostError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch('/api/community')
-            .then(r => r.json())
-            .then(d => { if (d.success) setRecentPosts(d.posts); })
-            .catch(() => {})
-            .finally(() => setIsLoadingPosts(false));
-    }, []);
+        const loadPosts = () => {
+            fetch('/api/community')
+                .then(r => r.json())
+                .then(d => { if (d.success) setRecentPosts(d.posts); })
+                .catch(() => {})
+                .finally(() => setIsLoadingPosts(false));
+        };
+
+        loadPosts();
+
+        if (refreshInterval) {
+            const timer = setInterval(loadPosts, refreshInterval);
+            return () => clearInterval(timer);
+        }
+    }, [refreshInterval]);
 
     const handleCreatePost = async () => {
         if (!newPostContent.trim() || isSubmittingPost) return;
@@ -146,7 +162,7 @@ export default function DashboardView() {
                 <div className="relative z-10 flex items-start justify-between">
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-                            {greetingKey}
+                            {greetingText}
                         </p>
                         <h2 className="text-xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
                             Selamat Datang, {userName}

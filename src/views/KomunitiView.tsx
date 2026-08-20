@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useLanguage } from '@/src/context/LanguageContext';
 import {
     ShoppingBag, Briefcase, Search, MapPin, Phone, Clock, Star,
     ChevronRight, Filter, Users, TrendingUp, Loader2, Heart,
@@ -60,6 +61,7 @@ function timeAgo(ts: number): string {
 
 export default function KomunitiView() {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const [subTab, setSubTab] = useState<'kerja' | 'niaga'>('kerja');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedJobCategory, setSelectedJobCategory] = useState('Semua');
@@ -180,15 +182,15 @@ export default function KomunitiView() {
                             📍 Kota Bharu, Kelantan
                         </span>
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif">Komuniti & Peluang</h1>
-                    <p className="text-xs font-medium text-zinc-400 mt-0.5">Cari kerja kosong dan peniaga tempatan di sekitar Kelantan.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif">{t('komuniti.header_title') || 'Komuniti & Peluang'}</h1>
+                    <p className="text-xs font-medium text-zinc-400 mt-0.5">{t('komuniti.header_subtitle') || 'Cari kerja kosong dan peniaga tempatan di sekitar Kelantan.'}</p>
                 </div>
 
                 <button
                     onClick={() => setShowAddModal(true)}
                     className="px-4 py-2.5 rounded-xl text-xs font-bold text-black bg-[#C5A367] flex items-center gap-1.5 transition-all shadow-md active:scale-95 hover:brightness-110"
                 >
-                    <Plus className="w-4 h-4 text-black" /> {subTab === 'kerja' ? 'Tambah Kerja' : 'Tambah Peniaga'}
+                    <Plus className="w-4 h-4 text-black" /> {subTab === 'kerja' ? (t('komuniti.add_job') || 'Tambah Kerja') : (t('komuniti.add_vendor') || 'Tambah Peniaga')}
                 </button>
             </motion.div>
 
@@ -205,7 +207,7 @@ export default function KomunitiView() {
                     }`}
                 >
                     <Briefcase className="w-4 h-4" />
-                    Kerja Kosong
+                    {t('komuniti.tab_jobs') || 'Kerja Kosong'}
                 </button>
                 <button
                     onClick={() => { setSubTab('niaga'); setSearchQuery(''); }}
@@ -216,7 +218,7 @@ export default function KomunitiView() {
                     }`}
                 >
                     <ShoppingBag className="w-4 h-4" />
-                    Peniaga Tempatan
+                    {t('komuniti.tab_vendors') || 'Peniaga Tempatan'}
                 </button>
             </motion.div>
 

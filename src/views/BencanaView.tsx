@@ -30,6 +30,8 @@ import { createClient } from '@/src/lib/supabase/client';
 import useSWR from 'swr';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kelantanPpsCenters';
 import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanStations';
+import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
+import { FALLBACK_PPS_CENTERS } from '@/src/data/fallbacks';
 
 export interface FloodZone {
     district: string;
@@ -133,7 +135,7 @@ export default function BencanaView() {
                 .then(res => res.json())
                 .then(resData => {
                     if (resData.success && resData.sensors && resData.sensors.length > 0) {
-                        const target = resData.sensors.find((s: any) => s.name === 'Sungai Kelantan Node A') || resData.sensors[0];
+                        const target = resData.sensors.find((s: any) => s.name === DEFAULT_SENSOR_NODE) || resData.sensors[0];
                         if (target) {
                             const online = calcIsOnline(target.last_reading, target.is_online, target.status);
                             setSensorData({
@@ -159,7 +161,7 @@ export default function BencanaView() {
         const pollInterval = setInterval(fetchLatestSensor, 30000);
 
         // Fetch initial sensor data from Supabase DB
-        supabase.from('nadi_bencana_sensors').select('*').eq('name', 'Sungai Kelantan Node A').single()
+        supabase.from('nadi_bencana_sensors').select('*').eq('name', DEFAULT_SENSOR_NODE).single()
             .then(({ data }) => {
                 if (data) {
                     const online = calcIsOnline(data.last_reading, data.is_online, data.status);
@@ -229,13 +231,7 @@ export default function BencanaView() {
                 type: c.type,
                 lat: c.lat,
                 lng: c.lng
-            })) : [
-                { name: 'SK Kubang Kerian', district: 'Kota Bharu', capacity: 500, type: 'Sekolah', lat: 6.092444, lng: 102.274583 },
-                { name: 'Masjid Muhammadi', district: 'Kota Bharu', capacity: 800, type: 'Masjid', lat: 6.132155, lng: 102.236688 },
-                { name: 'SK Kuala Krai', district: 'Kuala Krai', capacity: 400, type: 'Sekolah', lat: 5.534744, lng: 102.197519 },
-                { name: 'SK Gua Musang', district: 'Gua Musang', capacity: 350, type: 'Sekolah', lat: 4.882100, lng: 101.964500 },
-                { name: 'Dewan Sultan Tanah Merah', district: 'Tanah Merah', capacity: 300, type: 'Dewan', lat: 5.808300, lng: 102.148100 }
-            ]
+            })) : FALLBACK_PPS_CENTERS
         };
     };
 
@@ -529,7 +525,7 @@ export default function BencanaView() {
                             <span className="font-bold text-xs text-white">Paras Air Sungai</span>
                         </div>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                            Sungai Kelantan Node A
+                            {DEFAULT_SENSOR_NODE}
                         </p>
                     </div>
                 </div>
@@ -715,7 +711,7 @@ export default function BencanaView() {
                                         <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 shrink-0 mr-1 flex items-center gap-1">
                                             <MapPin className="w-3 h-3 text-emerald-400" /> Jajahan:
                                         </span>
-                                        {['All', 'Kota Bharu', 'Pasir Mas', 'Gua Musang', 'Kuala Krai', 'Tumpat', 'Bachok', 'Machang', 'Pasir Puteh', 'Jeli', 'Tanah Merah'].map(jajahan => (
+                                        {['All', ...KELANTAN_JAJAHAN].map(jajahan => (
                                             <button
                                                 key={jajahan}
                                                 onClick={() => {
@@ -897,7 +893,7 @@ export default function BencanaView() {
                                             }`} />
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Sungai Kelantan Node A</h3>
+                                            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{DEFAULT_SENSOR_NODE}</h3>
                                             <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Kota Bharu · Ultrasonic · LoRaWAN</p>
                                         </div>
                                     </div>

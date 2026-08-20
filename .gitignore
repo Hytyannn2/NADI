@@ -90,4 +90,7 @@ maps_files.md
 *_plan.md
 
 # Geocoded Cache (Local Work In Progress Coordinates)
-src/data/geocoded_cache.json
+src/data/geocoded_cache.json
+
+INNOVATION_CANVAS.md
+neural_network_plan.md

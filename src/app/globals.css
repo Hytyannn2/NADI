@@ -415,6 +415,38 @@ body {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* 5. Compact UI */
+.compact-ui {
+  --spacing-density: 0.75;
+}
+.compact-ui .p-6 { padding: 1rem !important; }
+.compact-ui .p-5 { padding: 0.875rem !important; }
+.compact-ui .p-4 { padding: 0.75rem !important; }
+.compact-ui .gap-6 { gap: 1rem !important; }
+.compact-ui .gap-4 { gap: 0.75rem !important; }
+.compact-ui .gap-3 { gap: 0.5rem !important; }
+.compact-ui .py-4 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+.compact-ui .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.625rem !important; }
+.compact-ui .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.875rem !important; }
+
+/* 6. Large Touch Targets (Accessibility OKU) */
+.large-touch button,
+.large-touch input[type="button"],
+.large-touch input[type="submit"],
+.large-touch [role="button"],
+.large-touch a.btn,
+.large-touch .nav-item {
+  min-height: 48px !important;
+  min-width: 48px !important;
+}
+.large-touch input,
+.large-touch select,
+.large-touch textarea {
+  min-height: 48px !important;
+  font-size: 1rem !important;
+}
+
 /* ====== VIEW TRANSITION ====== */
 ::view-transition-old(root),
 ::view-transition-new(root) {

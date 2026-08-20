@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle } from 'lucide-react';
+import { useTheme } from '@/src/context/ThemeContext';
 
 interface ChartDataPoint {
     time: string;
@@ -53,6 +54,8 @@ export default function SensorTrendChart({
     lastReadingTime,
     isOnline,
 }: SensorTrendChartProps) {
+    const { getSamplingIntervalMs } = useTheme();
+    const sampleIntervalMs = getSamplingIntervalMs();
     const [liveHistory, setLiveHistory] = useState<{ timestamp: number; timeLabel: string; level: number }[]>([]);
     const [forecastRange, setForecastRange] = useState<ForecastRange>('6h');
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -83,14 +86,6 @@ export default function SensorTrendChart({
     // =========================================================================
     // FIX #1: EXPLICIT UNIT CONVERSION (No Magic Threshold Heuristics)
     // =========================================================================
-    // The caller declares the unit explicitly via the `unit` prop.
-    //   unit='m'  → multiply by 100 to get cm (default — our API stores meters)
-    //   unit='cm' → use as-is
-    //
-    // This eliminates ALL magnitude-guessing bugs:
-    //   - Old < 10 threshold: broke at 10.0m floods (1000cm → 10cm)
-    //   - Old < 50 threshold: broke at 35cm dry season (35cm → 3500cm)
-    //   - Explicit unit: NEVER breaks regardless of value.
     const currentCm = useMemo(() => {
         if (!currentWaterLevel || currentWaterLevel <= 0) return 0;
         return unit === 'm'
@@ -98,25 +93,12 @@ export default function SensorTrendChart({
             : Math.round(currentWaterLevel);
     }, [currentWaterLevel, unit]);
 
-    // =========================================================================
-    // FIX #4 & #5: TIME-BOUNDED BUFFER + INTERVAL HEARTBEAT
-    // =========================================================================
-    // Problem with useEffect dependency on primitives:
-    //   If currentWaterLevel stays at 1.25m for 15 minutes, React sees
-    //   1.25 === 1.25 and SKIPS the effect entirely. No new timestamps
-    //   get added, and the OLS regression operates on stale 15-min-old data.
-    //
-    // Solution: An interval-based heartbeat that runs every 5 seconds,
-    //   always appending the latest level + current timestamp to the buffer.
-    //   This ensures the time-bounded window stays fresh even when the
-    //   water level is perfectly static.
-
     // Keep latestCmRef in sync so the interval closure always has the current value
     useEffect(() => {
         latestCmRef.current = currentCm;
     }, [currentCm]);
 
-    // Heartbeat interval: append a reading every 5 seconds only when hardware is actively online
+    // Heartbeat interval: append a reading dynamically based on user sampling rate
     useEffect(() => {
         const appendReading = () => {
             const level = latestCmRef.current;
@@ -133,8 +115,9 @@ export default function SensorTrendChart({
                 const cutoffTime = now - TIME_WINDOW_MINUTES * 60 * 1000;
                 const filtered = prev.filter((p) => p.timestamp >= cutoffTime);
 
-                // Deduplicate: skip if last point was within 4 seconds
-                if (filtered.length > 0 && (now - filtered[filtered.length - 1].timestamp) < 4000) {
+                // Deduplicate: skip if last point was within 80% of sampling rate
+                const minGap = Math.max(2000, sampleIntervalMs * 0.8);
+                if (filtered.length > 0 && (now - filtered[filtered.length - 1].timestamp) < minGap) {
                     return filtered;
                 }
 
@@ -145,13 +128,13 @@ export default function SensorTrendChart({
         // Immediately append on mount/level change
         appendReading();
 
-        // Start heartbeat interval (5 seconds)
-        heartbeatRef.current = setInterval(appendReading, 5000);
+        // Start heartbeat interval using configured sampling rate
+        heartbeatRef.current = setInterval(appendReading, sampleIntervalMs);
 
         return () => {
             if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         };
-    }, []); // Runs once on mount; reads latestCmRef.current for fresh values
+    }, [sampleIntervalMs, isSensorOffline]);
 
     // Also append immediately whenever level actually changes (responsive to real sensor pings)
     useEffect(() => {

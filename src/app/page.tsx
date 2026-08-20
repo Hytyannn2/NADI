@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles, ClipboardList, ShoppingBag, Share2 } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles, ClipboardList, ShoppingBag, Share2, Siren, Volume2, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
@@ -44,10 +44,36 @@ export default function App() {
   // === Auth & Context ===
   const { user, loading, signOut } = useAuth();
   const { t, lang, setLang } = useLanguage();
-  const { themeId, setThemeId, fontSize, setFontSize } = useTheme();
+  const { themeId, setThemeId, fontSize, setFontSize, isNotificationAllowed, playAlertSound } = useTheme();
 
   // === Hooks ===
   const greeting = useGreeting();
+
+  // === Dynamic Notifications with live category & DND filtering ===
+  const [notificationsList, setNotificationsList] = useState<Array<{
+    id: string;
+    category: 'aduan' | 'bantuan' | 'komuniti' | 'disaster';
+    title: string;
+    desc: string;
+    time: string;
+    urgent?: boolean;
+    distanceKm?: number;
+  }>>([]);
+
+  useEffect(() => {
+    fetch('/api/notifications')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.notifications)) {
+          setNotificationsList(data.notifications);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const visibleNotifications = useMemo(() => {
+    return notificationsList.filter(n => isNotificationAllowed(n.category, n.distanceKm));
+  }, [notificationsList, isNotificationAllowed]);
 
   // === UI State ===
   const [activeTab, setActiveTab] = useState<TabId>('aduan');
@@ -140,11 +166,11 @@ export default function App() {
 
   // === Tabs Config ===
   const tabs = [
-    { id: 'aduan', name: 'Aduan', icon: ClipboardList },
-    { id: 'komuniti', name: 'Komuniti', icon: ShoppingBag },
-    { id: 'utama', name: 'Utama', icon: Home, isCenter: true },
+    { id: 'aduan', name: t('nav.aduan') || 'Aduan', icon: ClipboardList },
+    { id: 'komuniti', name: t('nav.komuniti') || 'Komuniti', icon: ShoppingBag },
+    { id: 'utama', name: t('nav.utama') || 'Utama', icon: Home, isCenter: true },
     { id: 'bencana', name: t('nav.bencana') || 'Bencana', icon: AlertTriangle },
-    { id: 'bantuan', name: t('bantuan.title') || 'Bantuan', icon: Heart },
+    { id: 'bantuan', name: t('nav.bantuan') || t('bantuan.title') || 'Bantuan', icon: Heart },
   ];
 
   // === Loading / Auth Gate ===
@@ -228,6 +254,9 @@ export default function App() {
                   className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Notifikasi"
                 >
                   <Bell className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                  {visibleNotifications.length > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  )}
                 </button>
                 <button
                   id="settings-btn"
@@ -256,15 +285,57 @@ export default function App() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-[118px] right-5 z-50 w-64 rounded-2xl overflow-hidden"
+                className="absolute top-[118px] right-5 z-50 w-80 rounded-2xl overflow-hidden shadow-2xl"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}
               >
-                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-default)' }}>
-                  <p className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{t('header.notifications')}</p>
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[#C5A367]" />
+                    <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{t('header.notifications')}</p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                    {visibleNotifications.length} Aktif
+                  </span>
                 </div>
-                <div className="px-4 py-8 text-center">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Tiada notifikasi baharu</p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('header.notif_hint')}</p>
+                
+                <div className="max-h-72 overflow-y-auto no-scrollbar divide-y" style={{ borderColor: 'var(--border-default)' }}>
+                  {visibleNotifications.length > 0 ? (
+                    visibleNotifications.map(n => {
+                      const meta = n.category === 'disaster'
+                        ? { icon: Siren, color: '#EF4444' }
+                        : n.category === 'bantuan'
+                        ? { icon: Heart, color: '#10B981' }
+                        : n.category === 'aduan'
+                        ? { icon: CheckCircle2, color: '#C5A367' }
+                        : { icon: Users, color: '#8B5CF6' };
+                      const Icon = meta.icon;
+                      return (
+                        <div key={n.id} className="p-3 hover:bg-white/[0.02] transition-colors flex items-start gap-2.5">
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5" style={{ background: `${meta.color}20`, color: meta.color }}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{n.title}</p>
+                              <span className="text-[9px] shrink-0" style={{ color: 'var(--text-muted)' }}>{n.time}</span>
+                            </div>
+                            <p className="text-[11px] leading-snug mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{n.desc}</p>
+                            {n.urgent && (
+                              <button onClick={() => playAlertSound('siren')}
+                                className="mt-1.5 px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-colors cursor-pointer">
+                                <Volume2 className="w-3 h-3" /> Uji Siren Bencana
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-8 text-center">
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Tiada notifikasi</p>
+                      <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Mungkin disenyapkan oleh Waktu Senyap (DND) atau Tetapan Kategori.</p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
