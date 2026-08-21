@@ -289,7 +289,7 @@ export default function BantuanView() {
     };
 
     return (
-        <div className="p-6 h-full flex flex-col relative z-0">
+        <div className="p-5 min-h-full w-full flex flex-col relative z-0 overflow-x-hidden">
             {/* Global Toast for Bantuan */}
             <AnimatePresence>
                 {toastMessage && (
@@ -309,14 +309,16 @@ export default function BantuanView() {
                 <AnimatePresence>
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
                         onClick={(e) => e.target === e.currentTarget && setShowJobForm(false)}
                     >
                         <motion.div
-                            initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
-                            className="rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar"
+                            initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar pb-safe"
                             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                         >
+                            <div className="w-12 h-1 rounded-full bg-zinc-700 mx-auto mb-4 sm:hidden" />
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('bencana.request_volunteers')}</h3>
                                 <button onClick={() => setShowJobForm(false)} className="p-2" style={{ color: 'var(--text-muted)' }}><X className="w-5 h-5" /></button>
@@ -443,7 +445,7 @@ export default function BantuanView() {
                 >{t('bantuan.tab_vol') || 'Sukarelawan'}</button>
             </motion.div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
+            <div className="flex-1 relative pb-6">
                 <AnimatePresence mode="wait">
                     {activeTab === 'programs' ? (
                         <motion.div
@@ -492,7 +494,7 @@ export default function BantuanView() {
                                 </div>
 
                                 {/* Bigger Program Category Type Chips */}
-                                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-3 px-3 -mx-3">
+                                <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-2">
                                     {[
                                         {
                                             id: 'all',
@@ -1038,21 +1040,28 @@ export default function BantuanView() {
 
             </div>
 
+            {/* View Footer */}
+            <div className="mt-auto pt-8 text-center pb-2 text-[10px] text-zinc-600 font-medium">
+                <span>NADI BANTUAN • PLATFORM KOMUNITI & RESPONS BENCANA</span>
+            </div>
+
             {/* Detailed Bantuan Program Modal Popup */}
             {selectedProgram && typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6"
                         onClick={(e) => e.target === e.currentTarget && setSelectedProgram(null)}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto flex flex-col justify-between"
+                            initial={{ y: '100%', opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto flex flex-col justify-between pb-safe"
                             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                         >
+                            <div className="w-12 h-1 rounded-full bg-zinc-700 mx-auto mb-4 sm:hidden" />
                             <div>
                                 {/* Header Badges & Close Button */}
                                 <div className="flex items-start justify-between mb-4">

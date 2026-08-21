@@ -15,9 +15,29 @@ interface BottomNavProps {
 }
 
 export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavProps) {
+  const triggerHaptic = (pattern: number | number[] = 15) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch {}
+    }
+  };
+
+  const handleTabClick = (id: string) => {
+    triggerHaptic(12);
+    onTabSwitch(id);
+  };
+
   return (
-    <nav className="absolute bottom-0 left-0 right-0 border-t" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
-      <div className="flex justify-around items-end px-2 pt-2 pb-2 max-w-lg mx-auto w-full">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-[999] border-t backdrop-blur-2xl transition-all select-none shadow-[0_-8px_30px_rgba(0,0,0,0.6)]"
+      style={{
+        background: 'rgba(10, 10, 14, 0.94)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+      }}
+    >
+      <div className="flex justify-around items-end px-2 pt-1.5 max-w-md mx-auto w-full">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -30,7 +50,7 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
                 id={`tab-${tab.id}`}
                 aria-label={`Navigate to ${tab.name}`}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => onTabSwitch(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className="flex flex-col items-center justify-center focus:outline-none relative -mt-6"
               >
                 <motion.div
@@ -90,7 +110,7 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
               id={`tab-${tab.id}`}
               aria-label={`Navigate to ${tab.name}`}
               whileTap={{ scale: 0.9 }}
-              onClick={() => onTabSwitch(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               className="flex flex-col items-center justify-center w-20 py-2 min-h-[64px] rounded-xl transition-all duration-200 focus:outline-none relative"
             >
               <div

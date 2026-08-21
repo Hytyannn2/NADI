@@ -1,11 +1,20 @@
 import "./globals.css";
-import { type Metadata } from "next";
+import { type Metadata, type Viewport } from "next";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { LanguageProvider } from "@/src/context/LanguageContext";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { FamilyProvider } from "@/src/context/FamilyContext";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-kelantan.app";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#08080A",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -128,7 +137,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased bg-[#050507] text-white">
+      <body className="antialiased text-white h-full w-full overflow-hidden" style={{ background: 'var(--bg-base, #0F0F11)' }}>
         <AuthProvider>
           <LanguageProvider>
             <ThemeProvider>

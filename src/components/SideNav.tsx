@@ -121,46 +121,12 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
       </div>
 
       {/* ===== NAV ITEMS (NATURAL TOP-ALIGNED LIST) ===== */}
-      <div className="flex flex-col gap-1.5 flex-1 overflow-y-auto no-scrollbar w-full">
-        {tabs.map((tab, index) => {
+      <div className="flex flex-col gap-1.5 overflow-y-auto no-scrollbar w-full">
+        {tabs.map((tab) => {
           if (!tab) return null;
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
 
-          // --- CENTER TAB (UTAMA) ---
-          if (tab.isCenter) {
-            return (
-              <motion.button
-                id={`tour-${tab.id}`}
-                key={tab.id}
-                aria-label={`Navigate to ${tab.name}`}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => onTabSwitch(tab.id)}
-                className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 p-0' : 'w-full px-3.5 py-2.5 gap-3.5'} rounded-2xl relative overflow-hidden group mb-4 mt-2 mx-auto shrink-0 transition-all`}
-                style={{
-                  background: isActive ? 'linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #000))' : 'var(--bg-subtle)',
-                  border: '1px solid var(--border-default)',
-                  boxShadow: isActive ? '0 4px 20px color-mix(in srgb, var(--accent) 40%, transparent)' : 'none',
-                }}
-              >
-                {isActive && !isCollapsed && (
-                  <motion.div className="absolute inset-0 opacity-20" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }} animate={{ x: ['-100%', '200%'] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', repeatDelay: 1 }} />
-                )}
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative z-10" style={{ background: isActive ? 'transparent' : 'var(--bg-card)' }}>
-                  <Icon className="w-5 h-5 shrink-0" style={{ color: isActive ? 'white' : 'var(--text-secondary)' }} />
-                </div>
-                <AnimatePresence>
-                  {!isCollapsed && (
-                    <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 'auto' }} exit={{ opacity: 0, width: 0 }} transition={{ duration: 0.12 }} className="text-left relative z-10 overflow-hidden shrink-0">
-                      <span className={`text-sm font-bold block whitespace-nowrap shrink-0 ${isActive ? 'text-white' : ''}`} style={{ color: isActive ? 'white' : 'var(--text-secondary)' }}>{tab.name}</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            );
-          }
-
-          // --- STANDARD TABS ---
           return (
             <motion.button
               id={`tour-${tab.id}`}
@@ -175,12 +141,19 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
                   : 'border border-transparent hover:bg-zinc-800/40 hover:border-zinc-800/60'
               }`}
               style={{
-                background: isActive ? 'var(--accent-muted)' : 'transparent',
-                borderColor: isActive ? 'var(--accent)' : undefined,
+                background: isActive
+                  ? tab.isCenter
+                    ? 'linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #000))'
+                    : 'var(--accent-muted)'
+                  : tab.isCenter
+                    ? 'var(--bg-subtle)'
+                    : 'transparent',
+                borderColor: isActive ? 'var(--accent)' : tab.isCenter ? 'var(--border-default)' : undefined,
+                boxShadow: isActive && tab.isCenter ? '0 4px 20px color-mix(in srgb, var(--accent) 40%, transparent)' : undefined,
               }}
             >
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
-                <Icon className="w-5 h-5 shrink-0 transition-colors" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }} />
+                <Icon className="w-5 h-5 shrink-0 transition-colors" style={{ color: isActive ? (tab.isCenter ? 'white' : 'var(--accent)') : (tab.isCenter ? 'var(--text-secondary)' : 'var(--text-muted)') }} />
               </div>
               <AnimatePresence>
                 {!isCollapsed && (
@@ -190,7 +163,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
                     exit={{ opacity: 0, x: -10, width: 0 }}
                     transition={{ duration: 0.12 }}
                     className="text-sm font-bold whitespace-nowrap overflow-hidden shrink-0 text-left transition-colors"
-                    style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)' }}
+                    style={{ color: isActive ? (tab.isCenter ? 'white' : 'var(--accent)') : 'var(--text-secondary)' }}
                   >
                     {tab.name}
                   </motion.span>
@@ -202,7 +175,7 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
       </div>
 
       {/* ===== FOOTER WITH OVERFLOW PROTECTION ===== */}
-      <div className="mt-auto pt-4 overflow-hidden w-full">
+      <div className="mt-4 pt-3.5 border-t border-zinc-800/80 overflow-hidden w-full">
         <AnimatePresence mode="wait">
           {isCollapsed ? (
             <motion.div 

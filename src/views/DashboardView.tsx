@@ -1,37 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
-import { useTheme } from '@/src/context/ThemeContext';
 import pkg from '@/package.json';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useWeather } from '@/src/hooks/useWeather';
 import {
-    CloudRain, AlertTriangle, ShieldAlert, Heart, Activity, Mic,
+    CloudRain, AlertTriangle, Heart, Activity,
     ChevronRight, Loader2, Thermometer,
-    Wind, Droplets, CheckCircle2, Lock, Flame, Users, TrendingUp,
-    Send, ThumbsUp, MessageSquare, Plus, Trash2
+    Wind, Droplets, ClipboardList, ShoppingBag
 } from 'lucide-react';
 
 export default function DashboardView() {
     const { user } = useAuth();
     const { t } = useLanguage();
-    const { formatTime, getAutoRefreshIntervalMs } = useTheme();
-    const refreshInterval = getAutoRefreshIntervalMs();
     const { weather, isWeatherLoading, locationLabel } = useWeather();
 
-    const [recentPosts, setRecentPosts] = useState<any[]>([]);
-    const [isLoadingPosts, setIsLoadingPosts] = useState(true);
-
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
-    const userAvatar = (
-        user?.user_metadata?.avatar_url ||
-        user?.user_metadata?.picture ||
-        user?.user_metadata?.avatarUrl ||
-        user?.identities?.[0]?.identity_data?.avatar_url ||
-        user?.identities?.[0]?.identity_data?.picture
-    ) as string | undefined;
 
     // Greeting based on time of day
     const hour = new Date().getHours();
@@ -43,111 +28,13 @@ export default function DashboardView() {
                 ? (t('greeting.evening') || 'Selamat Petang') 
                 : (t('greeting.night') || 'Selamat Malam');
 
-    const [newPostContent, setNewPostContent] = useState('');
-    const [newPostType, setNewPostType] = useState('general');
-    const [isSubmittingPost, setIsSubmittingPost] = useState(false);
-    const [postError, setPostError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const loadPosts = () => {
-            fetch('/api/community')
-                .then(r => r.json())
-                .then(d => { if (d.success) setRecentPosts(d.posts); })
-                .catch(() => {})
-                .finally(() => setIsLoadingPosts(false));
-        };
-
-        loadPosts();
-
-        if (refreshInterval) {
-            const timer = setInterval(loadPosts, refreshInterval);
-            return () => clearInterval(timer);
-        }
-    }, [refreshInterval]);
-
-    const handleCreatePost = async () => {
-        if (!newPostContent.trim() || isSubmittingPost) return;
-        setIsSubmittingPost(true);
-        setPostError(null);
-        try {
-            const authorName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
-            const res = await fetch('/api/community', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: newPostContent, type: newPostType, author: authorName })
-            });
-            const d = await res.json();
-            if (d.success) {
-                setRecentPosts(prev => [d.post, ...prev]);
-                setNewPostContent('');
-                setPostError(null);
-            } else {
-                setPostError(d.error || 'Gagal menghantar mesej.');
-            }
-        } catch (err) {
-            console.error('Failed to post:', err);
-            setPostError('Ralat rangkaian. Sila cuba lagi.');
-        } finally {
-            setIsSubmittingPost(false);
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter') {
-            const isMobile = typeof window !== 'undefined' && (
-                window.innerWidth < 768 ||
-                /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-            );
-            if (isMobile || e.shiftKey || e.ctrlKey) return;
-            e.preventDefault();
-            if (newPostContent.trim() && !isSubmittingPost) {
-                handleCreatePost();
-            }
-        }
-    };
-
-    const handleDeletePost = async (postId: string) => {
-        try {
-            const res = await fetch(`/api/community?id=${postId}`, { method: 'DELETE' });
-            const d = await res.json();
-            if (d.success) {
-                setRecentPosts(prev => prev.filter(p => p.id !== postId));
-            } else {
-                setPostError(d.error || 'Gagal memadam mesej.');
-            }
-        } catch {
-            setPostError('Ralat rangkaian semasa memadam.');
-        }
-    };
-
-    const handleDeleteAllMyPosts = async () => {
-        if (!confirm('Adakah anda pasti mahu memadam SEMUA mesej anda?')) return;
-        try {
-            const res = await fetch('/api/community?all=true', { method: 'DELETE' });
-            const d = await res.json();
-            if (d.success) {
-                const authorName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
-                setRecentPosts(prev => prev.filter(p => p.user_id !== user?.id && p.author !== authorName));
-            } else {
-                setPostError(d.error || 'Gagal memadam semua mesej.');
-            }
-        } catch {
-            setPostError('Ralat rangkaian semasa memadam.');
-        }
-    };
-
     const switchToTab = (tabId: string) => {
-        const btn = document.getElementById(`tab-${tabId}`);
-        if (btn) btn.click();
-    };
-
-    const openCommunityFeed = () => {
-        const btn = document.getElementById('tour-community');
+        const btn = document.getElementById(`tour-${tabId}`);
         if (btn) btn.click();
     };
 
     return (
-        <div className="p-5 h-full flex flex-col relative z-0 overflow-y-auto pb-24 no-scrollbar">
+        <div className="p-5 min-h-full w-full flex flex-col relative z-0">
 
             {/* ═══════ 1. CIVIC WELCOME HEADER ═══════ */}
             <motion.div
@@ -168,17 +55,17 @@ export default function DashboardView() {
                             Selamat Datang, {userName}
                         </h2>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            Platform maklum balas, bantuan, dan maklumat komuniti anda.
+                            Platform Komuniti, Respons Krisis & Bencana Bersepadu
                         </p>
                     </div>
                 </div>
             </motion.div>
 
-            {/* ═══════ 4. WEATHER + ALERTS ═══════ */}
+            {/* ═══════ 2. WEATHER + LIVE SENSING ═══════ */}
             <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
+                transition={{ delay: 0.15 }}
                 className="mb-5 space-y-3"
             >
                 <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Keadaan Semasa</h3>
@@ -251,136 +138,102 @@ export default function DashboardView() {
                 )}
             </motion.div>
 
-
-
-            {/* ═══════ 7. COMMUNITY HUB (UTAMA) ═══════ */}
+            {/* ═══════ 3. CIVIC SERVICES & QUICK PORTAL ═══════ */}
             <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="mb-6"
+                transition={{ delay: 0.25 }}
+                className="mb-6 space-y-3"
             >
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-emerald-400" />
-                        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-primary)' }}>
-                            Suara Warga
-                        </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            {recentPosts.length} Mesej
-                        </span>
-                        {recentPosts.some(p => p.user_id === user?.id || p.author === userName) && (
-                            <button
-                                onClick={handleDeleteAllMyPosts}
-                                className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all flex items-center gap-1"
-                                title="Padam semua mesej yang saya hantar"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                                Padam Mesej Saya
-                            </button>
-                        )}
-                    </div>
-                </div>
+                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                    Pusat Khidmat Warga
+                </h3>
 
-                {/* Inline Post Composer */}
-                <div className="rounded-2xl border p-4 mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-                    <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center text-xs font-bold shrink-0 mt-1">
-                            {userAvatar ? (
-                                <img src={userAvatar} alt="user avatar" className="w-full h-full object-cover" />
-                            ) : (
-                                <span style={{ color: 'var(--accent)' }}>{userName.charAt(0)}</span>
-                            )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Aduan Sivik Card */}
+                    <button
+                        onClick={() => switchToTab('aduan')}
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 group-hover:bg-blue-500/20 transition-colors">
+                            <ClipboardList className="w-5 h-5" />
                         </div>
-                        <div className="flex-1">
-                            <textarea
-                                value={newPostContent}
-                                onChange={(e) => { setNewPostContent(e.target.value); setPostError(null); }}
-                                onKeyDown={handleKeyDown}
-                                placeholder="Kongsikan perkembangan atau pesanan untuk komuniti anda..."
-                                rows={2}
-                                className="w-full text-xs rounded-xl p-3 resize-none outline-none transition-all"
-                                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-                            />
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-white flex items-center justify-between">
+                                <span>Aduan Sivik Pintar</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+                            </h4>
+                            <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                                Lapor jalan rosak, longkang tersumbat, dan fasiliti awam dengan sokongan AI Vision & Suara Dialek.
+                            </p>
+                        </div>
+                    </button>
 
-                            {postError && (
-                                <p className="text-[10px] font-bold text-red-400 mt-1.5 flex items-center gap-1">
-                                     {postError}
-                                </p>
-                            )}
+                    {/* Bantuan & Sukarelawan Card */}
+                    <button
+                        onClick={() => switchToTab('bantuan')}
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 group-hover:bg-rose-500/20 transition-colors">
+                            <Heart className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-white flex items-center justify-between">
+                                <span>Bantuan & Sukarelawan</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+                            </h4>
+                            <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                                Mohon bantuan kecemasan, salurkan sumbangan asas, atau sertai misi sukarelawan krisis.
+                            </p>
+                        </div>
+                    </button>
 
-                            <div className="flex items-center justify-end mt-2">
-                                <button
-                                    onClick={handleCreatePost}
-                                    disabled={!newPostContent.trim() || isSubmittingPost}
-                                    className="text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 text-white transition-all disabled:opacity-50"
-                                    style={{ background: 'var(--accent)' }}
-                                >
-                                    {isSubmittingPost ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                    Hantar
-                                </button>
-                            </div>
+                    {/* Komuniti & Pekerjaan Card */}
+                    <button
+                        onClick={() => switchToTab('komuniti')}
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                            <ShoppingBag className="w-5 h-5" />
                         </div>
-                    </div>
-                </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-white flex items-center justify-between">
+                                <span>Papan Komuniti & Kerja</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+                            </h4>
+                            <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                                Cari peluang kerja bergaji adil dan sokong peniaga tempatan di sekitar kawasan anda.
+                            </p>
+                        </div>
+                    </button>
 
-                {/* Live Community Feed List */}
-                <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-                    {isLoadingPosts ? (
-                        <div className="p-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
-                    ) : recentPosts.length > 0 ? (
-                        <div className="divide-y" style={{ borderColor: 'var(--border-default)' }}>
-                            {recentPosts.map((post: any, i: number) => (
-                                <motion.div
-                                    key={post.id || i}
-                                    initial={{ opacity: 0, y: 5 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.1 * i }}
-                                    className="p-4 hover:bg-[var(--bg-subtle)] transition-colors"
-                                >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full overflow-hidden border border-slate-800 bg-slate-900 flex items-center justify-center text-[10px] font-bold shrink-0">
-                                                <img 
-                                                    src={post.author_avatar || (post.user_id === user?.id && userAvatar ? userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author || 'Warga')}&background=0F766E&color=fff&bold=true`)} 
-                                                    alt={post.author} 
-                                                    className="w-full h-full object-cover" 
-                                                />
-                                            </div>
-                                            <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{post.author || 'Warga NADI'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                                {formatTime(post.timestamp || Date.now())}
-                                            </span>
-                                            {Boolean(user?.id && post.user_id === user.id) && (
-                                                <button
-                                                    onClick={() => handleDeletePost(post.id)}
-                                                    title="Padam mesej ini"
-                                                    className="p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <p className="text-xs leading-relaxed pl-8" style={{ color: 'var(--text-secondary)' }}>{post.content}</p>
-                                </motion.div>
-                            ))}
+                    {/* Bencana & PPS Card */}
+                    <button
+                        onClick={() => switchToTab('bencana')}
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 group-hover:bg-amber-500/20 transition-colors">
+                            <AlertTriangle className="w-5 h-5" />
                         </div>
-                    ) : (
-                        <div className="p-8 text-center">
-                            <Users className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
-                            <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Belum ada mesej di sini. Tulis mesej pertama anda untuk komuniti.</p>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-white flex items-center justify-between">
+                                <span>Respons Bencana & PPS</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+                            </h4>
+                            <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                                Pantau paras sungai secara langsung, lokasi PPS dibuka, dan laluan selamat banjir.
+                            </p>
                         </div>
-                    )}
+                    </button>
                 </div>
             </motion.div>
 
-            {/* ═══════ 9. SYSTEM FOOTER ═══════ */}
-            <footer className="mt-6 pt-6 pb-2 border-t text-center" style={{ borderColor: 'var(--border-default)' }}>
+            {/* ═══════ 4. SYSTEM FOOTER ═══════ */}
+            <footer className="mt-auto pt-6 pb-2 border-t text-center" style={{ borderColor: 'var(--border-default)' }}>
                 <p className="text-xs font-bold tracking-widest uppercase mb-1" style={{ color: 'var(--text-primary)' }}>
                     NADI
                 </p>

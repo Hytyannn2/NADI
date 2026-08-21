@@ -79,7 +79,12 @@
 }
 
 /* ====== GLOBAL BASE ====== */
-body {
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   background-color: var(--bg-base);
   color: var(--text-primary);
@@ -88,9 +93,74 @@ body {
   line-height: 1.5;
 }
 
-/* Hide scrollbar globally for mobile feel */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* ====== MODERN AESTHETIC MINIMALIST SCROLLBAR ====== */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 163, 103, 0.5);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Hide scrollbars completely when no-scrollbar is applied */
+.no-scrollbar::-webkit-scrollbar,
+.no-scrollbar *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.no-scrollbar * {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+.modern-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent, #60A5FA);
+}
+
+/* ====== MOBILE-FIRST TOUCH & SAFE AREA UTILITIES ====== */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.mb-safe {
+  margin-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Mobile overscroll containment */
+main {
+  overscroll-behavior-y: contain;
+}
 
 /* ====== COMPONENT TOKENS ====== */
 .card {

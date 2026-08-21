@@ -795,7 +795,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     useEffect(() => { setMounted(true); }, []);
 
     return (
-        <div className="px-4 py-3 sm:px-6 sm:py-4 max-w-6xl mx-auto h-full flex flex-col relative z-0">
+        <div className="p-5 min-h-full w-full flex flex-col relative z-0">
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
 
             {/* Edge-to-edge Fullscreen Dashcam Portal */}
@@ -886,7 +886,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onPaste={handlePaste}
-                className={`mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-b from-[#121217] via-[#0E0E12] to-[#0A0A0D] border transition-all shadow-[0_12px_40px_rgba(0,0,0,0.5)] relative overflow-hidden ${
+                className={`mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-b from-[#121217] via-[#0E0E12] to-[#0A0A0D] border transition-all shadow-[0_12px_40px_rgba(0,0,0,0.5)] relative overflow-hidden shrink-0 ${
                     isDragging ? 'border-[#C5A367] ring-2 ring-[#C5A367]/30 bg-[#C5A367]/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
                 }`}
             >
@@ -955,7 +955,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                         value={manualDescription}
                         onChange={(e) => handleDescriptionChange(e.target.value)}
                         placeholder="Taip atau cakap aduan anda di sini..."
-                        className="w-full text-xs sm:text-sm rounded-2xl p-3.5 sm:p-4 bg-[#060608]/90 border border-zinc-800/70 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#C5A367]/60 focus:ring-1 focus:ring-[#C5A367]/20 transition-all resize-none leading-relaxed shadow-inner"
+                        className="w-full min-h-[96px] text-xs sm:text-sm rounded-2xl p-3.5 sm:p-4 bg-[#060608]/90 border border-zinc-800/70 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#C5A367]/60 focus:ring-1 focus:ring-[#C5A367]/20 transition-all resize-none leading-relaxed shadow-inner"
                         disabled={isParsingVoice}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1090,7 +1090,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="bg-gradient-to-r from-[#0F0F14] via-[#121218] to-[#0F0F14] border border-zinc-800/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-xl"
+                className="bg-gradient-to-r from-[#0F0F14] via-[#121218] to-[#0F0F14] border border-zinc-800/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-xl shrink-0"
             >
                 <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
                     <div className="flex items-center gap-3">
@@ -1512,6 +1512,11 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             </p>
                         </motion.div>
                     )}
+                </div>
+
+                {/* View Footer */}
+                <div className="mt-auto pt-8 text-center pb-2 text-[10px] text-zinc-600 font-medium">
+                    <span>NADI SIVIK • PLATFORM KOMUNITI & RESPONS BENCANA</span>
                 </div>
             </div>
 

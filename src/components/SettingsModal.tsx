@@ -96,11 +96,10 @@ function PillSelector<T extends string>({ options, value, onChange, columns }: {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onReplayTutorial: () => void;
 }
 
 // ── Main Component ──────────────────────────────────────────────
-export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { signOut } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const themeCtx = useTheme();
@@ -697,13 +696,8 @@ export default function SettingsModal({ isOpen, onClose, onReplayTutorial }: Set
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => { onReplayTutorial(); onClose(); }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-colors"
-                  style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}>
-                  <Award className="w-4 h-4" style={{ color: 'var(--text-muted)' }} /> {t('settings.tutorial')}
-                </button>
                 <button onClick={() => { signOut(); onClose(); }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-colors"
                   style={{ background: 'var(--danger-muted)', color: 'var(--danger)' }}>
                   <LogOut className="w-4 h-4" /> {t('menu.signout')}
                 </button>

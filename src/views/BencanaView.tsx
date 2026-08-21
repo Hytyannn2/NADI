@@ -1,5 +1,5 @@
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check, Share2 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -338,38 +338,53 @@ export default function BencanaView() {
         );
     };
 
-    return (
-        <div className="p-6 h-full flex flex-col relative z-0" style={{ color: 'var(--text-primary)' }}>
+    const handleShareBencana = async () => {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'NADI Bencana — Pemantauan Paras Air & PPS',
+                    text: 'Pantau status paras air sungai, amaran bencana banjir & lokasi pusat pemindahan (PPS) aktif secara langsung di NADI:',
+                    url: window.location.href,
+                });
+            } catch {}
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(window.location.href);
+            alert('Pautan NADI Bencana telah disalin ke papan keratan (clipboard)!');
+        }
+    };
 
-            {/* Simple Clean Header */}
+    return (
+        <div className="p-5 min-h-full w-full flex flex-col relative z-0" style={{ color: 'var(--text-primary)' }}>
+
+            {/* Standardized Clean Header */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl backdrop-blur-xl relative overflow-hidden border shadow-xl"
-                style={{
-                    background: '#0D0D10',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                }}
+                className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4"
             >
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            LIVE
-                        </span>
-                        <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                            {locationLabel === 'Locating...' ? 'Kelantan, Malaysia' : locationLabel}
+                <div>
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            LIVE • 📍 {locationLabel === 'Locating...' ? 'Kelantan, Malaysia' : locationLabel}
                         </span>
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white font-serif">
                         {t('bencana.title')}
                     </h1>
-                    <p className="text-xs text-zinc-400 mt-0.5">
+                    <p className="text-xs font-medium text-zinc-400 mt-0.5">
                         Pantau paras air sungai, cuaca, dan pusat pemindahan di kawasan anda.
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 relative z-10 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                        onClick={handleShareBencana}
+                        className="px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-all flex items-center gap-1.5 active:scale-95 shadow-sm"
+                        title="Kongsi Maklumat Bencana"
+                    >
+                        <Share2 className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="hidden sm:inline">Kongsi</span>
+                    </button>
                     <button
                         onClick={() => {
                             setActiveTab('map');
@@ -611,7 +626,7 @@ export default function BencanaView() {
                 })}
             </motion.div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto pb-6 relative">
+            <div className="flex-1 relative pb-6">
                 <AnimatePresence mode="wait">
 
                     {/* === MAP TAB === */}
@@ -1197,6 +1212,11 @@ export default function BencanaView() {
                 </AnimatePresence>
             </div>
 
+            {/* View Footer */}
+            <div className="mt-auto pt-8 text-center pb-2 text-[10px] text-zinc-600 font-medium">
+                <span>NADI BENCANA • PLATFORM KOMUNITI & RESPONS BENCANA</span>
+            </div>
+
             {/* Desktop Emergency Hotline Modal Portal */}
             {mounted && showSosModal && createPortal(
                 <AnimatePresence>
@@ -1205,16 +1225,18 @@ export default function BencanaView() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                            className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md"
                             onClick={() => setShowSosModal(false)}
                         >
                             <motion.div
-                                initial={{ scale: 0.9, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.9, opacity: 0 }}
+                                initial={{ y: '100%', opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: '100%', opacity: 0 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full max-w-md p-6 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl text-white relative overflow-hidden"
+                                className="w-full max-w-md p-6 rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl text-white relative overflow-hidden pb-safe"
                             >
+                                <div className="w-12 h-1 rounded-full bg-zinc-700 mx-auto mb-4 sm:hidden" />
                                 <button
                                     onClick={() => setShowSosModal(false)}
                                     className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-full bg-zinc-800 transition-colors"

@@ -18,24 +18,11 @@ import BantuanView from '../views/BantuanView';
 import KomunitiView from '../views/KomunitiView';
 
 // === Components ===
-import OnboardingWalkthrough from '../components/OnboardingWalkthrough';
-import CommunityFeed from '../components/CommunityFeed';
 import SettingsModal from '@/src/components/SettingsModal';
 import CivicHeatMap from '@/src/components/CivicHeatMap';
 import SideNav from '@/src/components/SideNav';
 import BottomNav from '../components/BottomNav';
 import LoadingScreen from '../components/LoadingScreen';
-
-// === WhistleIcon Component ===
-function WhistleIcon({ className = "w-5 h-5", style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 3a8 8 0 1 0 8 8h3a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-3a8 8 0 0 0-8-3Z" />
-      <circle cx="11" cy="11" r="2.5" />
-      <path d="M14 6.5L18 2.5" />
-    </svg>
-  );
-}
 
 // ===== TAB TYPE =====
 type TabId = 'utama' | 'bencana' | 'bantuan' | 'aduan' | 'komuniti';
@@ -103,10 +90,7 @@ export default function App() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const [showCommunity, setShowCommunity] = useState(false);
-  const [communityTab, setCommunityTab] = useState<'feed' | 'whistle'>('whistle');
   const fabX = useMotionValue(0);
   const fabY = useMotionValue(0);
   const isDragging = useRef(false);
@@ -146,13 +130,6 @@ export default function App() {
   ) as string | undefined;
   const userName = (user?.user_metadata?.full_name as string | undefined) ?? userEmail.split('@')[0] ?? 'Warga';
 
-  // === Onboarding ===
-  useEffect(() => {
-    try {
-      if (!localStorage.getItem('nadi_onboarded')) setShowOnboarding(true);
-    } catch { }
-  }, []);
-
   // === Helpers ===
   const closeAllMenus = () => {
     setShowUserMenu(false);
@@ -178,16 +155,14 @@ export default function App() {
   if (!user) return <AuthView />;
 
   return (
-    <div className="min-h-screen flex flex-col transition-colors duration-300 overflow-hidden font-sans" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+    <div className="h-screen w-screen fixed inset-0 flex flex-col transition-colors duration-300 overflow-hidden font-sans" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
 
       {/* === Overlays === */}
-      {showOnboarding && <OnboardingWalkthrough onComplete={() => { setShowOnboarding(false); }} />}
-      <AnimatePresence>{showCommunity && <CommunityFeed initialTab={communityTab} onClose={() => setShowCommunity(false)} />}</AnimatePresence>
       <AnimatePresence>{showHeatMap && <CivicHeatMap onClose={() => setShowHeatMap(false)} />}</AnimatePresence>
 
 
       {/* === Main App Shell === */}
-      <div className="flex-1 w-full h-full relative flex flex-row overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+      <div className="flex-1 w-full h-full relative flex flex-row overflow-hidden" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-default)' }}>
 
         {/* ===== SIDE NAVIGATION (DESKTOP) ===== */}
         <SideNav
@@ -200,9 +175,9 @@ export default function App() {
 
         {/* ===== RIGHT CONTENT AREA ===== */}
         <div
-          className="flex-1 relative flex flex-col min-w-0 overflow-hidden transition-none"
+          className="flex-1 relative flex flex-col min-w-0 overflow-hidden transition-none md:pl-[var(--sidebar-width,260px)]"
           style={{
-            paddingLeft: isDesktopLayout ? `${sidebarWidth}px` : 0
+            ['--sidebar-width' as any]: `${sidebarWidth}px`,
           }}
         >
 
@@ -247,9 +222,6 @@ export default function App() {
                 <button id="tour-heatmap" aria-label="View Civic Heatmap" onClick={() => setShowHeatMap(true)} className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Peta Haba Sivik">
                   <Map className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 </button>
-                <button id="tour-whistleblower" aria-label="Lapor Sulit (Whistleblower)" onClick={() => { setCommunityTab('whistle'); setShowCommunity(true); }} className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Lapor Sulit (Whistleblower)">
-                  <WhistleIcon className="w-5 h-5 text-red-400" />
-                </button>
                 <button id="notif-btn" aria-label="View Notifications" onClick={() => { setShowNotif(!showNotif); setShowUserMenu(false); setShowLangPicker(false); }}
                   className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Notifikasi"
                 >
@@ -274,7 +246,6 @@ export default function App() {
           <SettingsModal
             isOpen={showUserMenu}
             onClose={() => setShowUserMenu(false)}
-            onReplayTutorial={() => setShowOnboarding(true)}
           />
 
           {/* === Notification Panel === */}
@@ -409,20 +380,12 @@ export default function App() {
 
                   {/* Actions */}
                   <div className="p-5">
-
-                    <button onClick={() => { setShowOnboarding(true); setShowProfile(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors"
-                      style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-                    >
-                      <Award className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-xs font-semibold">Ulang Panduan</span>
-                    </button>
                     <button onClick={() => { signOut(); setShowProfile(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors font-bold text-xs"
                       style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', color: '#EF4444' }}
                     >
                       <LogOut className="w-4 h-4" />
-                      <span className="text-xs font-semibold">Log Keluar</span>
+                      <span>Log Keluar</span>
                     </button>
                   </div>
                 </motion.div>
@@ -433,16 +396,16 @@ export default function App() {
 
 
           {/* === Main Content === */}
-          <main className="flex-1 overflow-y-auto relative scroll-smooth pb-24 no-scrollbar">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth pb-24 md:pb-6 no-scrollbar flex flex-col">
             <AnimatePresence mode="wait">
-              <div className="w-full max-w-[1720px] mx-auto h-full">
+              <div className="w-full max-w-[1720px] mx-auto flex-1 flex flex-col min-h-full">
                 <motion.div
                   key={activeTab}
                   initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="h-full"
+                  className="flex-1 flex flex-col min-h-full"
                 >
                   {activeTab === 'utama' && <DashboardView />}
                   {activeTab === 'bencana' && <BencanaView />}
