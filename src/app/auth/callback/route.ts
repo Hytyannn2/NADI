@@ -1,3 +1,8 @@
+/**
+ * Supabase Auth OAuth Callback Route
+ * 
+ * Exchanges temporary OAuth code for a persistent session cookie and redirects user.
+ */
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
@@ -17,6 +22,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Auth failed — redirect to home with error
+  // Redirects to homepage with error flag if code exchange fails
   return NextResponse.redirect(`${origin}/?error=auth_failed`);
 }

@@ -1,24 +1,19 @@
 /**
- * NADI Resilient Rate Limiter & Hardware Throttling Engine
+ * In-Memory Rate Limiter & Throttling
  * 
- * ARCHITECTURE NOTICE:
- * This module uses an in-memory sliding window algorithm. It is highly optimized
- * for single-instance, pilot, and demo environments to prevent accidental loops,
- * abuse, and runaway AI inference costs.
- * 
- * In multi-region serverless deployments (Vercel edge lambdas), memory is isolated
- * per instance. For high-scale production, this interface is designed for drop-in
- * integration with a shared Redis store (e.g. Upstash Redis).
+ * Uses a sliding window algorithm to protect endpoints from abuse and control AI inference costs.
+ * Note: Memory is isolated per serverless instance. For distributed production setups,
+ * replace the internal Map with a shared store like Upstash Redis.
  */
 
 import { NextResponse } from 'next/server';
 
 export interface RateLimitConfig {
-    /** Max requests allowed in the time window */
+    /** Maximum requests permitted within the time window */
     maxRequests: number;
-    /** Time window in seconds */
+    /** Window duration in seconds */
     windowSeconds: number;
-    /** Identifier for the rate limit bucket (e.g. 'suara-voice', 'sensor') */
+    /** Grouping key for the limiter (e.g., 'suara-voice', 'sensor') */
     bucketName: string;
 }
 
@@ -39,11 +34,10 @@ const store = new Map<string, RateLimitEntry>();
 const MAX_STORE_ENTRIES = 5000;
 
 /**
- * Opportunistic cleanup of stale entries to guarantee zero memory leaks.
+ * Removes entries inactive for more than 5 minutes to prevent unbounded memory growth.
  */
 function cleanupStaleEntries(now: number) {
     if (store.size > MAX_STORE_ENTRIES) {
-        // Drop oldest entries if store exceeds threshold
         const keysToDelete: string[] = [];
         for (const [key, entry] of store.entries()) {
             if (entry.timestamps.length === 0 || now - entry.timestamps[entry.timestamps.length - 1] > 300000) {
@@ -58,8 +52,8 @@ function cleanupStaleEntries(now: number) {
 }
 
 /**
- * Robust Client IP Resolution across Cloudflare, Vercel, and standard proxies.
- * Falls back to a deterministic header fingerprint if IP is obscured.
+ * Extracts client IP from reverse proxy headers (Cloudflare, Vercel, standard proxies).
+ * Falls back to a deterministic header hash if no IP header is present.
  */
 export function getClientIp(headers: Headers): string {
     const cfIp = headers.get('cf-connecting-ip');
@@ -74,7 +68,7 @@ export function getClientIp(headers: Headers): string {
     const realIp = headers.get('x-real-ip');
     if (realIp) return realIp.trim();
 
-    // Fallback: create an isolated client fingerprint from available headers
+    // Fallback: build a quick fingerprint using User-Agent and Accept-Language
     const ua = headers.get('user-agent') || 'anon';
     const lang = headers.get('accept-language') || 'ms';
     let hash = 0;
@@ -87,7 +81,7 @@ export function getClientIp(headers: Headers): string {
 }
 
 /**
- * Core Sliding Window Rate Limiter
+ * Checks whether an incoming request is within its allowed rate limit window.
  */
 export function checkRateLimit(identifier: string, config: RateLimitConfig): RateLimitResult {
     const now = Date.now();
@@ -102,14 +96,13 @@ export function checkRateLimit(identifier: string, config: RateLimitConfig): Rat
         store.set(key, entry);
     }
 
-    // Slide window: retain only timestamps within current window
+    // Keep only timestamps that fall inside the active window
     entry.timestamps = entry.timestamps.filter(t => now - t < windowMs);
 
-    // Calculate reset time based on oldest timestamp in window
+    // Calculate when the oldest request in the window expires
     const oldestTimestamp = entry.timestamps.length > 0 ? entry.timestamps[0] : now;
     const resetSeconds = Math.max(1, Math.ceil((oldestTimestamp + windowMs - now) / 1000));
 
-    // Check limit
     if (entry.timestamps.length >= config.maxRequests) {
         return {
             allowed: false,
@@ -121,7 +114,7 @@ export function checkRateLimit(identifier: string, config: RateLimitConfig): Rat
         };
     }
 
-    // Allow request & push timestamp
+    // Record the current timestamp and approve request
     entry.timestamps.push(now);
     const remaining = config.maxRequests - entry.timestamps.length;
 
@@ -136,7 +129,7 @@ export function checkRateLimit(identifier: string, config: RateLimitConfig): Rat
 }
 
 /**
- * Helper to attach standard RFC rate-limiting headers to any NextResponse.
+ * Attaches standard rate-limit headers to a Next.js response.
  */
 export function addRateLimitHeaders(response: NextResponse, limit: RateLimitResult): NextResponse {
     response.headers.set('X-RateLimit-Limit', String(limit.limit));
@@ -148,11 +141,11 @@ export function addRateLimitHeaders(response: NextResponse, limit: RateLimitResu
     return response;
 }
 
-// =========================================================================
-// Pre-configured Feature Limiters
-// =========================================================================
+// -----------------------------------------------------------------------------
+// Endpoint-Specific Limits
+// -----------------------------------------------------------------------------
 
-/** Voice Transcription: 5 req/min (Protects Groq AI audio parse budget) */
+/** Voice transcription: max 5 requests per minute (controls audio API costs) */
 export function checkSuaraLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 5,
@@ -161,7 +154,7 @@ export function checkSuaraLimit(ip: string): RateLimitResult {
     });
 }
 
-/** AI Vision Classifier: 5 req/min (Protects image analysis inference) */
+/** Vision image classifier: max 5 requests per minute */
 export function checkInfraVisionLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 5,
@@ -170,7 +163,7 @@ export function checkInfraVisionLimit(ip: string): RateLimitResult {
     });
 }
 
-/** AI Text Triage: 10 req/min (Citizen report text categorizer) */
+/** Report text triage: max 10 requests per minute */
 export function checkInfraAnalyzeLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 10,
@@ -179,7 +172,7 @@ export function checkInfraAnalyzeLimit(ip: string): RateLimitResult {
     });
 }
 
-/** Civic Cluster Engine: 20 req/min (Heatmap clustering calculations) */
+/** Heatmap clustering: max 20 requests per minute */
 export function checkInfraClusterLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 20,
@@ -188,7 +181,7 @@ export function checkInfraClusterLimit(ip: string): RateLimitResult {
     });
 }
 
-/** Community Board: 5 posts/min (Prevents job/vendor listing spam) */
+/** Community board posts: max 5 posts per minute */
 export function checkKomunitiLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 5,
@@ -197,7 +190,7 @@ export function checkKomunitiLimit(ip: string): RateLimitResult {
     });
 }
 
-/** Mutual Aid Requests: 3 submissions/min */
+/** Welfare aid applications: max 3 submissions per minute */
 export function checkBantuanRequestLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 3,
@@ -206,7 +199,7 @@ export function checkBantuanRequestLimit(ip: string): RateLimitResult {
     });
 }
 
-/** Dialect Corpus Feedback: 10 feedback submissions/min */
+/** Dialect feedback submissions: max 10 submissions per minute */
 export function checkDialectFeedbackLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {
         maxRequests: 10,
@@ -216,14 +209,11 @@ export function checkDialectFeedbackLimit(ip: string): RateLimitResult {
 }
 
 /**
- * Sensor Ingestion Rate Limiter with Hardware Node Key Exemption
- * 
- * @param identifier Client IP or validated Hardware Node Key
- * @param isHardwareKey When true, uses high-throughput device bucket (120 req/min)
+ * Sensor ingestion limiter.
+ * Verified hardware nodes get a higher limit (120 req/min) than public IPs (15 req/min).
  */
 export function checkSensorLimit(identifier: string, isHardwareKey = false): RateLimitResult {
     if (isHardwareKey) {
-        // Authenticated ESP32 / LoRaWAN Node: 120 req/min per physical device
         return checkRateLimit(`hw-${identifier}`, {
             maxRequests: 120,
             windowSeconds: 60,
@@ -231,10 +221,10 @@ export function checkSensorLimit(identifier: string, isHardwareKey = false): Rat
         });
     }
 
-    // Unauthenticated public IP: 15 req/min
     return checkRateLimit(identifier, {
         maxRequests: 15,
         windowSeconds: 60,
         bucketName: 'sensor-ip',
     });
 }
+

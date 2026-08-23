@@ -1,3 +1,9 @@
+/**
+ * Social Welfare & Volunteer Opportunities View
+ * 
+ * Displays verified Malaysian government aid programs (STR, SARA, eKasih, MAIK),
+ * zero-dependency client-side eligibility checking, and volunteer missions.
+ */
 'use client';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -64,17 +70,17 @@ export default function BantuanView() {
     const [sortBy, setSortBy] = useState<'default' | 'name_asc' | 'name_desc' | 'provider_asc' | 'provider_desc' | 'match_desc' | 'match_asc'>('name_asc');
     const [volFilterCategory, setVolFilterCategory] = useState<string>('all');
 
-    // Algorithmic Debouncing optimization
+    // Debounced search query (300ms)
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-    // Toast Alert State
+    // Toast alert state
     const [toastMessage, setToastMessage] = useState<{title: string, desc: string} | null>(null);
     const showToast = (title: string, desc: string) => {
         setToastMessage({ title, desc });
         setTimeout(() => setToastMessage(null), 3000);
     };
 
-    // SWR Fetcher logic
+    // Geolocation and SWR program fetching
     const [userLoc, setUserLoc] = useState<{ lat: number, lng: number } | null>(null);
     useEffect(() => {
         if (typeof navigator !== 'undefined' && navigator.geolocation) {
@@ -94,7 +100,7 @@ export default function BantuanView() {
     const aidPrograms: AidProgram[] = programsData?.programs || [];
     const locationName = programsData?.location || '';
 
-    // AI Matcher State
+    // AI Eligibility Matcher modal states
     const [showAIMatcher, setShowAIMatcher] = useState(false);
     const [isMatching, setIsMatching] = useState(false);
     const [profile, setProfile] = useState({ age: '', income: '', status: 'Bekerja', dependents: '0' });

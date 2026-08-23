@@ -1,3 +1,9 @@
+/**
+ * Weather & Geolocation Hook
+ * 
+ * Fetches current weather conditions and air quality based on the user's GPS
+ * location or a manually selected location.
+ */
 import { useState, useEffect, useRef } from 'react';
 
 export interface WeatherData {
@@ -61,7 +67,7 @@ export function useWeather() {
 
     const fetchWeatherAndGeocode = (lat: number, lng: number) => {
         const now = Date.now();
-        if (now - lastFetchTimeRef.current < 5000) return; // Throttle to max once per 5s
+        if (now - lastFetchTimeRef.current < 5000) return; // Throttles requests to once every 5 seconds
         lastFetchTimeRef.current = now;
 
         setIsWeatherLoading(true);
@@ -82,7 +88,7 @@ export function useWeather() {
     };
 
     useEffect(() => {
-        // Restore saved custom location from localStorage if available
+        // Restores custom saved location from localStorage if present
         if (typeof window !== 'undefined') {
             try {
                 const saved = localStorage.getItem('nadi_saved_user_location');
@@ -107,7 +113,7 @@ export function useWeather() {
         let watchId: number | null = null;
 
         if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-            // Immediate fast GPS lock
+            // Initial GPS lookup
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     if (isManualOverride) return;
@@ -122,13 +128,12 @@ export function useWeather() {
                 { enableHighAccuracy: true, timeout: 5000 }
             );
 
-            // Continuous GPS watch
+            // Watches GPS and updates when device moves more than ~150 meters
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
                     if (isManualOverride) return;
                     const { latitude, longitude, accuracy } = position.coords;
                     if (accuracy < 5000) {
-                        // Only update if moved by more than ~150 meters (0.0015 degrees)
                         if (
                             lastLatRef.current !== null &&
                             lastLngRef.current !== null &&

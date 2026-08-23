@@ -1,3 +1,6 @@
+/**
+ * Returns a localized greeting string based on the current hour of the day.
+ */
 'use client';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useState, useEffect } from 'react';
@@ -17,3 +20,4 @@ export function useGreeting() {
 
   return greeting;
 }
+

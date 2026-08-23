@@ -1,14 +1,10 @@
-import { NextResponse, NextRequest } from 'next/server';
-
 /**
- * GET /api/bantuan/volunteers
+ * Volunteer Opportunities Aggregator API
  * 
- * Scrapes real volunteer opportunities from Malaysian platforms:
- * - mysukarelawan.gov.my (Government volunteer portal)
- * - Sukarelawan SIS (Suruhanjaya Syarikat Malaysia)
- * 
- * Falls back to Groq AI if scraping fails, but with Google-searchable URLs.
+ * Fetches Malaysian volunteer activities from official portals (e.g., MySukarelawan, YFBM, Mercy Malaysia)
+ * with Groq LLaMA enrichment and multi-language translation.
  */
+import { NextResponse, NextRequest } from 'next/server';
 
 interface VolunteerOpp {
     id: string;
@@ -24,7 +20,7 @@ interface VolunteerOpp {
     startDate: string;
 }
 
-// Known real Malaysian volunteer portals with search/listing pages
+// Malaysian volunteer platforms and official search URLs
 const REAL_PORTALS = [
     { name: 'MySukarelawan', url: 'https://mysukarelawan.gov.my', searchUrl: 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti' },
     { name: 'Yayasan Food Bank Malaysia (YFBM)', url: 'https://yfbm.org', searchUrl: 'https://yfbm.org' },
@@ -35,7 +31,7 @@ const REAL_PORTALS = [
     { name: 'Yayasan Sukarelawan Siswa', url: 'https://yss.mohe.gov.my', searchUrl: 'https://yss.mohe.gov.my' },
 ];
 
-// Known allowed domains for server-side scraping (SSRF protection)
+// Allowed domains for server-side scraping (SSRF protection)
 const ALLOWED_SCRAPE_DOMAINS = new Set(['mysukarelawan.gov.my']);
 
 function isAllowedScrapeUrl(targetUrl: string): boolean {
@@ -50,7 +46,7 @@ function isAllowedScrapeUrl(targetUrl: string): boolean {
 async function scrapeMysukarelawan(targetLang: string): Promise<VolunteerOpp[]> {
     try {
         const targetUrl = 'https://mysukarelawan.gov.my/ms/sukarelawan/carian-aktiviti';
-        // SECURITY: SSRF protection — enforce request-time domain allowlist
+        // Enforces domain allowlist before making server-side fetch
         if (!isAllowedScrapeUrl(targetUrl)) {
             console.error('[SSRF Guard] Blocked request to non-allowlisted domain:', targetUrl);
             return [];

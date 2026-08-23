@@ -1,16 +1,21 @@
+/**
+ * Sensor Telemetry API
+ * 
+ * Handles real-time river water level readings, weather telemetry, and flood status.
+ * Accepts data from hardware nodes (ESP32 / LoRaWAN) and dispatches Telegram flood alerts.
+ */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'crypto';
 import { checkSensorLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { sendTelegramAlert } from '@/src/lib/telegram';
 
-// SECURITY: Constant-time string comparison to prevent timing attacks
+// Constant-time string comparison to prevent timing attacks
 function safeCompare(a: string, b: string): boolean {
     try {
         const bufA = Buffer.from(a);
         const bufB = Buffer.from(b);
         if (bufA.length !== bufB.length) {
-            // Compare against self to keep constant time, then return false
             timingSafeEqual(bufA, bufA);
             return false;
         }
@@ -20,10 +25,10 @@ function safeCompare(a: string, b: string): boolean {
     }
 }
 
-// Telegram alert cooldown cache (30 minutes between alerts per sensor)
+// 30-minute cooldown cache between Telegram alerts per sensor
 const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
 
-// Global in-memory cache for dev mode / instant UI polling
+// Fallback in-memory sensor state for local testing and demo mode
 const inMemorySensors: Record<string, any> = {
     "Sungai Kelantan Node A": {
         id: "node-a-01",
@@ -32,7 +37,7 @@ const inMemorySensors: Record<string, any> = {
         jps_station_id: "0730671WL",
         jps_station_name: "Sg. Kelantan di Tambatan D'Raja (F1)",
         district: "Kota Bharu",
-        // Official JPS thresholds (metres)
+        // Official JPS thresholds in meters
         threshold_normal: 1.00,
         threshold_alert: 3.00,
         threshold_warning: 4.00,
@@ -50,7 +55,7 @@ const inMemorySensors: Record<string, any> = {
     }
 };
 
-// GET /api/bencana/sensors — fetch all sensors
+// GET: Fetches all sensors, merging Supabase records with in-memory telemetry
 export async function GET() {
     try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -102,18 +107,17 @@ export async function GET() {
     }
 }
 
-// POST /api/bencana/sensors — update sensor status (hardware node + simulation + admin)
-// SECURITY: Requires SENSOR_NODE_KEY or ADMIN_API_KEY in production to prevent unauthorized sensor data manipulation
+// POST: Updates sensor status from hardware node, simulation, or admin dashboard
 export async function POST(request: Request) {
     try {
         const now = Date.now();
 
-        // 1. HARDWARE AUTHENTICATION & RATE LIMITING
+        // 1. Hardware authentication & rate limiting
         const nodeKey = request.headers.get('x-node-key') || request.headers.get('x-device-key') || request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
         const expectedNodeKey = process.env.SENSOR_NODE_KEY || process.env.ADMIN_API_KEY || process.env.TTN_WEBHOOK_SECRET;
         const isKnownHardware = Boolean(nodeKey && expectedNodeKey && safeCompare(nodeKey, expectedNodeKey));
 
-        // Rate limit: 120 req/min for authenticated node, 15 req/min for unauthenticated IP
+        // Rate limit: 120 req/min for authenticated hardware, 15 req/min for public IP
         const clientIdentifier = isKnownHardware && nodeKey ? nodeKey : getClientIp(request.headers);
         const limitResult = checkSensorLimit(clientIdentifier, isKnownHardware);
 
@@ -125,7 +129,7 @@ export async function POST(request: Request) {
             return addRateLimitHeaders(errRes, limitResult);
         }
 
-        // In production: enforce authentication unless explicitly allowed for dev simulation
+        // In production: enforce authentication unless running in local development
         const isDevMode = process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_SIMULATION === 'true';
         if (!isDevMode) {
             if (!expectedNodeKey) {
@@ -151,7 +155,7 @@ export async function POST(request: Request) {
 
         const isFault = status === 'sensor_fault' || status === 'offline';
 
-        // Build update payload — always update status + last_reading, optionally telemetry fields
+        // Build update payload
         const updatePayload: Record<string, unknown> = {
             status,
             last_reading: new Date().toISOString(),
@@ -171,7 +175,7 @@ export async function POST(request: Request) {
         if (pressure_hpa !== undefined) { const v = validateNum(pressure_hpa, 800, 1200); if (v !== undefined) updatePayload.pressure_hpa = v; }
         if (rise_rate_cm_hr !== undefined) { const v = validateNum(rise_rate_cm_hr, -100, 200); if (v !== undefined) updatePayload.rise_rate_cm_hr = v; }
 
-        // Store live telemetry in memory cache for instant UI polling
+        // Cache telemetry in memory for instant local polling
         inMemorySensors[name] = {
             ...(inMemorySensors[name] || {}),
             ...updatePayload,
@@ -185,7 +189,7 @@ export async function POST(request: Request) {
                     process.env.SUPABASE_SERVICE_ROLE_KEY
                 );
 
-                // ATOMIC UPSERT: 1 round-trip, zero race conditions
+                // Upsert sensor row in Supabase
                 const { data, error } = await supabase
                     .from('nadi_bencana_sensors')
                     .upsert({ name, ...updatePayload }, { onConflict: 'name' })
@@ -195,7 +199,7 @@ export async function POST(request: Request) {
                 if (error) {
                     console.warn('Supabase DB notice:', error.message);
                 } else if (updatePayload.water_level !== undefined && data) {
-                    // Non-blocking background history insert
+                    // Record historical telemetry reading asynchronously
                     (async () => {
                         try {
                             await supabase
@@ -213,7 +217,7 @@ export async function POST(request: Request) {
                         }
                     })();
 
-                    // Telegram Alert Dispatch on Danger / Warning with 30-min cooldown
+                    // Dispatch Telegram alert if river enters danger or warning status
                     if ((status === 'danger' || status === 'warning') && typeof updatePayload.water_level === 'number') {
                         const cooldownRecord = telegramAlertCooldowns.get(data.id);
                         const COOLDOWN_MS = 30 * 60 * 1000;
@@ -223,7 +227,7 @@ export async function POST(request: Request) {
                         if (isCooldownExpired || isStatusEscalation) {
                             const riseRate = (updatePayload.rise_rate_cm_hr as number) || 0;
                             const rawLvl = updatePayload.water_level as number;
-                            // Convert meters to cm if telemetry arrives as meters (<=10m)
+                            // Convert meters to cm if reading is <= 10m
                             const currentLvlCm = rawLvl <= 10 ? rawLvl * 100 : rawLvl;
                             const DANGER_THRESHOLD_CM = 120; // 1.20 meters
                             let timeToDanger: string | undefined = undefined;

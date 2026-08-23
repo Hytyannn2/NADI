@@ -1,3 +1,9 @@
+/**
+ * Citizen Civic Reports & Road Defect View
+ * 
+ * Provides voice/text report submission, AI triage, automated PostGIS clustering,
+ * dashcam anomaly capture, and JKR/PBT complaint ticket generation.
+ */
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -38,9 +44,7 @@ import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
 import { DEFAULT_LOCATION } from '@/src/config/constants';
 
-// =============================================================================
-// OPTIMAL 7 CITIZEN-EYE CATEGORIES (SYMPTOMS CITIZENS REPORT)
-// =============================================================================
+// Civic Complaint Categories & Local Agency Routing
 export type CivicCategory = 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain';
 
 export interface CivicCategoryConfig {
@@ -52,7 +56,7 @@ export interface CivicCategoryConfig {
     activeBorder: string;
     activeGlow: string;
     keywords: string[];
-    suggestedAgency: string; // Invisible routing: JKR, JPS, TNB, Alam Flora, Landskap, PBT
+    suggestedAgency: string; // Automatic agency routing: JKR, JPS, TNB, Alam Flora, Landskap, PBT
 }
 
 export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [

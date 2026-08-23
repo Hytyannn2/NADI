@@ -1,3 +1,9 @@
+/**
+ * Citizen Authentication View
+ * 
+ * Handles user login, account registration, password reset, and interactive
+ * 3D particle globe canvas rendering.
+ */
 'use client';
 
 import pkg from '@/package.json';
@@ -60,8 +66,8 @@ const MALAYSIA_STATES = [
 ];
 
 /**
- * 3D Particle Globe Component using HTML5 Canvas 2D Perspective Projection
- * Smooth, lightweight 60FPS 3D rendering with glowing atmosphere and connecting data arcs
+ * 3D Particle Globe Component using HTML5 Canvas perspective projection.
+ * Renders rotating globe animation with Malaysian city markers and ambient connection arcs.
  */
 function ParticleGlobe({ isMobile = false }: { isMobile?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,7 +101,7 @@ function ParticleGlobe({ isMobile = false }: { isMobile?: boolean }) {
     };
     window.addEventListener('resize', handleResize);
 
-    // 100% MALAYSIA PLACES ONLY — Beautifully scattered for aesthetic decoration
+    // Malaysian city markers for animated globe visualization
     const MALAYSIA_PLACES = [
       'Kuala Lumpur', 'Kota Bharu', 'Penang', 'Johor Bahru', 'Kuching', 
       'Kota Kinabalu', 'Kuantan', 'Ipoh', 'Melaka', 'Kuala Terengganu', 

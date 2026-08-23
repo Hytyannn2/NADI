@@ -1,12 +1,12 @@
-// ============================================================================
-// NADI — Automated OpenStreetMap Geocoder for Kelantan PPS Evacuation Centers
-// Batch fetches exact Lat/Lng coordinates for all ~628 centers in Kelantan
-// ============================================================================
+/**
+ * OpenStreetMap Geocoder Script for Kelantan PPS Evacuation Centers
+ * Batch fetches latitude and longitude coordinates for relief shelters in Kelantan.
+ */
 
 const fs = require('fs');
 const path = require('path');
 
-// Extract RAW_PPS_DATA cleanly
+// Extracts raw PPS dataset from source file
 const ppsDataPath = path.join(__dirname, '../src/data/kelantanPpsCenters.ts');
 const fileContent = fs.readFileSync(ppsDataPath, 'utf8');
 

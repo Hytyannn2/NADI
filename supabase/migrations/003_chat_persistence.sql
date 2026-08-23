@@ -1,7 +1,5 @@
--- ============================================
--- NADI Migration 003
--- Creates table for Volunteer Chat Persistence
--- ============================================
+-- Migration 003: Volunteer Chat Persistence
+-- Creates table and Realtime replication for disaster coordinator messaging.
 
 CREATE TABLE IF NOT EXISTS public.nadi_bencana_chat (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

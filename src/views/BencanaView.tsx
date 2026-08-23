@@ -1,3 +1,9 @@
+/**
+ * Disaster Management & Flood Monitoring View
+ * 
+ * Displays live IoT river water level sensors, JPS telemetry, nearest evacuation
+ * centers (PPS), weather radars, and emergency SOS coordination.
+ */
 'use client';
 import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check, Share2 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -50,7 +56,7 @@ export interface EvacCenter {
     lng?: number;
 }
 
-// Calculate Haversine distance in km between two GPS points
+// Calculates Haversine distance in km between two GPS coordinates
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);

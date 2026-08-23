@@ -1,8 +1,14 @@
+/**
+ * Theme & Accessibility Context
+ * 
+ * Manages dark/light theme, font size, high contrast, colorblind filters,
+ * motion preferences, IoT polling rates, and Web Audio sound effects.
+ */
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { MotionConfig } from 'motion/react';
 
-// ── Types ──────────────────────────────────────────────────────────
+// Types & Config
 export type ThemeId = 'light' | 'dark' | 'system';
 export type FontSize = 'S' | 'M' | 'L';
 export type ColorblindMode = 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
@@ -36,12 +42,12 @@ export const SENSOR_SAMPLING_RATES: { value: SensorSamplingRate; label: string }
   { value: '1h', label: '1 jam' },
 ];
 
-// ── Context Interface ──────────────────────────────────────────────
+// Context State & Utilities Interface
 interface ThemeContextType {
-  // Existing
+  // Theme & Appearance
   theme: ThemeConfig;
   themeId: ThemeId;
-  resolvedTheme: 'light' | 'dark'; // actual applied theme (resolves 'system')
+  resolvedTheme: 'light' | 'dark'; // Actual active theme ('system' resolved to 'light' or 'dark')
   fontSize: FontSize;
   highContrast: boolean;
   colorblindMode: ColorblindMode;
@@ -52,10 +58,10 @@ interface ThemeContextType {
   compactView: boolean;
   autoRefresh: AutoRefreshRate;
 
-  // New — Sensor & IoT
+  // Sensor & IoT
   sensorSamplingRate: SensorSamplingRate;
 
-  // New — Notifications
+  // Notifications
   emergencySiren: boolean;
   notifAduan: boolean;
   notifBantuan: boolean;
@@ -65,11 +71,11 @@ interface ThemeContextType {
   quietHoursStart: string; // HH:mm
   quietHoursEnd: string;   // HH:mm
 
-  // New — Privacy
+  // Privacy & Touch
   locationPrecision: LocationPrecision;
   largeTouchTargets: boolean;
 
-  // Setters — Existing
+  // Setters
   setThemeId: (id: ThemeId) => void;
   setFontSize: (fs: FontSize) => void;
   setHighContrast: (val: boolean) => void;
@@ -81,7 +87,6 @@ interface ThemeContextType {
   setCompactView: (val: boolean) => void;
   setAutoRefresh: (rate: AutoRefreshRate) => void;
 
-  // Setters — New
   setSensorSamplingRate: (rate: SensorSamplingRate) => void;
   setEmergencySiren: (val: boolean) => void;
   setNotifAduan: (val: boolean) => void;
@@ -94,7 +99,7 @@ interface ThemeContextType {
   setLocationPrecision: (mode: LocationPrecision) => void;
   setLargeTouchTargets: (val: boolean) => void;
 
-  // Functional Pipeline Utilities
+  // Helper Functions
   formatTime: (dateInput?: Date | string | number) => string;
   applyLocationPrecision: (lat: number, lng: number) => { lat: number; lng: number };
   getSamplingIntervalMs: () => number;
@@ -130,7 +135,7 @@ const defaults: ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType>(defaults);
 
-// ── Helper: localStorage get/set with prefix ──────────────────────
+// LocalStorage helpers with 'nadi_' key prefix
 function lsGet(key: string): string | null {
   try { return localStorage.getItem(`nadi_${key}`); } catch { return null; }
 }
@@ -138,7 +143,6 @@ function lsSet(key: string, val: string) {
   try { localStorage.setItem(`nadi_${key}`, val); } catch {}
 }
 
-// ── Provider ──────────────────────────────────────────────────────
 export function ThemeProvider({ children }: { children: ReactNode }) {
   // Existing state
   const [themeId, setThemeIdState] = useState<ThemeId>('dark');
@@ -170,7 +174,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [locationPrecision, setLocationPrecisionState] = useState<LocationPrecision>('high');
   const [largeTouchTargets, setLargeTouchTargetsState] = useState(false);
 
-  // ── Load from localStorage on mount ────────────────────────────
+  // 1. Load persisted preferences from localStorage on mount
   useEffect(() => {
     const s = lsGet('theme');
     if (s && (s === 'light' || s === 'dark' || s === 'system')) setThemeIdState(s as ThemeId);
@@ -193,7 +197,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const ar = lsGet('autorefresh');
     if (ar) setAutoRefreshState(ar as AutoRefreshRate);
 
-    // New settings
     const ssr = lsGet('sensorsampling');
     if (ssr) setSensorSamplingRateState(ssr as SensorSamplingRate);
     const es = lsGet('emergencysiren');
@@ -218,7 +221,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (ltt !== null) setLargeTouchTargetsState(ltt === 'true');
   }, []);
 
-  // ── System theme listener ──────────────────────────────────────
+  // 2. Resolve 'system' theme preference using OS media query
   useEffect(() => {
     const resolveTheme = () => {
       if (themeId === 'system') {
@@ -239,7 +242,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [themeId]);
 
-  // ── Apply theme & classes to DOM ───────────────────────────────
+  // 3. Apply active theme and accessibility classes to the DOM root
   useEffect(() => {
     const root = document.documentElement;
 
@@ -270,7 +273,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.fontSize = FONT_SIZES[fontSize];
   }, [resolvedTheme, fontSize, highContrast, dyslexiaFont, colorblindMode, compactView, largeTouchTargets]);
 
-  // ── Persisted setters ──────────────────────────────────────────
+  // 4. State setters that persist values to localStorage
   const setThemeId = (id: ThemeId) => { setThemeIdState(id); lsSet('theme', id); };
   const setFontSize = (fs: FontSize) => { setFontSizeState(fs); lsSet('fontsize', fs); };
   const setHighContrast = (val: boolean) => { setHighContrastState(val); lsSet('highcontrast', val.toString()); };
@@ -282,7 +285,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setCompactView = (val: boolean) => { setCompactViewState(val); lsSet('compactview', val.toString()); };
   const setAutoRefresh = (rate: AutoRefreshRate) => { setAutoRefreshState(rate); lsSet('autorefresh', rate); };
 
-  // New setters
   const setSensorSamplingRate = (rate: SensorSamplingRate) => { setSensorSamplingRateState(rate); lsSet('sensorsampling', rate); };
   const setEmergencySiren = (val: boolean) => { setEmergencySirenState(val); lsSet('emergencysiren', val.toString()); };
   const setNotifAduan = (val: boolean) => { setNotifAduanState(val); lsSet('notifaduan', val.toString()); };
@@ -295,7 +297,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setLocationPrecision = (mode: LocationPrecision) => { setLocationPrecisionState(mode); lsSet('locationprecision', mode); };
   const setLargeTouchTargets = (val: boolean) => { setLargeTouchTargetsState(val); lsSet('largetouchtargets', val.toString()); };
 
-  // ── formatTime utility ─────────────────────────────────────────
+  // Formats time in 12h or 24h format
   const formatTime = useCallback((dateInput?: Date | string | number): string => {
     const d = dateInput ? new Date(dateInput) : new Date();
     if (isNaN(d.getTime())) return '';
@@ -313,10 +315,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   }, [clockFormat]);
 
-  // ── applyLocationPrecision utility ────────────────────────────
+  // Adds an intentional ~400m offset if fuzzy privacy mode is selected
   const applyLocationPrecision = useCallback((lat: number, lng: number): { lat: number; lng: number } => {
     if (locationPrecision === 'high') return { lat, lng };
-    // Fuzzy mode: offset by ~400-500m (approx 0.004 degrees)
     const latOffset = (Math.sin(lat * 1000) * 0.0035) + 0.001;
     const lngOffset = (Math.cos(lng * 1000) * 0.0035) + 0.001;
     return {
@@ -325,7 +326,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [locationPrecision]);
 
-  // ── getSamplingIntervalMs utility ─────────────────────────────
+  // Returns sensor sampling interval in milliseconds
   const getSamplingIntervalMs = useCallback((): number => {
     switch (sensorSamplingRate) {
       case '30s': return 30000;
@@ -339,7 +340,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [sensorSamplingRate]);
 
-  // ── getAutoRefreshIntervalMs utility ──────────────────────────
+  // Returns dashboard refresh interval in milliseconds (or null if disabled)
   const getAutoRefreshIntervalMs = useCallback((): number | null => {
     switch (autoRefresh) {
       case '30s': return 30000;
@@ -350,12 +351,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [autoRefresh]);
 
-  // ── isNotificationAllowed utility ─────────────────────────────
+  // Checks whether a notification should trigger based on user filters and quiet hours
   const isNotificationAllowed = useCallback((category: 'aduan' | 'bantuan' | 'komuniti' | 'disaster', distanceKm?: number): boolean => {
-    // Disaster / Bencana alerts ALWAYS bypass quiet hours
+    // Emergency and disaster alerts always bypass quiet hours
     if (category === 'disaster') return true;
 
-    // Check quiet hours (DND)
+    // Check quiet hours (Do Not Disturb)
     if (quietHoursEnabled) {
       const now = new Date();
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -366,12 +367,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
       const inQuietHours = startMinutes <= endMinutes
         ? currentMinutes >= startMinutes && currentMinutes <= endMinutes
-        : currentMinutes >= startMinutes || currentMinutes <= endMinutes; // spans midnight
+        : currentMinutes >= startMinutes || currentMinutes <= endMinutes;
 
       if (inQuietHours) return false;
     }
 
-    // Check category toggles
+    // Category toggles and distance radius checks
     if (category === 'aduan' && !notifAduan) return false;
     if (category === 'komuniti' && !notifKomuniti) return false;
     if (category === 'bantuan') {
@@ -385,7 +386,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return true;
   }, [quietHoursEnabled, quietHoursStart, quietHoursEnd, notifAduan, notifBantuan, notifBantuanRadius, notifKomuniti]);
 
-  // ── playAlertSound utility ────────────────────────────────────
+  // Plays synthetic sound effects using the Web Audio API
   const playAlertSound = useCallback((type: 'beep' | 'siren' | 'success' = 'beep') => {
     if (type === 'siren' && !emergencySiren) return;
     if (type !== 'siren' && !soundEnabled) return;

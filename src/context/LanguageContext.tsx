@@ -1,3 +1,8 @@
+/**
+ * Multi-Language Localization Context
+ * 
+ * Provides translation lookup (t) and language switching across Malay, English, Chinese, Tamil, and Arabic.
+ */
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -1097,7 +1102,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       document.head.appendChild(script);
     }
 
-    // Restore saved language
+    // Restores previously saved language from localStorage
     try {
       const saved = localStorage.getItem('nadi_lang') as LangCode | null;
       if (saved && LANGUAGES.some((l) => l.code === saved)) {

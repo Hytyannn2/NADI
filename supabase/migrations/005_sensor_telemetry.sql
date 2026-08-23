@@ -1,9 +1,5 @@
--- ============================================
--- NADI Migration 005: Sensor Telemetry
--- Adds telemetry columns to sensors table
--- Creates time-series readings history table
--- Includes BME280 environmental data support
--- ============================================
+-- Migration 005: Sensor Telemetry & Historical Readings
+-- Expands IoT sensor table with BME280 metrics and creates time-series readings history table.
 
 -- ==========================================
 -- 1. EXPAND SENSORS TABLE FOR REAL HARDWARE

@@ -1,3 +1,9 @@
+/**
+ * Community Economy & Local Commerce View
+ * 
+ * Displays local employment vacancies (fair-wage filtered) and micro-vendor profiles
+ * with distance-based radius filtering and direct WhatsApp contact actions.
+ */
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +17,7 @@ import {
     Building2, ShieldCheck, Navigation
 } from 'lucide-react';
 
-// ===== Types =====
+// Type Definitions
 export interface Job {
     id: string;
     title: string;

@@ -1,3 +1,9 @@
+/**
+ * Disaster Relief Volunteer Direct Messaging Component
+ * 
+ * Provides real-time messaging between victims and volunteer coordinators
+ * backed by Supabase Realtime Postgres change channels.
+ */
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { Send, X, Camera } from 'lucide-react';
@@ -21,7 +27,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
     useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
 
     useEffect(() => {
-        // Fetch existing messages
+        // Fetches chat history for this volunteer assignment
         supabase.from('nadi_bencana_chat').select('*').eq('job_name', jobName).order('created_at', { ascending: true })
             .then(({ data }) => {
                 if (data && data.length > 0) {
@@ -35,7 +41,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
                 }
             });
 
-        // Real-time Subscription
+        // Supabase Realtime channel subscription for instant messaging
         const channel = supabase.channel(`chat_${jobName.replace(/[^a-zA-Z0-9]/g, '_')}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_bencana_chat', filter: `job_name=eq.${jobName}` }, (payload) => {
                 if (payload.new && payload.new.user_id !== user?.id) {
@@ -57,7 +63,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
         const msgText = input.trim();
         setInput('');
         
-        // Optimistic UI
+        // Optimistically appends message to local UI state
         const tempId = Date.now().toString();
         setMessages(prev => [...prev, { id: tempId, text: msgText, sender: 'me', time: 'Now' }]);
 

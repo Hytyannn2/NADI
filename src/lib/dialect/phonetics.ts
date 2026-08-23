@@ -1,37 +1,28 @@
 /**
- * NADI Dialect Engine — Malay Phonetic Normalizer (TypeScript Port)
- * =================================================================
- * Converts dialect-specific spellings to a normalized phonetic form
- * so that variant spellings can be clustered together.
+ * Malay Dialect Phonetic Normalizer
  *
- * Ported from dialect-engine/phonetics.py
- *
- * Examples:
- *   ghaso → raso → rasa  (all normalize to "rasa")
- *   ambo → ambe           (both normalize to "amb_")
+ * Converts dialect spellings into normalized phonetic forms to help match variants.
+ * Example: "ghaso" -> "raso" -> "rasa"
  */
 
-// ===== Malay Dialect Phonetic Rules =====
-// These rules transform dialect text toward Standard Malay.
-// Applied in order — earlier rules take priority.
+// Phonetic transformation rules applied in sequential order
 const RULES: [string, string][] = [
-  // Kelantanese aspirated R variants
+  // Kelantanese aspirated 'r' variants
   ['gh', 'r'], ['^rh', 'r'],
-  // Geminate (doubled) consonants at word start
+  // Initial doubled consonants
   ['^bb', 'b'], ['^cc', 'c'], ['^dd', 'd'], ['^gg', 'g'], ['^jj', 'j'],
   ['^kk', 'k'], ['^ll', 'l'], ['^mm', 'm'], ['^nn', 'n'], ['^pp', 'p'],
   ['^ss', 's'], ['^tt', 't'],
-  // Final vowel normalizations (Kelantanese drops final 'a' → 'o'/'e')
+  // Final vowel and nasal endings
   ['o$', 'a'], ['e$', 'a'], ['ang$', 'an'], ['eng$', 'en'],
-  // Consonant normalizations
+  // Final consonants
   ['q$', 'k'], ['ih$', 'ir'], ['^si(?=k\\b)', 'ti'],
 ];
 
 const COMPILED = RULES.map(([p, r]) => [new RegExp(p, 'g'), r] as const);
 
 /**
- * Apply Kelantanese phonetic normalization rules to bring a dialect word
- * closer to its Standard Malay root form.
+ * Normalizes a dialect word closer to its standard Malay root.
  */
 export function normalizePhonetic(word: string): string {
   let out = word.toLowerCase().trim();
@@ -40,18 +31,16 @@ export function normalizePhonetic(word: string): string {
 }
 
 /**
- * Extract consonant skeleton by removing all vowels and whitespace.
- * In Malay dialects, vowels mutate wildly between regions, but
- * consonant skeletons stay almost invariant.
- * e.g. "gocoh" → "gch", "kecek" → "kck"
+ * Extracts consonants by stripping vowels and spaces.
+ * In Malay dialects, vowels shift frequently while consonants tend to stay consistent.
+ * Example: "gocoh" -> "gch", "kecek" -> "kck"
  */
 export function extractConsonantSkeleton(word: string): string {
   return word.toLowerCase().trim().replace(/[aeiou\s]/g, '');
 }
 
 /**
- * Compute Levenshtein edit distance between two strings.
- * Used for fuzzy dialect matching when exact/phonetic match fails.
+ * Calculates Levenshtein edit distance between two strings.
  */
 export function levenshteinDistance(s1: string, s2: string): number {
   if (s1.length < s2.length) return levenshteinDistance(s2, s1);
@@ -67,9 +56,7 @@ export function levenshteinDistance(s1: string, s2: string): number {
 }
 
 /**
- * Compute hybrid similarity score between two words.
- * 50% Consonant Skeleton Match + 50% Levenshtein Edit Ratio.
- * This hybrid approach achieves >92% accuracy on Kelantanese phonetic variants.
+ * Calculates similarity (0.0 to 1.0) using 50% consonant skeleton match and 50% Levenshtein ratio.
  */
 export function computeSimilarity(w1: string, w2: string): number {
   const n1 = normalizePhonetic(w1), n2 = normalizePhonetic(w2);
@@ -80,8 +67,9 @@ export function computeSimilarity(w1: string, w2: string): number {
 }
 
 /**
- * Normalize an entire phrase by splitting into words and normalizing each.
+ * Normalizes all words in a phrase.
  */
 export function normalizePhrase(text: string): string {
   return text.toLowerCase().trim().split(/\s+/).map(normalizePhonetic).join(' ');
 }
+

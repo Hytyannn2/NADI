@@ -1,3 +1,9 @@
+/**
+ * Dialect Feedback & Corrections API
+ * 
+ * Records crowd corrections for Kelantanese/local Malay dialect terms and exports
+ * recent phonetic mappings for LLM system prompt context.
+ */
 import { NextResponse } from 'next/server';
 import { addCorrection, exportForPrompt } from '@/src/lib/dialect/engine';
 import { checkDialectFeedbackLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
@@ -23,7 +29,7 @@ export async function POST(request: Request) {
             );
         }
 
-        // Use the native TypeScript dialect engine to persist the correction
+        // Persists user correction to dialect database
         let engineResult = null;
         try {
             if (correctMeaning?.trim()) {
@@ -53,12 +59,7 @@ export async function POST(request: Request) {
     }
 }
 
-/**
- * GET /api/dialect/feedback
- * 
- * Returns dialect context for AI prompt enrichment.
- * Uses the native TypeScript engine directly — no Python needed.
- */
+// GET: Exports dialect translation pairs for AI prompt augmentation
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const region = searchParams.get('region') || undefined;

@@ -1,3 +1,8 @@
+/**
+ * Desktop Resizable Sidebar Navigation Component
+ * 
+ * Provides collapsible, draggable navigation between NADI modules.
+ */
 'use client';
 
 import { useState } from 'react';
@@ -25,10 +30,10 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
   const { t } = useLanguage();
   const [isResizing, setIsResizing] = useState(false);
 
-  // Threshold for collapsed icon-only mode (180px gives a rock-solid, non-distorting layout)
+  // Threshold for collapsed icon-only layout (<180px)
   const isCollapsed = sidebarWidth < 180;
 
-  // Pointer dragging handler for 5px resizable handle
+  // Pointer drag handler for resizable sidebar handle
   const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();

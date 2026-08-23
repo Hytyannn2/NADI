@@ -1,16 +1,13 @@
 /**
- * NADI Telegram Alert Service
+ * Telegram Alert Notification Service
  *
- * Sends flood alerts to a Telegram group/channel.
- * Used by the webhook (real sensor data) and simulation (testing).
+ * Dispatches flood alert messages to a configured Telegram chat or channel.
  *
  * Setup:
- * 1. Message @BotFather on Telegram → /newbot → copy the token
- * 2. Add the bot to your group → send a message in the group
- * 3. Visit https://api.telegram.org/bot<TOKEN>/getUpdates → find chat_id
- * 4. Add to .env.local:
- *    TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
- *    TELEGRAM_CHAT_ID=-100XXXXXXXXXX
+ * 1. Create a bot via @BotFather and copy the API token.
+ * 2. Add the bot to your channel/group and send a test message.
+ * 3. Fetch your chat_id via https://api.telegram.org/bot<TOKEN>/getUpdates.
+ * 4. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env.local.
  */
 
 const TELEGRAM_API = 'https://api.telegram.org/bot';
@@ -28,8 +25,8 @@ interface TelegramAlertData {
 }
 
 /**
- * Send a flood alert to the configured Telegram group.
- * Returns true if sent, false if Telegram is not configured (non-fatal).
+ * Sends a flood alert message to the configured Telegram chat.
+ * Returns false if credentials are not configured or if delivery fails.
  */
 export async function sendTelegramAlert(data: TelegramAlertData): Promise<boolean> {
     const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -44,12 +41,12 @@ export async function sendTelegramAlert(data: TelegramAlertData): Promise<boolea
     const icon = isDanger ? '' : '';
     const statusLabel = isDanger ? 'BAHAYA' : 'AMARAN AWAL';
 
-    // Estimate time to danger level (120cm)
+    // Calculates estimated hours until water level reaches danger threshold (120 cm)
     const timeEstimate = data.riseRate && data.riseRate > 0 && data.waterLevel < 120
         ? ` Anggaran ${Math.max(1, Math.round((120 - data.waterLevel) / data.riseRate))} jam ke paras bahaya`
         : null;
 
-    // Build message in Malay (target audience: rural Kelantan communities)
+    // Formats alert message in Malay for local community readability
     const lines: string[] = [
         `${icon} ${statusLabel} — JAGA KELANTAN`,
         ``,
@@ -112,7 +109,7 @@ export async function sendTelegramAlert(data: TelegramAlertData): Promise<boolea
 }
 
 /**
- * Send a test/heartbeat message to verify Telegram is configured correctly.
+ * Sends a test heartbeat to confirm that Telegram bot credentials are working.
  */
 export async function sendTelegramTest(): Promise<{ success: boolean; error?: string }> {
     const token = process.env.TELEGRAM_BOT_TOKEN;

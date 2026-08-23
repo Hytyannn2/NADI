@@ -1,3 +1,9 @@
+/**
+ * Global Voice Microphone Component
+ * 
+ * Provides one-tap speech-to-text recording with real-time interim results
+ * using the browser Web Speech API.
+ */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -48,7 +54,7 @@ export default function GlobalVoiceMic({ onTranscript, size = 'md', className = 
         }
 
         const recognition = new SpeechRecognition();
-        recognition.lang = 'ms-MY'; // Malaysian Malay (closest to Kelantan dialect)
+        recognition.lang = 'ms-MY'; // Malaysian Malay speech model
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;

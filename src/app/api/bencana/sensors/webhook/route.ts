@@ -1,10 +1,16 @@
+/**
+ * IoT Sensor Webhook Ingestion API
+ * 
+ * Receives LoRaWAN / The Things Network (TTN) and direct ESP32 telemetry,
+ * updates river water levels, records reading history, and triggers Telegram flood alerts.
+ */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendTelegramAlert } from '@/src/lib/telegram';
 import { checkSensorLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { timingSafeEqual } from 'crypto';
 
-// SECURITY: Constant-time string comparison to prevent timing attacks
+// Constant-time string comparison to prevent timing attacks
 function safeCompare(a: string, b: string): boolean {
     try {
         const bufA = Buffer.from(a);
@@ -19,13 +25,7 @@ function safeCompare(a: string, b: string): boolean {
     }
 }
 
-/**
- * POST /api/bencana/sensors/webhook
- *
- * Receives uplink messages from The Things Network (TTN) or direct ESP32 IoT Nodes.
- * This is the bridge between physical water level sensors and NADI.
- */
-// In-memory cache for webhook replay protection and alert cooldowns
+// In-memory cache for replay attack prevention and Telegram alert cooldowns
 const usedNonces = new Map<string, number>();
 const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
 
@@ -40,13 +40,13 @@ export async function POST(request: Request) {
     try {
         const now = Date.now();
 
-        // SECURITY: Payload size restriction (max 50KB)
+        // Enforces max payload size of 50KB
         const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
         if (contentLength > 50000) {
             return NextResponse.json({ success: false, error: 'Payload too large (max 50KB)' }, { status: 413 });
         }
 
-        // HARDWARE EXEMPTION & RATE LIMITING
+        // Hardware credential validation & rate limiting
         const nodeKey = request.headers.get('x-node-key') || request.headers.get('x-device-key') || request.headers.get('x-webhook-secret');
         const expectedNodeKey = process.env.SENSOR_NODE_KEY || process.env.TTN_WEBHOOK_SECRET;
         const isKnownHardware = Boolean(nodeKey && expectedNodeKey && safeCompare(nodeKey, expectedNodeKey));
@@ -62,12 +62,11 @@ export async function POST(request: Request) {
             return addRateLimitHeaders(errRes, limitResult);
         }
 
-        // SECURITY: Webhook authentication with nonce and timestamp replay protection
+        // Replay protection: validate timestamp freshness (max 5 minutes tolerance)
         const webhookSecret = process.env.TTN_WEBHOOK_SECRET;
         const timestampHeader = request.headers.get('x-timestamp') || request.headers.get('x-ttn-timestamp');
         const nonce = request.headers.get('x-nonce') || request.headers.get('x-signature') || request.headers.get('x-ttn-signature');
 
-        // Replay protection: Validate timestamp freshness (max 5 minutes tolerance)
         if (timestampHeader) {
             const reqTime = parseInt(timestampHeader, 10);
             const nowSec = Math.floor(now / 1000);
@@ -76,17 +75,16 @@ export async function POST(request: Request) {
             }
         }
 
-        // Replay protection: Validate nonce uniqueness
+        // Replay protection: validate nonce uniqueness
         if (nonce) {
             cleanExpiredNonces();
             if (usedNonces.has(nonce)) {
                 return NextResponse.json({ success: false, error: 'Replay attack detected: nonce already processed' }, { status: 409 });
             }
-            usedNonces.set(nonce, now + 600000); // Store for 10 mins
+            usedNonces.set(nonce, now + 600000); // Stores for 10 minutes
         }
 
-        // SECURITY: Webhook authentication — enforce secret check regardless of NODE_ENV
-        // To bypass auth during local testing, ALLOW_UNAUTHENTICATED_WEBHOOK_DEV=true must be explicitly set
+        // Webhook secret validation
         const allowUnauthenticatedDev = process.env.ALLOW_UNAUTHENTICATED_WEBHOOK_DEV === 'true';
 
         if (!allowUnauthenticatedDev) {

@@ -1,9 +1,10 @@
-// ============================================================================
-// NADI — Centralised Application Constants
-// Single source of truth for default values used across the entire platform.
-// ============================================================================
+/**
+ * Application Constants
+ * 
+ * Centralized default coordinates, IoT sensor identifiers, and regional districts.
+ */
 
-/** Default geo-coordinates (Kota Bharu, Kelantan) used when GPS is unavailable */
+// Default fallback coordinates (Kota Bharu, Kelantan) when user GPS is unavailable
 export const DEFAULT_LOCATION = {
   lat: 6.1254,
   lng: 102.2381,
@@ -11,10 +12,10 @@ export const DEFAULT_LOCATION = {
   state: 'Kelantan',
 } as const;
 
-/** Default IoT sensor node name (primary Supabase filter for BencanaView & CivicHeatMap) */
+// Default primary IoT river sensor node name
 export const DEFAULT_SENSOR_NODE = 'Sungai Kelantan Node A';
 
-/** All 10 Kelantan Jajahan (districts) — derives from kelantanPpsCenters.ts JAJAHAN_CENTER_COORDS */
+// The 10 official Kelantan administrative districts (Jajahan)
 export const KELANTAN_JAJAHAN = [
   'Kota Bharu',
   'Pasir Mas',

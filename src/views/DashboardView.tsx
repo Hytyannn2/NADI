@@ -1,3 +1,9 @@
+/**
+ * Main Civic Dashboard View
+ * 
+ * Provides high-level overview of live weather conditions, flood risk index,
+ * quick module shortcuts, and community status.
+ */
 'use client';
 
 import { motion } from 'motion/react';
@@ -18,7 +24,7 @@ export default function DashboardView() {
 
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
 
-    // Greeting based on time of day
+    // Computes localized greeting based on time of day
     const hour = new Date().getHours();
     const greetingText = hour < 12 
         ? (t('greeting.morning') || 'Selamat Pagi') 
@@ -36,7 +42,7 @@ export default function DashboardView() {
     return (
         <div className="p-5 min-h-full w-full flex flex-col relative z-0">
 
-            {/* ═══════ 1. CIVIC WELCOME HEADER ═══════ */}
+            {/* 1. Civic Welcome Header */}
             <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -61,7 +67,7 @@ export default function DashboardView() {
                 </div>
             </motion.div>
 
-            {/* ═══════ 2. WEATHER + LIVE SENSING ═══════ */}
+            {/* 2. Weather & Live Sensors Section */}
             <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}

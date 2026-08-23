@@ -1,3 +1,6 @@
+/**
+ * Server-side Supabase client for Server Components and Route Handlers.
+ */
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -17,9 +20,8 @@ export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) =
           try {
             cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Server Components cannot write cookies directly.
+            // Session refreshing is handled by the middleware.
           }
         },
       },

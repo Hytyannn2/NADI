@@ -1,11 +1,5 @@
--- =============================================================================
--- NADI Migration 008: Master Database Hardening
--- =============================================================================
--- Patches: RLS Spoofing, FK Indexes, Chat UUID Link, PPS PostGIS, Gamification
---          Lockdown, Sensor Constraints, Clustering RPC Fix, TOAST Optimization
---
--- Run this in Supabase SQL Editor after migrations 001–007 have been applied.
--- =============================================================================
+-- Migration 008: Master Database Security & Performance Hardening
+-- Hardens RLS insert identity matching, adds foreign key indexes, enforces spatial geography constraints, and optimizes TOAST storage.
 
 
 -- ==========================================

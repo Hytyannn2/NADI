@@ -1,3 +1,6 @@
+/**
+ * Middleware helper for updating Supabase auth cookies on incoming requests.
+ */
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -32,8 +35,9 @@ export async function createClient(request: NextRequest) {
     },
   );
 
-  // IMPORTANT: You *must* call supabase.auth.getUser() to refresh the session!
+  // Refreshes the session token so authenticated requests stay valid
   await supabase.auth.getUser();
 
   return supabaseResponse;
 }
+

@@ -1,6 +1,12 @@
+/**
+ * Weather & Flood Risk Index API
+ * 
+ * Fetches real-time weather and air quality metrics from Open-Meteo,
+ * resolves Malaysian location names via Nominatim, and calculates Flood Risk Index (FRI).
+ */
 import { NextResponse } from 'next/server';
 
-// Comprehensive Malaysian District & City Centroids for instant offline fallback reverse-geocoding
+// Centroid coordinates for Malaysian districts and cities (used for offline reverse geocoding fallback)
 const MALAYSIA_LOCATIONS: { name: string; state: string; lat: number; lng: number }[] = [
     // Terengganu
     { name: 'Kuala Terengganu', state: 'Terengganu', lat: 5.3302, lng: 103.1408 },
@@ -82,6 +88,7 @@ const MALAYSIA_LOCATIONS: { name: string; state: string; lat: number; lng: numbe
     { name: 'Labuan', state: 'W.P. Labuan', lat: 5.2831, lng: 115.2308 }
 ];
 
+// Returns the nearest city/district centroid within ~35km
 function getNearestLocation(lat: number, lng: number): { name: string; state: string } {
     let bestDist = Infinity;
     let bestLoc = { name: 'Lokasi Semasa', state: 'Malaysia' };
@@ -95,13 +102,13 @@ function getNearestLocation(lat: number, lng: number): { name: string; state: st
             bestLoc = loc;
         }
     }
-    // If within ~35km of a known town/city centroid
     if (bestDist < 0.15) {
         return bestLoc;
     }
     return { name: `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`, state: 'Malaysia' };
 }
 
+// GET: Fetches weather, air quality index, and calculates flood risk index (FRI)
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const latParam = searchParams.get('lat');
@@ -111,7 +118,7 @@ export async function GET(request: Request) {
     const numLng = lngParam ? parseFloat(lngParam) : 101.6869;
 
     try {
-        // Parallel fetch: Open-Meteo Weather, Open-Meteo AQI, and Server-Side Reverse Geocoding
+        // Parallel queries: Open-Meteo Weather, Open-Meteo AQI, and Nominatim reverse geocoding
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${numLat}&longitude=${numLng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,weather_code,wind_speed_10m,surface_pressure&minutely_15=precipitation&timezone=auto`;
         const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${numLat}&longitude=${numLng}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone&timezone=auto`;
         const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?lat=${numLat}&lon=${numLng}&format=json&zoom=14&addressdetails=1`;
@@ -139,7 +146,7 @@ export async function GET(request: Request) {
             }
         }
 
-        // Offline geometric nearest-city fallback if Nominatim failed or was empty
+        // Geometric nearest-city fallback if Nominatim reverse geocoding fails
         if (!resolvedLocationName) {
             const nearest = getNearestLocation(numLat, numLng);
             resolvedLocationName = nearest.name;
@@ -176,6 +183,7 @@ export async function GET(request: Request) {
         const humidity = currentW.relative_humidity_2m || 70;
         const pressure = currentW.surface_pressure || currentW.pressure_msl || 1013;
 
+        // Calculates Flood Risk Index (FRI) from rain intensity, relative humidity, and barometric drop
         const pressureDrop = Math.max(0, 1013 - pressure);
         const fri = (rainMm * 5.0) + ((humidity / 100) * 10.0) + (pressureDrop * 1.5);
 

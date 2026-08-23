@@ -1,3 +1,8 @@
+/**
+ * 404 Not Found Page
+ * 
+ * Displays user-friendly error state with quick navigation shortcuts to home or complaint form.
+ */
 import Link from 'next/link';
 import { AlertTriangle, Home, ClipboardList, ShieldAlert } from 'lucide-react';
 
@@ -9,12 +14,12 @@ export const metadata = {
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-[#050507] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
-      {/* Ambient background glows */}
+      {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-80 h-80 bg-[#C5A367]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-md w-full text-center space-y-6 relative z-10">
-        {/* Badge */}
+        {/* Error Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-widest">
           <AlertTriangle className="w-4 h-4 text-red-400" /> Ralat 404 • Halaman Tidak Ditemui
         </div>

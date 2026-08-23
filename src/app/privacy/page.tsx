@@ -1,3 +1,6 @@
+/**
+ * Privacy Policy Page (PDPA 2010 Compliance)
+ */
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Lock, EyeOff, Server, FileText } from 'lucide-react';
 

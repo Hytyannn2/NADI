@@ -1,9 +1,5 @@
--- ============================================
--- NADI Migration 007
--- Pothole Detection: Sensor Fusion + Crowdsource Clustering
--- Adds columns for speed, gyroscope, confidence scoring,
--- spatial clustering via PostGIS, and dashcam snapshots
--- ============================================
+-- Migration 007: Pothole Sensor Fusion & PostGIS Spatial Clustering
+-- Adds PostGIS spatial indexing, sensor fusion metrics, and atomic cluster verification RPC.
 
 -- 1. Enable PostGIS for ultra-fast spatial queries
 CREATE EXTENSION IF NOT EXISTS postgis;

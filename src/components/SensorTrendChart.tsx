@@ -1,3 +1,9 @@
+/**
+ * Hydrological Sensor Trend & Predictive Forecast Chart
+ * 
+ * Renders Recharts area visualization of historical water levels and projects
+ * future flood trajectories using damped Ordinary Least Squares (OLS) regression.
+ */
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -24,25 +30,14 @@ interface SensorTrendChartProps {
 
 type ForecastRange = '30m' | '1h' | '3h' | '6h' | '12h' | '24h';
 
-// =============================================================================
-// HYDROLOGICAL CONSTANTS
-// =============================================================================
-// Basin damping time constant (τ in hours).
-// Controls how quickly the linear rate decays toward zero for long-range forecasts.
-// τ = 4.0h means: at t = 4h the forecast has captured ~63% of its maximum possible
-// delta, and by t = 12h it's essentially flat (asymptote reached).
-// This prevents the 24h forecast from projecting a 172-meter tsunami from a 3cm wave.
+// Hydrological Forecast Constants
+// Basin damping time constant (tau in hours): attenuates linear rate decay over long forecasts
 const DAMPING_TAU_HOURS = 4.0;
 
-// Time window (minutes) for the rolling telemetry buffer.
-// We keep the last 30 minutes of real hardware pings, NOT a fixed array count.
-// This ensures our OLS regression slope is always computed over a consistent
-// physical time span regardless of variable ping intervals.
+// Rolling telemetry buffer window (30 minutes)
 const TIME_WINDOW_MINUTES = 30;
 
-// Soft noise deadband (cm/hr). Slopes below this magnitude are continuously
-// attenuated toward zero using subtraction rather than a hard step-function
-// threshold. This eliminates the "9.9 → 0, 10.0 → 240cm jump" flicker bug.
+// Soft noise deadband (cm/hr) to filter sensor ripple vibrations
 const NOISE_DEADBAND_CM_HR = 5.0;
 
 export default function SensorTrendChart({

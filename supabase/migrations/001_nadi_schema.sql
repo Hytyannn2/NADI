@@ -1,8 +1,5 @@
--- ============================================
--- NADI Unified Schema Migration 001
--- This replaces all legacy migrations and creates
--- the active schema used by NADI Civic OS.
--- ============================================
+-- Migration 001: Core NADI Schema
+-- Initializes citizen profiles, stats, gamification, community posts, and disaster volunteer tasks.
 
 -- 1. Create Profiles Table
 CREATE TABLE IF NOT EXISTS public.nadi_profiles (

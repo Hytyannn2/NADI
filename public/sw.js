@@ -1,10 +1,8 @@
 /**
- * NADI — PWA Service Worker Cache Engine (v4.0.0)
- * ===============================================
- * - Strictly same-origin: NEVER intercepts cross-origin CDN tiles (Carto, OSM, Open-Meteo, Supabase).
- * - Cache-first strategy for static assets (icons, manifest, app shell).
- * - Network-first strategy for internal API routes.
- * - Robust try/catch fallback to prevent unhandled fetch rejections.
+ * PWA Service Worker Cache Engine
+ * 
+ * Implements cache-first strategy for static assets and network-first strategy
+ * for local API routes. Strictly ignores cross-origin tile and weather requests.
  */
 
 const CACHE_NAME = 'nadi-v4.1.0-cache';
@@ -18,7 +16,7 @@ const STATIC_ASSETS = [
   '/images/malaysia-flag.png'
 ];
 
-// Install Event — Pre-cache core shell assets safely without atomic failure
+// Install: Pre-caches core shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
@@ -30,7 +28,7 @@ self.addEventListener('install', (event) => {
               await cache.put(asset, res);
             }
           } catch {
-            // Non-critical asset failure — never abort SW install
+            // Non-critical asset failure — does not abort install
           }
         })
       );
@@ -39,7 +37,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate Event — Clean up stale caches & claim clients immediately
+// Activate: Cleans up older caches and claims active clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -55,7 +53,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Event — Network-first for APIs, Cache-first for Static Assets
+// Fetch: Network-first for APIs, cache-first for static assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 

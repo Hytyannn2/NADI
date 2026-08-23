@@ -1,3 +1,9 @@
+/**
+ * Main Application Shell & Tab Controller
+ * 
+ * Orchestrates module tab navigation (Dashboard, Bencana, Bantuan, Aduan, Komuniti),
+ * global notifications drawer, settings modal, and full-screen GIS heatmap overlay.
+ */
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -9,7 +15,7 @@ import { useTheme, THEMES, type ThemeId, type FontSize } from '@/src/context/The
 
 import { useGreeting } from '@/src/hooks/useGreeting';
 
-// === Views ===
+// Module Views
 import AuthView from '@/src/views/AuthView';
 import AduanView from '../views/AduanView';
 import BencanaView from '../views/BencanaView';
@@ -17,26 +23,26 @@ import DashboardView from '../views/DashboardView';
 import BantuanView from '../views/BantuanView';
 import KomunitiView from '../views/KomunitiView';
 
-// === Components ===
+// Core UI Components
 import SettingsModal from '@/src/components/SettingsModal';
 import CivicHeatMap from '@/src/components/CivicHeatMap';
 import SideNav from '@/src/components/SideNav';
 import BottomNav from '../components/BottomNav';
 import LoadingScreen from '../components/LoadingScreen';
 
-// ===== TAB TYPE =====
+// Navigation Tab Identifiers
 type TabId = 'utama' | 'bencana' | 'bantuan' | 'aduan' | 'komuniti';
 
 export default function App() {
-  // === Auth & Context ===
+  // Auth and Theme Contexts
   const { user, loading, signOut } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const { themeId, setThemeId, fontSize, setFontSize, isNotificationAllowed, playAlertSound } = useTheme();
 
-  // === Hooks ===
+  // Hooks
   const greeting = useGreeting();
 
-  // === Dynamic Notifications with live category & DND filtering ===
+  // Dynamic Notifications with category & quiet hours filtering
   const [notificationsList, setNotificationsList] = useState<Array<{
     id: string;
     category: 'aduan' | 'bantuan' | 'komuniti' | 'disaster';

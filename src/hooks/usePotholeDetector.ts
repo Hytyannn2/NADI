@@ -28,23 +28,21 @@ export interface UsePotholeDetectorOptions {
   enabled?: boolean;
 }
 
-// =============================================================================
-// ENGINEERING CONSTANTS
-// =============================================================================
-const SPEED_MIN_KMH = 10;            // Layer 1: Rejects walking/traffic crawl
-const SPEED_MAX_KMH = 120;           // Layer 1: Highway max limit
-const GRAVITY_LPF_ALPHA = 0.8;       // Layer 2: Low-pass filter constant for gravity
-const MAGNITUDE_THRESHOLD = 2.5;     // Layer 3: g-force spike threshold
-const POTHOLE_MAX_DURATION_MS = 250; // Layer 3: Pothole impact completes in < 250ms
-const SPEEDBUMP_MIN_DURATION_MS = 280; // Layer 3: Speedbump wave duration
-const GYRO_MAX_ROTATION_DEG = 150;   // Layer 4: deg/s (above this = phone drop)
-const DEBOUNCE_COOLDOWN_MS = 5000;   // Layer 5: 5-second cooldown between reports
-const CONFIDENCE_MIN_THRESHOLD = 70; // Layer 5: Required minimum confidence score
-const MAX_GPS_ACCURACY_METERS = 25;  // Layer 0: Max allowed GPS uncertainty
-const LPF_WARMUP_DURATION_MS = 3000; // 3-second warm-up for LPF gravity convergence
-const HYSTERESIS_GRACE_PERIOD_MS = 50; // 50ms grace period to prevent signal chatter
+// Detection thresholds and timing constants
+const SPEED_MIN_KMH = 10;            // Minimum vehicle speed to filter out walking/foot traffic
+const SPEED_MAX_KMH = 120;           // Maximum plausible driving speed
+const GRAVITY_LPF_ALPHA = 0.8;       // Low-pass filter alpha to estimate gravity direction
+const MAGNITUDE_THRESHOLD = 2.5;     // Acceleration spike threshold in g
+const POTHOLE_MAX_DURATION_MS = 250; // Pothole impacts typically finish within 250ms
+const SPEEDBUMP_MIN_DURATION_MS = 280; // Speed bumps produce wider waveforms (>280ms)
+const GYRO_MAX_ROTATION_DEG = 150;   // Rejects phone drops/handling (deg/s)
+const DEBOUNCE_COOLDOWN_MS = 5000;   // Cooldown between repeated reports (5 seconds)
+const CONFIDENCE_MIN_THRESHOLD = 70; // Minimum score required to register a pothole
+const MAX_GPS_ACCURACY_METERS = 25;  // Ignores readings if GPS uncertainty is above 25m
+const LPF_WARMUP_DURATION_MS = 3000; // Warm-up time for gravity filter to stabilize
+const HYSTERESIS_GRACE_PERIOD_MS = 50; // Grace period to prevent signal chatter
 
-// Haversine Distance Helper for GPS Speed Fallback (when coords.speed is null)
+// Calculates distance in meters between two GPS coordinates using the Haversine formula
 function calculateHaversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -68,13 +66,13 @@ export function usePotholeDetector({
   const [lastAnomaly, setLastAnomaly] = useState<SensorAnomalyEvent | null>(null);
   const [motionError, setMotionError] = useState<string | null>(null);
 
-  // Dynamic Gravity Vector Baseline Tracker (Layer 2 - Earth Frame Isolation)
+  // Estimated gravity vector to isolate linear acceleration
   const gravityRef = useRef({ x: 0, y: 0, z: 9.81 });
 
-  // LPF Convergence Warm-up Clock
+  // Timestamp when detector started (used for warm-up period)
   const detectorStartTimeRef = useRef<number>(0);
 
-  // Tracking impact duration (Layer 3)
+  // Impact tracking references
   const impactStartTimeRef = useRef<number | null>(null);
   const lastBelowThresholdTimeRef = useRef<number>(0);
   const peakMagnitudeRef = useRef<number>(0);
@@ -82,14 +80,13 @@ export function usePotholeDetector({
   const peakZDropRef = useRef<number>(0);
   const lastDetectionTimeRef = useRef<number>(0);
 
-  // GPS Velocity & Accuracy Tracking (Layer 0 & Layer 1)
-  // FIX: Initialize accuracy to 999 so un-located signals are blocked initially
+  // GPS speed and accuracy tracking
   const gpsAccuracyRef = useRef<number>(999);
   const gpsSpeedKmhRef = useRef<number>(0);
   const gpsCoordsRef = useRef<{ lat: number; lng: number }>({ lat: 6.1251, lng: 102.2345 });
   const lastGpsPointRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
 
-  // Helper function to reset impact peak refs
+  // Resets tracked impact peak values
   const resetPeakRefs = useCallback(() => {
     impactStartTimeRef.current = null;
     lastBelowThresholdTimeRef.current = 0;
@@ -98,7 +95,7 @@ export function usePotholeDetector({
     peakZDropRef.current = 0;
   }, []);
 
-  // 1. GPS Velocity & Location Listener (with Haversine Speed Fallback & dt > 500ms safeguard)
+  // 1. Listens for GPS updates and calculates smoothed vehicle speed
   useEffect(() => {
     if (!enabled || typeof window === 'undefined' || !('geolocation' in navigator)) return;
 
@@ -111,14 +108,14 @@ export function usePotholeDetector({
 
         let calculatedSpeedKmh = 0;
 
-        // FIX: If coords.speed is available, use it. Otherwise, calculate via Haversine
+        // Use native GPS speed if available; otherwise calculate from distance delta
         if (position.coords.speed !== null && position.coords.speed !== undefined && position.coords.speed >= 0) {
           calculatedSpeedKmh = position.coords.speed * 3.6;
-          // Exponential Moving Average (EMA) for GPS speed smoothing
+          // Smooth speed using Exponential Moving Average (EMA)
           gpsSpeedKmhRef.current = (gpsSpeedKmhRef.current * 0.6) + (calculatedSpeedKmh * 0.4);
         } else if (lastGpsPointRef.current) {
           const dtSec = (now - lastGpsPointRef.current.time) / 1000;
-          if (dtSec >= 0.5) { // dt > 500ms safeguard against division-by-zero
+          if (dtSec >= 0.5) { // Minimum 500ms between calculations to avoid noisy spikes
             const distMeters = calculateHaversineMeters(
               lastGpsPointRef.current.lat,
               lastGpsPointRef.current.lng,
@@ -147,28 +144,19 @@ export function usePotholeDetector({
       const currentSpeed = gpsSpeedKmhRef.current;
       const gpsAccuracy = gpsAccuracyRef.current;
 
-      // =========================================================================
-      // LPF CONVERGENCE WARM-UP WINDOW (3 Seconds)
-      // Suppresses false positives while LPF converges to phone mounting tilt
-      // =========================================================================
+      // Warm-up check: suppress false positives while gravity filter stabilizes
       if (now - detectorStartTimeRef.current < LPF_WARMUP_DURATION_MS) {
         resetPeakRefs();
         return;
       }
 
-      // =========================================================================
-      // LAYER 0: GPS ACCURACY GATE
-      // Rejects scattered or un-located GPS signals (> 25m uncertainty)
-      // =========================================================================
+      // Layer 0: Check GPS accuracy (reject if uncertainty > 25m)
       if (gpsAccuracy > MAX_GPS_ACCURACY_METERS) {
         resetPeakRefs();
         return;
       }
 
-      // =========================================================================
-      // LAYER 1: GPS SPEED GATE
-      // Rejects stationary movements, traffic crawl, or extreme highway noise
-      // =========================================================================
+      // Layer 1: Check vehicle speed (must be between 10 km/h and 120 km/h)
       if (currentSpeed < SPEED_MIN_KMH || currentSpeed > SPEED_MAX_KMH) {
         resetPeakRefs();
         return;
@@ -181,22 +169,18 @@ export function usePotholeDetector({
       const rawY = acc.y;
       const rawZ = acc.z;
 
-      // =========================================================================
-      // LAYER 2: LPF DYNAMIC GRAVITY BASELINE TRACKER (EARTH FRAME ISOLATION)
-      // Eliminates phone mounting tilt (45 deg dashboard vs horizontal)
-      // =========================================================================
+      // Layer 2: Update low-pass filtered gravity baseline to handle phone mounting angle
       const g = gravityRef.current;
       g.x = GRAVITY_LPF_ALPHA * g.x + (1 - GRAVITY_LPF_ALPHA) * rawX;
       g.y = GRAVITY_LPF_ALPHA * g.y + (1 - GRAVITY_LPF_ALPHA) * rawY;
       g.z = GRAVITY_LPF_ALPHA * g.z + (1 - GRAVITY_LPF_ALPHA) * rawZ;
 
-      // Subtract isolated gravity vector to calculate pure Linear Acceleration
+      // Subtract gravity to isolate linear vehicle acceleration
       const linX = rawX - g.x;
       const linY = rawY - g.y;
       const linZ = rawZ - g.z;
 
-      // VECTOR DOT PRODUCT: Project 3D linear acceleration onto normalized gravity vector
-      // Isolates true Earth-frame vertical drop magnitude regardless of phone mounting angle
+      // Project 3D acceleration onto gravity direction to measure vertical drop
       const gMag = Math.sqrt(g.x ** 2 + g.y ** 2 + g.z ** 2) || 9.81;
       const gNormX = g.x / gMag;
       const gNormY = g.y / gMag;
@@ -205,13 +189,11 @@ export function usePotholeDetector({
       const earthVerticalAccelMps2 = (linX * gNormX) + (linY * gNormY) + (linZ * gNormZ);
       const verticalDropG = Math.abs(earthVerticalAccelMps2) / 9.81;
 
-      // Overall linear acceleration magnitude (Earth Frame)
+      // Calculate total linear acceleration magnitude
       const linearMagnitudeMps2 = Math.sqrt(linX ** 2 + linY ** 2 + linZ ** 2);
       const magnitudeG = linearMagnitudeMps2 / 9.81;
 
-      // =========================================================================
-      // LAYER 4: GYROSCOPE TUMBLE REJECTION & SAFE UNIT NORMALIZATION
-      // =========================================================================
+      // Layer 4: Check gyroscope rotation rate to reject phone drops and handling
       let gyroMaxDegSec = 0;
       if (event.rotationRate) {
         let rotAlpha = Math.abs(event.rotationRate.alpha ?? 0);
@@ -220,8 +202,7 @@ export function usePotholeDetector({
 
         const rawMax = Math.max(rotAlpha, rotBeta, rotGamma);
 
-        // FIX: Only convert if rawMax < Math.PI (~3.14 rad/s).
-        // Prevents converting gentle deg/s turns (5-11 deg/s) into false 286 deg/s tumbles!
+        // Normalize units to degrees per second if browser reports radians
         if (rawMax < Math.PI && rawMax > 0.001) {
           rotAlpha *= 180 / Math.PI;
           rotBeta *= 180 / Math.PI;
@@ -231,56 +212,50 @@ export function usePotholeDetector({
         gyroMaxDegSec = Math.max(rotAlpha, rotBeta, rotGamma);
       }
 
-      // =========================================================================
-      // LAYER 3: WAVEFORM DURATION SIGNATURE & 50MS HYSTERESIS GRACE PERIOD
-      // =========================================================================
+      // Layer 3: Track impact waveform duration
       if (magnitudeG >= MAGNITUDE_THRESHOLD) {
-        lastBelowThresholdTimeRef.current = 0; // Reset hysteresis timer on spike
+        lastBelowThresholdTimeRef.current = 0;
 
         if (!impactStartTimeRef.current) {
-          // Impact peak onset
           impactStartTimeRef.current = now;
           peakMagnitudeRef.current = magnitudeG;
           peakGyroRef.current = gyroMaxDegSec;
           peakZDropRef.current = verticalDropG;
         } else {
-          // Track highest values during impact window
           peakMagnitudeRef.current = Math.max(peakMagnitudeRef.current, magnitudeG);
           peakGyroRef.current = Math.max(peakGyroRef.current, gyroMaxDegSec);
           peakZDropRef.current = Math.max(peakZDropRef.current, verticalDropG);
         }
       } else if (impactStartTimeRef.current !== null) {
-        // Magnitude dropped below threshold -> start 50ms hysteresis grace period
         if (lastBelowThresholdTimeRef.current === 0) {
           lastBelowThresholdTimeRef.current = now;
         } else if (now - lastBelowThresholdTimeRef.current >= HYSTERESIS_GRACE_PERIOD_MS) {
-          // Signal stayed low for 50ms -> Evaluate completed impact duration
           const durationMs = lastBelowThresholdTimeRef.current - impactStartTimeRef.current;
           
           const peakGyro = peakGyroRef.current;
           const peakMag = peakMagnitudeRef.current;
           const peakZDrop = peakZDropRef.current;
 
-          resetPeakRefs(); // Clean state reset
+          resetPeakRefs();
 
-          // LAYER 4 CHECK: Reject phone tumble / drop (> 150 deg/s)
+          // Reject if phone was tumbling (> 150 deg/s)
           if (peakGyro > GYRO_MAX_ROTATION_DEG) {
             return;
           }
 
-          // LAYER 3 CHECK: Reject speedbumps (> 280ms duration)
+          // Reject speed bumps (duration > 280ms)
           if (durationMs > SPEEDBUMP_MIN_DURATION_MS) {
             return;
           }
 
-          // Verify pothole impact duration (< 250ms sharp drop)
+          // Confirm valid pothole impact (< 250ms duration)
           if (durationMs <= POTHOLE_MAX_DURATION_MS) {
-            // LAYER 5: CONFIDENCE EVALUATOR & DEBOUNCE COOLDOWN
+            // Layer 5: Cooldown check between reports
             if (now - lastDetectionTimeRef.current < DEBOUNCE_COOLDOWN_MS) {
               return;
             }
 
-            // Calculate weighted confidence score (0-100%)
+            // Calculate confidence score (0-100%)
             let confidence = 50;
             if (peakMag > 3.5) confidence += 20;
             if (peakZDrop > 1.2) confidence += 15;
@@ -326,7 +301,7 @@ export function usePotholeDetector({
     [onAnomalyDetected, resetPeakRefs]
   );
 
-  // 3. Start/Stop Detection Listener
+  // 3. Start/stop detection listeners and handle iOS device motion permissions
   const startDetection = useCallback(async () => {
     if (typeof window === 'undefined') return;
 
@@ -345,7 +320,7 @@ export function usePotholeDetector({
       }
     }
 
-    detectorStartTimeRef.current = performance.now(); // Start 3-second LPF warm-up timer
+    detectorStartTimeRef.current = performance.now(); // Starts warm-up timer
     window.addEventListener('devicemotion', handleDeviceMotion, true);
     setIsDetecting(true);
   }, [handleDeviceMotion]);

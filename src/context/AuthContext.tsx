@@ -1,3 +1,8 @@
+/**
+ * Authentication Context
+ * 
+ * Provides Supabase session state, active user profile, and sign-out methods.
+ */
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -27,12 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Safety fallback: Never allow loading screen to hang for more than 1 second
+    // Safety timeout: ensures the loading screen clears within 1 second
     const safetyTimer = setTimeout(() => {
       if (mounted) setLoading(false);
     }, 1000);
 
-    // Get initial session
+    // Fetches active session on initial mount
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (mounted) {
@@ -47,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) setLoading(false);
       });
 
-    // Listen for auth changes
+    // Subscribes to Supabase auth state changes (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) {
         setSession(session);

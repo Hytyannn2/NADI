@@ -1,3 +1,8 @@
+/**
+ * Civic Notifications API
+ * 
+ * Fetches recent broadcast alerts, council status updates, and emergency notices.
+ */
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
@@ -7,6 +12,7 @@ function getAdminSupabase() {
     return createSupabaseClient(supabaseUrl, serviceKey);
 }
 
+// GET: Fetches the 20 most recent civic notifications
 export async function GET() {
     try {
         const supabase = getAdminSupabase();

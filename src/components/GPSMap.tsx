@@ -1,3 +1,9 @@
+/**
+ * Interactive GPS & Evacuation Map Component
+ * 
+ * Embeds a responsive Leaflet map displaying real-time citizen GPS positioning,
+ * closest evacuation shelters (PPS), and multiple tile styles (Dark, Streets, Satellite).
+ */
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -40,7 +46,7 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Initialize map if it doesn't exist
+    // Initializes Leaflet map instance
     if (!mapInstanceRef.current) {
       const map = L.map(mapRef.current, {
         center: [lat, lng],
@@ -49,10 +55,10 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
         attributionControl: false,
       });
 
-      // Layer group for shelter markers
+      // Layer group for evacuation shelter markers
       shelterLayerRef.current = L.layerGroup().addTo(map);
 
-      // Create custom animated user marker
+      // Custom pulsing marker for user GPS location
       const userIcon = L.divIcon({
         className: 'custom-leaflet-icon',
         html: `

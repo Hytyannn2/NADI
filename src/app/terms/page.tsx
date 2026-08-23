@@ -1,3 +1,6 @@
+/**
+ * Terms and Conditions of Service Page
+ */
 import Link from 'next/link';
 import { ArrowLeft, Scale, ShieldAlert, CheckCircle, AlertTriangle } from 'lucide-react';
 

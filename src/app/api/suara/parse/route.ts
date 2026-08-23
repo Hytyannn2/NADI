@@ -1,3 +1,9 @@
+/**
+ * Voice & Dialect NLP Parser API
+ * 
+ * Extracts intent, civic complaint category, location, urgency, and standard Malay
+ * translation from citizen voice transcriptions in regional dialects.
+ */
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
@@ -5,15 +11,12 @@ import { headers } from 'next/headers';
 import { exportForPrompt } from '@/src/lib/dialect/engine';
 import { DEFAULT_LOCATION } from '@/src/config/constants';
 
-/**
- * Fetch dialect context from the native TypeScript engine.
- * No Python microservice needed — runs directly in Next.js.
- */
+// Fetches dialect dictionary mappings to enrich the LLM system prompt
 async function getDialectContext(): Promise<string> {
   try {
     return await exportForPrompt();
   } catch {
-    // Engine error — graceful fallback to Groq native NLP
+    // Engine error — gracefully falls back to base model NLP
   }
   return '';
 }

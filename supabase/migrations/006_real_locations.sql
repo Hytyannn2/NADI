@@ -1,6 +1,5 @@
--- ============================================
--- NADI Migration 006: Real Evacuation Centers & GPS Coords (Fixed Idempotent)
--- ============================================
+-- Migration 006: Evacuation Centers & Sensor GPS Positioning
+-- Adds GPS coordinates to evacuation centers and registers verified Kelantan hardware sensors.
 
 -- 1. Add lat/lng to nadi_bencana_centers table
 ALTER TABLE public.nadi_bencana_centers

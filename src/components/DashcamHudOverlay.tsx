@@ -1,3 +1,9 @@
+/**
+ * Dashcam Heads-Up Display (HUD) Overlay
+ * 
+ * Renders live AR reticle, estimated pothole dimensions (diameter, depth, area),
+ * speed telemetry, and torch controls over the camera viewfinder.
+ */
 'use client';
 
 import React from 'react';
@@ -36,7 +42,7 @@ export function DashcamHudOverlay({
 
   return (
     <div className="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 overflow-hidden select-none">
-      {/* Top Telemetry Header Bar */}
+      {/* Top telemetry HUD header bar */}
       <div className="flex items-center justify-between w-full pointer-events-auto">
         <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/30">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />

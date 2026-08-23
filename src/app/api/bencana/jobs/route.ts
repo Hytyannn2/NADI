@@ -1,18 +1,23 @@
+/**
+ * Disaster Relief Volunteer Jobs API
+ * 
+ * Manages disaster response tasks (SOS requests, cleanup squads, supplies delivery),
+ * volunteer assignments, and background AI moderation.
+ */
 import { NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
 import Groq from 'groq-sdk';
 
-// GET /api/bencana/jobs — fetch volunteer jobs
+// GET: Fetches open relief volunteer tasks (excludes private phone numbers and banned requests)
 export async function GET() {
     try {
         const supabase = createClient(await cookies());
-        // SECURITY: Select explicit public fields only — exclude phone number PII from unauthenticated GET queries
         const { data, error } = await supabase
             .from('nadi_bencana_jobs')
             .select('id, name, req, dist, area, priority, tools, pax, status, bounty, created_at, posted_by, accepted_by')
-            .neq('status', 'banned') // Filter out inappropriate requests
+            .neq('status', 'banned')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -22,10 +27,10 @@ export async function GET() {
     }
 }
 
-// POST /api/bencana/jobs — submit, accept, or cancel a volunteer job
+// POST: Submits new disaster tasks, accepts assignments, or cancels existing tasks
 export async function POST(request: Request) {
     try {
-        // SECURITY: CSRF defense-in-depth — validate Origin/Referer using exact hostname comparison
+        // Validates request Origin/Host to prevent cross-origin submissions
         const origin = request.headers.get('origin');
         const referer = request.headers.get('referer');
         const host = request.headers.get('host')?.split(':')[0]; // strip port
@@ -51,10 +56,10 @@ export async function POST(request: Request) {
         const supabase = createClient(await cookies());
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Accept a job
+        // 1. Action: Accept task
         if (action === 'accept' && jobId) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-            // SECURITY: Only accept jobs that are still 'open' to prevent race/overwrite
+            // Only accept jobs that are currently 'open' to prevent race conditions
             const { data, error } = await supabase
                 .from('nadi_bencana_jobs')
                 .update({ status: 'accepted', accepted_by: user.id })
@@ -67,11 +72,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true, job: data });
         }
 
-        // Cancel a job — only the owner can cancel
+        // 2. Action: Cancel task (only the original author can cancel)
         if (action === 'cancel' && jobId) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-            // Verify ownership before deletion
+            // Verify ownership before deleting
             const { data: job, error: fetchError } = await supabase
                 .from('nadi_bencana_jobs')
                 .select('id, posted_by')
@@ -95,13 +100,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         }
 
-        // Submit new job with QUEUEING THEORY & AUTO-MODERATION
+        // 3. Action: Submit new task with asynchronous AI moderation
         if (action === 'submit') {
             if (!name || !req) return NextResponse.json({ success: false, error: 'Name and request are required.' }, { status: 400 });
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
             let priority = userPriority || 'Medium';
-            let bounty = 30; // Default
+            let bounty = 30; // Default points
 
             const newJob = {
                 name,
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
                 pax_needed: pax ? parseInt(pax, 10) : null,
             };
 
-            // Instantly save to DB and return to user (0ms wait for AI)
+            // Saves to database immediately so user gets an instant response
             const { data, error } = await supabase
                 .from('nadi_bencana_jobs')
                 .insert(newJob)
@@ -126,7 +131,7 @@ export async function POST(request: Request) {
 
             if (error) throw error;
 
-            // Background Task (Queueing Theory) - Runs after response is sent
+            // Background task: evaluates content appropriateness and sets bounty points
             after(async () => {
                 try {
                     const fullReq = `${req}${phone ? ` | Phone: ${phone}` : ''}${tools ? ` | Tools: ${tools}` : ''}${pax ? ` | Pax: ${pax}` : ''}`;

@@ -1,8 +1,9 @@
-// ============================================================================
-// NADI — Centralised Static Fallback Data
-// Used gracefully for offline safety critical systems (PPS centers & flood zones).
-// Jobs and Vendors are 100% community-driven and crowd-advertised.
-// ============================================================================
+/**
+ * Static Fallback Data
+ * 
+ * Provides fallback evacuation centers and historical flood risk zones
+ * when offline or when database connectivity is unavailable.
+ */
 
 export interface FallbackPpsCenter {
   name: string;

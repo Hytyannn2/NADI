@@ -1,16 +1,11 @@
+/**
+ * Historical Sensor Readings API
+ * 
+ * Fetches time-series telemetry data for trend charts and flood graphs.
+ */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * GET /api/bencana/sensors/readings
- *
- * Returns historical sensor readings for the 24-hour trend chart.
- *
- * Query params:
- *   sensor_id (required) — UUID of the sensor
- *   hours (optional, default 24) — how many hours of history to return
- *   limit (optional, default 144) — max rows (144 = 10-min intervals × 24h)
- */
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -23,13 +18,13 @@ export async function GET(request: Request) {
             return NextResponse.json({ success: false, error: 'sensor_id is required' }, { status: 400 });
         }
 
-        // Public read endpoint — use publishable key (RLS allows SELECT for all)
+        // Public read query using standard publishable key (protected by RLS)
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
         );
 
-        // Calculate the cutoff time
+        // Calculates starting timestamp based on requested hour window
         const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
         const { data: readings, error } = await supabase
@@ -42,7 +37,7 @@ export async function GET(request: Request) {
 
         if (error) throw error;
 
-        // Reverse array in JS so the frontend trend chart renders chronologically (oldest -> newest, left -> right)
+        // Orders readings chronologically (oldest to newest) for chart rendering
         const chronologicalReadings = (readings || []).slice().reverse();
 
         return NextResponse.json({

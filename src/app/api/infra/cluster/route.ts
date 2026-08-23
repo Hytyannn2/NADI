@@ -1,21 +1,17 @@
+/**
+ * Crowdsource Spatial Clustering API
+ * 
+ * Groups nearby pothole reports within a 15-meter radius (PostGIS ST_DWithin)
+ * and automatically marks defects as verified when confirmed by multiple devices:
+ * - Urban zones (Kota Bharu center): 3 unique devices
+ * - Rural zones: 2 unique devices
+ */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { checkInfraClusterLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 
-// ============================================
-// NADI Crowdsource Clustering API
-// ============================================
-// When a new pothole report is submitted, this API:
-// 1. Finds all pending reports within 15m radius (PostGIS ST_DWithin)
-// 2. Counts unique user devices in the cluster
-// 3. Auto-verifies if threshold is met:
-//    - Urban (Kota Bharu bounding box): 3 unique devices
-//    - Rural: 2 unique devices
-// 4. Assigns a shared cluster_id to all reports in the group
-// ============================================
-
-// Kota Bharu Urban Bounding Box (approximate city center + surrounding areas)
+// Approximate coordinates for Kota Bharu urban center
 const KOTA_BHARU_BOUNDS = {
     minLat: 6.08,
     maxLat: 6.18,
@@ -25,8 +21,8 @@ const KOTA_BHARU_BOUNDS = {
 
 const CLUSTER_RADIUS_METERS = 15;
 const CLUSTER_WINDOW_HOURS = 48;
-const URBAN_THRESHOLD = 3; // unique devices needed in urban area
-const RURAL_THRESHOLD = 2; // unique devices needed in rural area
+const URBAN_THRESHOLD = 3; // Unique devices required in urban areas
+const RURAL_THRESHOLD = 2; // Unique devices required in rural areas
 
 function isUrban(lat: number, lng: number): boolean {
     return (
@@ -58,7 +54,7 @@ export async function POST(request: Request) {
             );
         }
 
-        // Use service role key for server-side operations
+        // Uses Supabase service role key for server operations
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -68,7 +64,7 @@ export async function POST(request: Request) {
         const parsedLng = typeof lng === 'string' ? parseFloat(lng) : lng;
         const threshold = isUrban(parsedLat, parsedLng) ? URBAN_THRESHOLD : RURAL_THRESHOLD;
 
-        // Execute the atomic spatial clustering transaction
+        // Executes atomic spatial clustering stored procedure
         const { data: rpcData, error: rpcError } = await supabase.rpc('atomic_cluster_pothole', {
             p_report_id: reportId,
             p_lat: parsedLat,

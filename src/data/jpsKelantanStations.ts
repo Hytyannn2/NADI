@@ -15,11 +15,9 @@ export interface JpsStation {
 
 /**
  * Official JPS Kelantan River Telemetry Stations
- * Source: JPS iPublic InfoBanjir (publicinfobanjir.water.gov.my)
- * 31 stations across 10 districts
- *
- * Our NADI "Sungai Kelantan Node A" sensor is co-located with
- * station #26 — Sg. Kelantan di Tambatan D'Raja (0730671WL), Kota Bharu
+ * 
+ * Contains river level monitoring stations across Kelantan districts with official
+ * flood warning and danger thresholds (meters). Co-located with NADI IoT sensor nodes.
  */
 export const JPS_KELANTAN_STATIONS: JpsStation[] = [
     // === GUA MUSANG (5 stations) ===

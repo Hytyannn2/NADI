@@ -1,3 +1,6 @@
+/**
+ * Fullscreen Loading State Component
+ */
 'use client';
 import { motion } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';

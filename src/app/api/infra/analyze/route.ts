@@ -1,3 +1,9 @@
+/**
+ * Infrastructure Defect Triage Route
+ * 
+ * Uses Groq LLaMA to evaluate citizen text reports or accelerometer pothole telemetry,
+ * estimating severity, dimensions, repair method, and municipal repair costs.
+ */
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkInfraAnalyzeLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
@@ -47,7 +53,7 @@ Provide your analysis strictly in this JSON format:
   "recommendedAction": "<Penilaian Tapak|Penugasan Skuad|Penyelenggaraan Berkala>"
 }`;
         } else {
-            // Enhanced prompt with sensor fusion data for physical accelerometer hits
+            // Formats prompt with sensor fusion telemetry for accelerometer-detected road anomalies
             const sensorFusionContext = confidenceScore != null
                 ? `\n- Sensor Fusion Confidence Score: ${confidenceScore}/100 (from 5-layer filter: Speed Gate, Waveform Signature, Gyroscope Stability, Debounce, Magnitude)
 - Vehicle speed at detection: ${speedKmh || 'unknown'} km/h

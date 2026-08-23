@@ -1,35 +1,34 @@
 /**
- * NADI Client-Side Anti-Spam Hook
+ * Client-Side Anti-Spam Hook
  * 
- * Provides local rate limiting + cooldown UI state.
- * This is the FIRST line of defense (before the request even hits the server).
+ * Enforces local rate limits and cooldown timers in the browser before sending requests to the server.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface UseAntiSpamOptions {
-    /** Max requests allowed in the window */
+    /** Maximum requests allowed in the window */
     maxRequests: number;
-    /** Time window in seconds */
+    /** Window duration in seconds */
     windowSeconds: number;
-    /** Cooldown duration after hitting limit (seconds) */
+    /** Cooldown duration after hitting the limit in seconds */
     cooldownSeconds: number;
-    /** localStorage key to persist across page reloads */
+    /** LocalStorage key for persisting cooldown across reloads */
     storageKey: string;
 }
 
 interface AntiSpamState {
-    /** Whether the user can make a request right now */
+    /** Whether the user is permitted to make a request right now */
     canRequest: boolean;
-    /** Number of requests remaining in this window */
+    /** Number of requests remaining in the active window */
     remaining: number;
-    /** Seconds until cooldown ends (0 if not in cooldown) */
+    /** Remaining cooldown in seconds (0 when inactive) */
     cooldownRemaining: number;
-    /** Human-readable status message */
+    /** Human-readable status string */
     statusMessage: string;
-    /** Call this before each request. Returns true if allowed. */
+    /** Call before making a request. Returns true if allowed. */
     tryRequest: () => boolean;
-    /** Call this if the SERVER returns a rate limit error */
+    /** Manually triggers a cooldown if the server returns a 429 */
     forceBlock: (seconds: number) => void;
 }
 
@@ -40,7 +39,7 @@ export function useAntiSpam(options: UseAntiSpamOptions): AntiSpamState {
     const [cooldownRemaining, setCooldownRemaining] = useState(0);
     const timestampsRef = useRef<number[]>([]);
 
-    // Load persisted cooldown on mount
+    // Restores active cooldown and request timestamps from localStorage
     useEffect(() => {
         try {
             const saved = localStorage.getItem(`nadi_spam_${storageKey}`);
@@ -58,7 +57,7 @@ export function useAntiSpam(options: UseAntiSpamOptions): AntiSpamState {
         } catch { /* ignore */ }
     }, [storageKey, windowSeconds]);
 
-    // Persist state
+    // Persists cooldown state to localStorage
     const persist = useCallback(() => {
         try {
             localStorage.setItem(`nadi_spam_${storageKey}`, JSON.stringify({
@@ -68,7 +67,7 @@ export function useAntiSpam(options: UseAntiSpamOptions): AntiSpamState {
         } catch { /* ignore */ }
     }, [cooldownEnd, storageKey]);
 
-    // Countdown timer
+    // Updates countdown timer once per second
     useEffect(() => {
         if (cooldownEnd <= 0) return;
 

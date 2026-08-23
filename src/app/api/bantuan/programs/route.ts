@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-
 /**
- * GET /api/bantuan/programs?lat=X&lng=Y
+ * Official Aid Programs API
  * 
- * Verified, deterministic database of active 2026 Malaysian aid programs
- * serving 100% accurate official links, criteria, and zero hallucination with 0ms latency.
+ * Serves verified dataset of Malaysian social welfare, cash transfer, and zakat programs
+ * with eligibility criteria, official portals, and location-aware recommendations.
  */
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -31,9 +30,9 @@ export async function GET(request: NextRequest) {
     const isKelantan = locationName.toLowerCase().includes('kelantan');
     const isSelangor = locationName.toLowerCase().includes('selangor');
 
-    // 100% Verified Official 2026 Malaysian Aid Programs Dataset
+    // Verified Malaysian Social Welfare & Assistance Programs
     const verifiedPrograms = [
-        // --- 1. STR, SARA & eKasih ---
+        // Federal Cash Assistance & Food Subsidies (STR, SARA, eKasih)
         {
             id: 'str_2026',
             name: 'Sumbangan Tunai Rahmah (STR)',

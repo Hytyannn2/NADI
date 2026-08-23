@@ -1,3 +1,9 @@
+/**
+ * Mobile Bottom Navigation Bar Component
+ * 
+ * Provides accessible mobile tab switching with haptic vibration feedback
+ * and raised action button for NADI Pass.
+ */
 'use client';
 import { motion } from 'motion/react';
 
@@ -42,7 +48,7 @@ export default function BottomNav({ tabs, activeTab, onTabSwitch }: BottomNavPro
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
 
-          // Center tab (Nadi-Pass) gets a prominent raised button
+          // Center tab (Nadi-Pass) rendered with raised glowing button
           if (tab.isCenter) {
             return (
               <motion.button

@@ -1,6 +1,13 @@
+/**
+ * Next.js Application Configuration
+ * 
+ * Configures Content Security Policy (CSP), security headers (HSTS, X-Frame-Options),
+ * static asset caching rules, and Turbopack workspace roots.
+ */
 import type { NextConfig } from "next";
 import path from "path";
 
+// Content Security Policy (CSP) allowing verified GIS map tile providers and APIs
 const cspHeader = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://translate.google.com https://translate.googleapis.com",

@@ -1,17 +1,23 @@
+/**
+ * Community Mutual Aid Requests API
+ * 
+ * Manages citizen-to-citizen aid requests ("Need" vs "Offer"), secret edit tokens,
+ * and rate-limited fulfillment status updates.
+ */
 import { NextResponse } from 'next/server';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { checkBantuanRequestLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 
-// Supabase admin client (service role — bypasses RLS for anonymous bantuan ops)
+// Supabase admin client for anonymous aid operations
 function getAdminSupabase() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     return createSupabaseClient(supabaseUrl, serviceKey);
 }
 
-// SECURITY: Constant-time string comparison to prevent timing attacks
+// Constant-time string comparison to prevent timing attacks
 function safeCompare(a: string, b: string): boolean {
     try {
         const bufA = Buffer.from(a);
@@ -26,16 +32,16 @@ function safeCompare(a: string, b: string): boolean {
     }
 }
 
-// Simple in-memory rate limiter for fulfill actions
+// Cooldown map for fulfillment attempts
 const fulfillRateLimit = new Map<string, number>();
-const FULFILL_COOLDOWN_MS = 5000; // 5 seconds between fulfill attempts per IP
+const FULFILL_COOLDOWN_MS = 5000; // 5 seconds between fulfill attempts per request
 
-// Generate a cryptographically secure random ID using CSPRNG (crypto.randomUUID)
+// Generates a random UUID token for author verification
 function generateSecureId(): string {
     return `req-${randomUUID()}`;
 }
 
-// SECURITY: Robust HTML entity encoding to prevent stored XSS entirely
+// Encodes HTML entities to prevent XSS
 function sanitizeString(val: unknown, maxLen = 500): string {
     if (typeof val !== 'string') return '';
     return val
@@ -50,7 +56,7 @@ function sanitizeString(val: unknown, maxLen = 500): string {
         .slice(0, maxLen);
 }
 
-// GET /api/bantuan/requests — fetch all mutual aid requests (exclude secret tokens)
+// GET: Fetches mutual aid requests (excluding secret author tokens)
 export async function GET() {
     try {
         const supabase = getAdminSupabase();
@@ -77,18 +83,18 @@ export async function GET() {
     }
 }
 
-// POST /api/bantuan/requests — submit or fulfill a request
+// POST: Submits new assistance requests or marks existing items as fulfilled
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const supabase = getAdminSupabase();
 
-        // Fulfill action — requires secret token authorization + rate limiting
+        // 1. Action: Fulfill request (requires valid secret token)
         if (body.action === 'fulfill' && body.requestId) {
             const reqId = typeof body.requestId === 'string' ? body.requestId.trim().slice(0, 100) : '';
             const providedToken = typeof body.secretToken === 'string' ? body.secretToken.trim() : '';
 
-            // SECURITY: Rate limiting keyed on request ID (prevents automated brute-force without spoofable IP headers)
+            // Rate limits fulfill attempts per request ID
             if (fulfillRateLimit.size > 500) {
                 const now = Date.now();
                 for (const [id, ts] of fulfillRateLimit) {
@@ -101,7 +107,7 @@ export async function POST(request: Request) {
             }
             fulfillRateLimit.set(reqId, Date.now());
 
-            // Fetch the request including its secret_token for verification
+            // Fetches record including secret_token for constant-time verification
             const { data: req, error: fetchErr } = await supabase
                 .from('nadi_bantuan_requests')
                 .select('id, secret_token')
@@ -112,7 +118,7 @@ export async function POST(request: Request) {
                 return NextResponse.json({ success: false, error: 'Request not found.' }, { status: 404 });
             }
 
-            // SECURITY: Require authorization secret token matching the created request (constant-time check)
+            // Validates provided secret token matches database record
             if (!providedToken || !req.secret_token || !safeCompare(providedToken, req.secret_token)) {
                 return NextResponse.json({ success: false, error: 'Unauthorized: Valid token required to fulfill request.' }, { status: 401 });
             }
@@ -130,7 +136,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         }
 
-        // Submit new request — with rate limiting
+        // 2. Action: Submit new mutual aid request
         const headersList = await headers();
         const ip = getClientIp(headersList);
         const limit = checkBantuanRequestLimit(ip);
@@ -141,7 +147,7 @@ export async function POST(request: Request) {
 
         const { title, description, location, category, type, contact } = body;
         
-        // SECURITY: Type enforcement, length limits, and strict HTML entity encoding
+        // Validates length and encodes HTML entities
         const cleanTitle = sanitizeString(title, 150);
         const cleanDescription = sanitizeString(description, 1000);
         const cleanLocation = sanitizeString(location, 150);

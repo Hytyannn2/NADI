@@ -1,3 +1,9 @@
+/**
+ * Root Application Layout
+ * 
+ * Configures global metadata, PWA viewport, font optimization, Structured Data (JSON-LD),
+ * and wraps client providers (Auth, Language, Theme, Family).
+ */
 import "./globals.css";
 import { type Metadata, type Viewport } from "next";
 import { AuthProvider } from "@/src/context/AuthContext";

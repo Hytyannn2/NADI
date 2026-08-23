@@ -1,3 +1,9 @@
+/**
+ * Multi-Layer Civic GIS Heatmap
+ * 
+ * Renders interactive Leaflet map overlaying road hazards, flood risk zones,
+ * IoT sensor nodes, evacuation centers (PPS), and local micro-vendors.
+ */
 'use client';
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
@@ -35,7 +41,7 @@ import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } f
 import { DEFAULT_LOCATION, DEFAULT_SENSOR_NODE } from '@/src/config/constants';
 import { FALLBACK_FLOOD_ZONES, FALLBACK_VENDORS } from '@/src/data/fallbacks';
 
-// Dynamic import to avoid SSR issues with Leaflet
+// Dynamic import to prevent SSR window reference errors in Leaflet
 const MapContainer = dynamic(() => import('react-leaflet').then((m) => m.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then((m) => m.TileLayer), { ssr: false });
 const CircleMarker = dynamic(() => import('react-leaflet').then((m) => m.CircleMarker), { ssr: false });

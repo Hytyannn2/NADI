@@ -27,7 +27,7 @@ export interface PdfAnomalyData {
 }
 
 export function generatePayloadHash(ticket: { id: string; status: string; confidenceScore?: number; time?: string }): string {
-  // Deterministic string concatenation for client & server match
+  // Generates a hash to verify ticket integrity between client and server
   const payloadString = `${ticket.id}|${ticket.status}|${ticket.confidenceScore || 0}|${ticket.time || ''}`;
   let hash = 0;
   for (let i = 0; i < payloadString.length; i++) {
@@ -42,7 +42,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
   const ticketId = `NADI-2026-${anomaly.id.slice(-6).toUpperCase()}`;
   const payloadHash = generatePayloadHash(anomaly);
 
-  // Dynamic Base URL Resolution (works seamlessly on http://localhost:3000 during live demo & in production)
+  // Resolves the current base URL for ticket verification links
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== 'undefined' ? window.location.origin : 'https://nadi-kelantan.app');
 

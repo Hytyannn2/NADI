@@ -1,17 +1,18 @@
+/**
+ * Debounces a value, delaying updates until the user stops typing or changing input.
+ */
 import { useState, useEffect } from 'react';
 
-// Extreme Optimization: Algorithmic Debouncing
-// Prevents rapid state updates and potential API calls when typing fast
 export function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
     useEffect(() => {
-        // Update debounced value after delay
+        // Sets value after delay
         const handler = setTimeout(() => {
             setDebouncedValue(value);
         }, delay);
 
-        // Cancel the timeout if value changes (also on delay change or unmount)
+        // Clears timer if value changes before delay expires
         return () => {
             clearTimeout(handler);
         };
@@ -19,3 +20,4 @@ export function useDebounce<T>(value: T, delay: number): T {
 
     return debouncedValue;
 }
+

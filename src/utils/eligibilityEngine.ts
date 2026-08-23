@@ -1,8 +1,8 @@
 /**
- * NADI Bantuan — Deterministic Eligibility Matching Engine
+ * Welfare Aid Eligibility Matching Engine
  * 
- * Sub-millisecond, zero-token deterministic rule engine for checking Malaysian
- * citizen eligibility for government, NGO, zakat, and community aid programs.
+ * Rules engine to check citizen eligibility for Malaysian government, NGO,
+ * zakat, and community aid programs without making external API calls.
  */
 
 export interface UserProfile {
@@ -35,13 +35,13 @@ export interface EligibilityResult {
     missingCriteria: string[];
 }
 
-// Income Bracket Boundaries (MYR)
+// Income bracket thresholds in MYR
 const B40_MAX = 5250;
 const MISKIN_TEGAR_MAX = 2208;
 const M40_MAX = 11819;
 
 /**
- * Evaluates a user profile against a single aid program's rules.
+ * Evaluates a user profile against a specific aid program's eligibility rules.
  */
 export function evaluateEligibility(profile: UserProfile, program: AidProgram): EligibilityResult {
     const income = typeof profile.income === 'number' ? profile.income : parseFloat(String(profile.income || '0')) || 0;
@@ -55,11 +55,11 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
     const progDesc = program.description.toLowerCase();
     const progType = program.type;
 
-    let score = 50; // base starting score
+    let score = 50; // Base starting score
     const matchedCriteria: string[] = [];
     const missingCriteria: string[] = [];
 
-    // --- RULE 1: Income Bracket Check ---
+    // Rule 1: Income bracket and household criteria
     let incomeChecked = false;
     
     // Check specific income caps mentioned in program text or known programs
@@ -270,7 +270,7 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
         }
     }
 
-    // --- RULE 2: Age Requirements ---
+    // Rule 2: Age requirements
     if (progName.includes('warga emas') || progElig.includes('60') || progElig.includes('warga emas')) {
         if (age >= 60) {
             score += 30;
@@ -301,7 +301,7 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
         }
     }
 
-    // --- RULE 3: Employment & Special Status ---
+    // Rule 3: Employment and special status (OKU, student, job seeker, homemaker)
     if (status.includes('oku') || progName.includes('oku') || progElig.includes('oku')) {
         if (status.includes('oku')) {
             score += 35;
@@ -336,7 +336,7 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
         }
     }
 
-    // --- RULE 4: Dependents Check ---
+    // Rule 4: Dependents
     if (dependents >= 3) {
         score += 15;
         matchedCriteria.push(`Tanggungan Ramai (${dependents} orang)`);
@@ -345,7 +345,7 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
         matchedCriteria.push(`Mempunyai Tanggungan (${dependents} orang)`);
     }
 
-    // --- RULE 5: State / Regional Matching ---
+    // Rule 5: State and location matching
     const progLoc = program.location.toLowerCase();
     if (userState && progLoc && !progLoc.includes('seluruh') && !progLoc.includes('malaysia') && !progLoc.includes('nasional')) {
         if (userState.includes(progLoc) || progLoc.includes(userState)) {
@@ -357,7 +357,7 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
         }
     }
 
-    // --- Final Scoring & Determination ---
+    // Final score clamping (0-100) and qualification status
     const clampedScore = Math.max(0, Math.min(100, score));
 
     let isEligible: boolean | 'maybe' = false;
@@ -397,7 +397,7 @@ export function evaluateEligibility(profile: UserProfile, program: AidProgram): 
 }
 
 /**
- * Evaluates multiple programs in parallel instantly.
+ * Evaluates multiple programs in parallel.
  */
 export function evaluateAllEligibility(profile: UserProfile, programs: AidProgram[]): Record<string, EligibilityResult> {
     const results: Record<string, EligibilityResult> = {};
@@ -406,3 +406,4 @@ export function evaluateAllEligibility(profile: UserProfile, programs: AidProgra
     }
     return results;
 }
+

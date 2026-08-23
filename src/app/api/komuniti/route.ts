@@ -1,3 +1,9 @@
+/**
+ * Community Economy & Local Directory API
+ * 
+ * Manages local job postings (fair-wage filtered) and micro-vendor listings
+ * across Malaysian neighborhoods.
+ */
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { checkKomunitiLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
@@ -9,10 +15,11 @@ function getAdminSupabase() {
     return createSupabaseClient(supabaseUrl, serviceKey);
 }
 
-// In-memory store for newly advertised community jobs & vendors if DB is migrating
+// In-memory fallback cache for jobs and local vendors
 let IN_MEMORY_JOBS: any[] = [];
 let IN_MEMORY_VENDORS: any[] = [];
 
+// GET: Fetches local job postings and small business vendor listings
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const locationParam = searchParams.get('location') || '';
@@ -20,7 +27,6 @@ export async function GET(request: Request) {
     try {
         const adminSupa = getAdminSupabase();
 
-        // 100% Community & Employer Advertised Data from Supabase
         const { data: dbJobs, error: jobsError } = await adminSupa
             .from('nadi_jobs')
             .select('*')
@@ -41,7 +47,7 @@ export async function GET(request: Request) {
             ...IN_MEMORY_VENDORS
         ];
 
-        // Deduplicate by ID
+        // Deduplicate records by unique ID
         const uniqueJobs = Array.from(new Map(allJobs.map(j => [j.id, j])).values());
         const uniqueVendors = Array.from(new Map(allVendors.map(v => [v.id, v])).values());
 

@@ -1,7 +1,5 @@
--- ============================================
--- NADI Migration 002
--- Creates tables for LoRaWAN sensors and Infra anomaly reports
--- ============================================
+-- Migration 002: IoT River Sensors and Infrastructure Reports
+-- Creates tables for telemetry ingestion and civic defect triage.
 
 -- 1. Create Bencana Sensors Table (LoRaWAN)
 CREATE TABLE IF NOT EXISTS public.nadi_bencana_sensors (

@@ -1,3 +1,9 @@
+/**
+ * AI Road Defect Vision Classifier
+ * 
+ * Analyzes dashcam road frames with Groq LLaMA Vision and calculates pothole
+ * dimensions by combining vision estimates with accelerometer physical drop data.
+ */
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkInfraVisionLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
@@ -24,7 +30,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { imageBase64, lat, lng, zDropped, anomalyId, speedKmh, magnitudeG } = body;
 
-    // 1. Base64 Payload Size Protection (~3.5MB Max)
+    // Rejects payloads larger than ~4MB
     if (imageBase64 && imageBase64.length > 4000000) {
       return NextResponse.json({ success: false, error: 'Image payload too large. Max 3MB.' }, { status: 413 });
     }
@@ -65,7 +71,7 @@ TASK & SCALING RULES:
 
     let responseText = '';
 
-    // Primary Vision Model: Llama 3.2 90B Vision
+    // Primary model: Llama 3.2 90B Vision (falls back to 11B Vision if unavailable)
     try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [{ role: 'user', content }],
@@ -74,7 +80,6 @@ TASK & SCALING RULES:
       responseText = chatCompletion.choices[0]?.message?.content || '{}';
     } catch (primaryErr: any) {
       console.warn('[infra/vision] Primary 90B Vision error, trying 11B Vision fallback:', primaryErr?.message);
-      // Fallback Vision Model: Llama 3.2 11B Vision
       const chatCompletion = await groq.chat.completions.create({
         messages: [{ role: 'user', content }],
         model: 'llama-3.2-11b-vision-preview',
@@ -82,7 +87,7 @@ TASK & SCALING RULES:
       responseText = chatCompletion.choices[0]?.message?.content || '{}';
     }
 
-    // Robust JSON Extraction (Strips markdown code block markers)
+    // Strips markdown code fences and parses JSON output
     const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim();
     const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -90,11 +95,11 @@ TASK & SCALING RULES:
     }
     const analysis = JSON.parse(jsonMatch[0]);
 
-    // SENSOR-DRIVEN DEPTH ISOLATION (Calculated via accelerometer physics, NOT AI hallucinated)
+    // Calculates physical depth from accelerometer vertical drop magnitude (g)
     const physicalDropG = Math.abs(zDropped || magnitudeG || 1.2);
     analysis.estimatedDepthCm = parseFloat((3.5 + physicalDropG * 2.8).toFixed(1));
 
-    // Dynamic width & surface area calculation based on JKR lane scaling
+    // Calculates surface diameter and area based on 3.0m standard lane width
     if (!analysis.estimatedDiameterCm) {
       const widthPct = analysis.widthLanePercent || 15;
       analysis.estimatedDiameterCm = Math.round((widthPct / 100) * 300);
@@ -102,7 +107,7 @@ TASK & SCALING RULES:
     analysis.estimatedAreaM2 = parseFloat((Math.PI * Math.pow(analysis.estimatedDiameterCm / 200, 2)).toFixed(2));
     analysis.estimatedDimensions = `~${analysis.estimatedDiameterCm}cm lebar, ~${analysis.estimatedDepthCm}cm dalam`;
 
-    // Asynchronous Database Persistence to Supabase (SCHEMA ACCURATE)
+    // Persists verified report to Supabase
     const supabase = getSupabaseAdmin();
     if (supabase) {
       try {

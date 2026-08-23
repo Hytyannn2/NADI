@@ -2,18 +2,13 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-// ============================================
-// NADI Dashcam — Edge Computing Frame Capture & AI Vision
-// ============================================
-// Opens the rear camera at 720p/1080p and maintains a continuous live stream.
-// When triggered (pothole detected), captures a SINGLE frame in the background
-// without interrupting the camera recording session.
-//
-// PRIVACY BY DESIGN (PDPA 2010 COMPLIANT):
-// - Client-side Canvas Privacy Blur applied BEFORE transmission
-// - Top 40% (sky, oncoming cars, license plates) heavily blurred
-// - Automatic background AI parsing + Supabase DB persistence
-// ============================================
+/**
+ * Dashcam Video Stream & Snapshot Capture Hook
+ *
+ * Streams rear camera video and captures snapshots when potholes are detected.
+ * Applies a client-side privacy blur on the top 40% of each frame (to mask sky,
+ * oncoming vehicles, and license plates) before uploading.
+ */
 
 export interface VisionAnalysisResult {
   damageType: string;
@@ -69,13 +64,13 @@ export function useDashcam(): UseDashcamReturn {
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Reusable canvas for frame capture
+  // Hidden canvas for frame snapshots and background tab power saving
   useEffect(() => {
     if (!canvasRef.current && typeof document !== 'undefined') {
       canvasRef.current = document.createElement('canvas');
     }
 
-    // Page Visibility API: Auto-pause tracks when app goes to background to save battery
+    // Disables video track when the tab is hidden to conserve device battery
     const handleVisibilityChange = () => {
       if (document.hidden && streamRef.current) {
         streamRef.current.getVideoTracks().forEach(track => { track.enabled = false; });
@@ -108,7 +103,7 @@ export function useDashcam(): UseDashcamReturn {
     }
 
     try {
-      // Request rear camera
+      // Request rear camera stream at 720p 30fps
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -122,7 +117,7 @@ export function useDashcam(): UseDashcamReturn {
       streamRef.current = stream;
       const track = stream.getVideoTracks()[0];
 
-      // Safe Capability Detection for Torch/Focus Controls (Prevents iOS Safari crashes)
+      // Detect hardware features like torch and continuous autofocus
       if (track && typeof (track as any).getCapabilities === 'function') {
         const capabilities = (track as any).getCapabilities();
         if (capabilities && 'torch' in capabilities) {
@@ -137,7 +132,7 @@ export function useDashcam(): UseDashcamReturn {
           try {
             await track.applyConstraints({ advanced: advancedConstraints } as any);
           } catch {
-            // Ignore constraint errors on restrictive WebKit implementations
+            // Ignore constraint errors if browser restricts focus controls
           }
         }
       }
@@ -175,7 +170,7 @@ export function useDashcam(): UseDashcamReturn {
     setError(null);
   }, []);
 
-  // Rear LED Flashlight / Torch Toggle Handler (For night driving on rural roads)
+  // Toggles the phone's rear flashlight for low-light night driving
   const toggleTorch = useCallback(async (): Promise<boolean> => {
     if (!streamRef.current) return false;
     const track = streamRef.current.getVideoTracks()[0];
@@ -200,7 +195,7 @@ export function useDashcam(): UseDashcamReturn {
     }
   }, [isTorchOn]);
 
-  // PDPA 2010 COMPLIANT: Client-Side Privacy Masking Frame Capture
+  // Captures the current video frame and blurs the upper 40% for privacy
   const captureFrame = useCallback((): string | null => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -222,19 +217,19 @@ export function useDashcam(): UseDashcamReturn {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Draw full raw video frame (unblurred base)
+    // Draw raw video frame
     ctx.drawImage(video, 0, 0, vWidth, vHeight);
 
-    // PDPA PRIVACY BLUR MASK: Safe Clipping Path (Prevents iOS Safari black-screen feedback artifacts)
+    // Apply 24px blur to the upper 40% region to mask faces and plates
     const topMaskHeight = vHeight * 0.4;
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, vWidth, topMaskHeight);
-    ctx.clip(); // Isolate the top 40% region
+    ctx.clip();
     ctx.filter = 'blur(24px)';
-    ctx.drawImage(video, 0, 0, vWidth, vHeight); // Redraw video element into clipped region
+    ctx.drawImage(video, 0, 0, vWidth, vHeight);
     ctx.restore();
-    ctx.filter = 'none'; // Reset filter for road surface
+    ctx.filter = 'none';
 
     try {
       const base64Full = canvas.toDataURL('image/jpeg', 0.75);
@@ -244,7 +239,7 @@ export function useDashcam(): UseDashcamReturn {
     }
   }, []);
 
-  // Asynchronous Background Frame Capture & Vision AI Processing Pipeline
+  // Sends captured frame to /api/infra/vision for AI defect analysis
   const captureAndAnalyzeBackground = useCallback(
     async (payload: BackgroundAnomalyPayload): Promise<VisionAnalysisResult | null> => {
       const imageBase64 = captureFrame();

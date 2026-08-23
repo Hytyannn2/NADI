@@ -1,11 +1,5 @@
--- Migration 009: Create missing tables + drop unused tables
--- Date: 2026-08-17
--- Purpose: Fix database audit gaps
-
--- ============================================
--- 1. CREATE nadi_whistleblower_reports
--- (Code already writes to this table but it didn't exist)
--- ============================================
+-- Migration 009: Whistleblower Reports & Mutual Aid Requests
+-- Creates tables for anonymous whistleblower submissions and community aid requests.
 CREATE TABLE IF NOT EXISTS nadi_whistleblower_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category TEXT NOT NULL,

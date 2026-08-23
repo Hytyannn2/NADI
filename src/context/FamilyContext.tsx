@@ -1,3 +1,8 @@
+/**
+ * Family Context
+ * 
+ * Manages household member profiles, gamification XP, and local storage sync.
+ */
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 

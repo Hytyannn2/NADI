@@ -21,7 +21,7 @@ export const DIALECT_PHONETIC_MAP: Record<string, string> = {
 export function normalizeForSpeech(text: string): string {
   let normalized = text;
   for (const [dialectWord, standardWord] of Object.entries(DIALECT_PHONETIC_MAP)) {
-    // \b ensures exact whole-word boundary matching (prevents "demokrasi" -> "awakkrasi" bugs)
+    // Matches whole words to prevent accidental partial replacements (e.g. "demokrasi")
     const regex = new RegExp(`\\b${dialectWord}\\b`, 'gi');
     normalized = normalized.replace(regex, standardWord);
   }

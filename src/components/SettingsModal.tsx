@@ -1,3 +1,9 @@
+/**
+ * System Settings & Preferences Modal
+ * 
+ * Provides customizable options for display appearance, IoT sensor polling intervals,
+ * notification quiet hours, privacy location precision, and accessibility enhancements.
+ */
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,7 +22,7 @@ import {
   type AutoRefreshRate, type SensorSamplingRate, type NotifRadius, type LocationPrecision
 } from '@/src/context/ThemeContext';
 
-// ── Tab definitions ─────────────────────────────────────────────
+// Settings tab definitions
 type SettingsTab = 'paparan' | 'sensor' | 'amaran' | 'privasi' | 'akses';
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Monitor; color: string }[] = [
@@ -27,7 +33,7 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Monitor; color: strin
   { id: 'akses', label: 'Akses', icon: Eye, color: '#EC4899' },
 ];
 
-// ── Reusable Toggle Switch ──────────────────────────────────────
+// Reusable toggle switch component
 function ToggleSwitch({ checked, onChange, size = 'md' }: { checked: boolean; onChange: (val: boolean) => void; size?: 'sm' | 'md' }) {
   const w = size === 'sm' ? 'w-9' : 'w-11';
   const h = size === 'sm' ? 'h-5' : 'h-6';
@@ -49,7 +55,7 @@ function ToggleSwitch({ checked, onChange, size = 'md' }: { checked: boolean; on
   );
 }
 
-// ── Reusable Setting Row ────────────────────────────────────────
+// Reusable setting row component
 function SettingRow({ icon: Icon, iconColor, title, desc, children, noBorder }: {
   icon: typeof Bell; iconColor?: string; title: string; desc?: string;
   children: React.ReactNode; noBorder?: boolean;

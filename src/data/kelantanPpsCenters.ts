@@ -1,9 +1,9 @@
-// ============================================================================
-// NADI — Official Pusat Pemindahan Sementara (PPS) Dataset for Kelantan
-// Source: Official NADMA / JKM / Portal Bencana Kelantan Dataset
-// Contains all 10 Jajahan: Bachok, Gua Musang, Jeli, Kota Bharu, Kuala Krai,
-// Machang, Pasir Mas, Pasir Puteh, Tanah Merah, Tumpat.
-// ============================================================================
+/**
+ * Official Pusat Pemindahan Sementara (PPS) Dataset for Kelantan
+ * 
+ * Lists flood evacuation centers across all 10 Kelantan districts (Jajahan)
+ * with center types and estimated capacities.
+ */
 
 export interface EvacCenterItem {
     name: string;
@@ -14,7 +14,7 @@ export interface EvacCenterItem {
     lng: number;
 }
 
-// Approximate center coordinates per Jajahan for pin positioning
+// Approximate center coordinates per district (Jajahan) for pin positioning
 export const JAJAHAN_CENTER_COORDS: Record<string, { lat: number; lng: number }> = {
     'Bachok': { lat: 6.0625, lng: 102.3986 },
     'Gua Musang': { lat: 4.8821, lng: 101.9645 },

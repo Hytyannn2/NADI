@@ -1,8 +1,5 @@
--- ============================================
--- NADI Migration 004: Schema Hardening
--- Adds missing FKs, constraints, indexes, timestamps
--- Fixes overly-permissive RLS policies
--- ============================================
+-- Migration 004: Schema Hardening
+-- Adds foreign keys, check constraints, indexes, timestamps, and row-level security hardening.
 
 -- ==========================================
 -- 1. ADD MISSING FOREIGN KEYS & COLUMNS

@@ -1,14 +1,9 @@
 /**
- * NADI Dialect Engine — TypeScript Port (Cloud-Native)
- * ====================================================
- * Replaces the Python microservice (localhost:8100) with a native Next.js
- * module that runs directly on Vercel. No Python runtime needed.
+ * Dialect Translation Engine
  *
- * Data Sources:
- *   1. seed_lexicon.json — Static dialect dictionary (committed in repo)
- *   2. nadi_dialect_feedback table — Crowdsourced citizen corrections (Supabase)
- *
- * Ported from dialect-engine/engine.py
+ * Maps regional dialect words (e.g., Kelantanese Malay) to standard Malay using:
+ * 1. seed_lexicon.json - Predefined dictionary in the repository
+ * 2. nadi_dialect_feedback - Community corrections stored in Supabase
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -17,7 +12,7 @@ import seedData from '@/src/data/seed_lexicon.json';
 
 const THRESHOLD = 0.65;
 
-// Lazy-init Supabase admin client (only created when first needed)
+// Initializes the Supabase client only when database access is first needed
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -25,7 +20,7 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-// ===== Seed Lexicon Cache =====
+// In-memory cache for static seed dictionary
 let seed: Record<string, string> | null = null;
 
 function seedMappings(): Record<string, string> {
@@ -41,7 +36,7 @@ function seedMappings(): Record<string, string> {
   return m;
 }
 
-// ===== Learned Mappings Cache (60-second TTL) =====
+// In-memory cache for learned community mappings (refreshed every 60 seconds)
 let learnedCache: {
   at: number;
   rows: { dialect_text: string; correct_meaning: string; region: string }[];
@@ -61,13 +56,13 @@ async function getLearned() {
       .not('correct_meaning', 'is', null);
     learnedCache = { at: Date.now(), rows: data ?? [] };
   } catch {
-    learnedCache = { at: Date.now(), rows: [] }; // DB optional — seed still works
+    learnedCache = { at: Date.now(), rows: [] }; // DB is optional; fallback to seed lexicon
   }
   return learnedCache.rows;
 }
 
 /**
- * Build complete dialect → standard mapping from seed + learned corrections.
+ * Combines seed lexicon and learned corrections into a single mapping object.
  */
 export async function allMappings(): Promise<Record<string, string>> {
   const m = { ...seedMappings() };
@@ -80,7 +75,7 @@ export async function allMappings(): Promise<Record<string, string>> {
 }
 
 /**
- * Build variant clusters: standard word → set of known dialect variants.
+ * Groups dialect variations under their respective standard word.
  */
 function clustersOf(m: Record<string, string>): Record<string, string[]> {
   const c: Record<string, Set<string>> = {};
@@ -91,7 +86,6 @@ function clustersOf(m: Record<string, string>): Record<string, string[]> {
   return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, [...v].sort()]));
 }
 
-// ===== Lookup Result Interface =====
 export interface LookupResult {
   input: string;
   standard: string;
@@ -103,15 +97,17 @@ export interface LookupResult {
 }
 
 /**
- * Look up a single dialect word and return its standard Malay equivalent.
- * Three-tier resolution: direct match → phonetic match → fuzzy match.
+ * Looks up a single dialect word using three tiers:
+ * 1. Exact dictionary match
+ * 2. Phonetic normalized match
+ * 3. Fuzzy Levenshtein match
  */
 export async function lookup(wordRaw: string): Promise<LookupResult | null> {
   const word = wordRaw.toLowerCase().trim();
   const m = await allMappings();
   const clusters = clustersOf(m);
 
-  // Tier 1: Direct match (O(1))
+  // Tier 1: Exact dictionary match
   if (m[word]) {
     return {
       input: word, standard: m[word], normalized: normalizePhonetic(word),
@@ -119,7 +115,7 @@ export async function lookup(wordRaw: string): Promise<LookupResult | null> {
     };
   }
 
-  // Tier 2: Phonetic normalization match (O(1))
+  // Tier 2: Phonetic normalized match
   const normalized = normalizePhonetic(word);
   if (m[normalized]) {
     return {
@@ -128,7 +124,7 @@ export async function lookup(wordRaw: string): Promise<LookupResult | null> {
     };
   }
 
-  // Tier 3: Fuzzy match with consonant skeleton pre-filtering
+  // Tier 3: Fuzzy similarity matching
   let best: LookupResult | null = null;
   let bestScore = 0;
   for (const [known, standard] of Object.entries(m)) {
@@ -145,7 +141,7 @@ export async function lookup(wordRaw: string): Promise<LookupResult | null> {
 }
 
 /**
- * Translate an entire phrase word-by-word using the dialect engine.
+ * Translates a sentence word-by-word and returns translation coverage stats.
  */
 export async function translatePhrase(text: string) {
   const words = text.toLowerCase().trim().split(/\s+/);
@@ -175,8 +171,7 @@ export async function translatePhrase(text: string) {
 }
 
 /**
- * Export all dialect→standard mappings as a compact string for AI prompt enrichment.
- * This is the function that powers SUARA and Chatbot dialect context injection.
+ * Serializes all dialect mappings into a key=value string to enrich LLM prompts.
  */
 export async function exportForPrompt(): Promise<string> {
   const m = await allMappings();
@@ -188,8 +183,7 @@ export async function exportForPrompt(): Promise<string> {
 }
 
 /**
- * Record a citizen correction (RLHF feedback loop).
- * Persists to Supabase and invalidates the learned cache.
+ * Records a community translation correction to Supabase and clears the local cache.
  */
 export async function addCorrection(
   dialectText: string,
@@ -204,7 +198,7 @@ export async function addCorrection(
     { dialect_text: dialect, correct_meaning: standard, region },
   ];
 
-  // If word counts match, also learn individual word pairs
+  // If word counts match, also record individual word pairings
   if (dw.length === sw.length) {
     for (let i = 0; i < dw.length; i++) {
       if (dw[i] !== sw[i]) {
@@ -218,6 +212,7 @@ export async function addCorrection(
     await supabase.from('nadi_dialect_feedback').insert(new_mappings);
   }
 
-  learnedCache = null; // Invalidate cache so next lookup picks up new data
+  learnedCache = null; // Clear cache so subsequent lookups include the new correction
   return { status: 'learned', new_mappings };
 }
+
