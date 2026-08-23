@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'crypto';
+import { checkSensorLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
+import { sendTelegramAlert } from '@/src/lib/telegram';
 
 // SECURITY: Constant-time string comparison to prevent timing attacks
 function safeCompare(a: string, b: string): boolean {
@@ -17,6 +19,9 @@ function safeCompare(a: string, b: string): boolean {
         return false;
     }
 }
+
+// Telegram alert cooldown cache (30 minutes between alerts per sensor)
+const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
 
 // Global in-memory cache for dev mode / instant UI polling
 const inMemorySensors: Record<string, any> = {
@@ -97,22 +102,43 @@ export async function GET() {
     }
 }
 
-// POST /api/bencana/sensors — update sensor status (simulation + admin)
-// SECURITY: Requires ADMIN_API_KEY in production to prevent unauthorized sensor data manipulation
+// POST /api/bencana/sensors — update sensor status (hardware node + simulation + admin)
+// SECURITY: Requires SENSOR_NODE_KEY or ADMIN_API_KEY in production to prevent unauthorized sensor data manipulation
 export async function POST(request: Request) {
     try {
-        // Auth: require API key in production unless explicitly enabled for dev simulation via ALLOW_DEV_SIMULATION
+        const now = Date.now();
+
+        // 1. HARDWARE AUTHENTICATION & RATE LIMITING
+        const nodeKey = request.headers.get('x-node-key') || request.headers.get('x-device-key') || request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
+        const expectedNodeKey = process.env.SENSOR_NODE_KEY || process.env.ADMIN_API_KEY || process.env.TTN_WEBHOOK_SECRET;
+        const isKnownHardware = Boolean(nodeKey && expectedNodeKey && safeCompare(nodeKey, expectedNodeKey));
+
+        // Rate limit: 120 req/min for authenticated node, 15 req/min for unauthenticated IP
+        const clientIdentifier = isKnownHardware && nodeKey ? nodeKey : getClientIp(request.headers);
+        const limitResult = checkSensorLimit(clientIdentifier, isKnownHardware);
+
+        if (!limitResult.allowed) {
+            const errRes = NextResponse.json(
+                { success: false, error: limitResult.message, retryAfter: limitResult.retryAfterSeconds },
+                { status: 429 }
+            );
+            return addRateLimitHeaders(errRes, limitResult);
+        }
+
+        // In production: enforce authentication unless explicitly allowed for dev simulation
         const isDevMode = process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_SIMULATION === 'true';
-        const adminKey = process.env.ADMIN_API_KEY;
-        if (!isDevMode && adminKey) {
-            const providedKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '') || '';
-            if (!safeCompare(providedKey, adminKey)) {
-                return NextResponse.json({ success: false, error: 'Unauthorized. Valid API key required.' }, { status: 401 });
+        if (!isDevMode) {
+            if (!expectedNodeKey) {
+                console.error('[Sensors API] FATAL: SENSOR_NODE_KEY not configured in production. Rejecting all requests.');
+                return NextResponse.json({ success: false, error: 'Server misconfiguration: SENSOR_NODE_KEY required in production.' }, { status: 503 });
+            }
+            if (!isKnownHardware) {
+                return NextResponse.json({ success: false, error: 'Unauthorized. Valid X-NODE-KEY or API key required.' }, { status: 401 });
             }
         }
 
         const body = await request.json();
-        const { name, status, water_level, battery_pct, rssi_dbm, temperature_c, humidity_pct, pressure_hpa, rise_rate_cm_hr } = body;
+        const { name, status, water_level, battery_pct, rssi_dbm, temperature_c, humidity_pct, pressure_hpa, rise_rate_cm_hr, location } = body;
 
         if (!name || !status) {
             return NextResponse.json({ success: false, error: 'Name and status are required.' }, { status: 400 });
@@ -175,30 +201,72 @@ export async function POST(request: Request) {
                             await supabase
                                 .from('nadi_bencana_sensor_readings')
                                 .insert({
-                                    sensor_id: data.id,
-                                    water_level: updatePayload.water_level,
-                                    battery_pct: updatePayload.battery_pct ?? null,
-                                    temperature_c: updatePayload.temperature_c ?? null,
-                                    humidity_pct: updatePayload.humidity_pct ?? null,
-                                    pressure_hpa: updatePayload.pressure_hpa ?? null,
+                                     sensor_id: data.id,
+                                     water_level: updatePayload.water_level,
+                                     battery_pct: updatePayload.battery_pct ?? null,
+                                     temperature_c: updatePayload.temperature_c ?? null,
+                                     humidity_pct: updatePayload.humidity_pct ?? null,
+                                     pressure_hpa: updatePayload.pressure_hpa ?? null,
                                 });
                         } catch (err) {
                             console.warn('History insert warning:', err);
                         }
                     })();
+
+                    // Telegram Alert Dispatch on Danger / Warning with 30-min cooldown
+                    if ((status === 'danger' || status === 'warning') && typeof updatePayload.water_level === 'number') {
+                        const cooldownRecord = telegramAlertCooldowns.get(data.id);
+                        const COOLDOWN_MS = 30 * 60 * 1000;
+                        const isStatusEscalation = cooldownRecord && cooldownRecord.lastStatus === 'warning' && status === 'danger';
+                        const isCooldownExpired = !cooldownRecord || (now - cooldownRecord.lastSent) > COOLDOWN_MS;
+
+                        if (isCooldownExpired || isStatusEscalation) {
+                            const riseRate = (updatePayload.rise_rate_cm_hr as number) || 0;
+                            const rawLvl = updatePayload.water_level as number;
+                            // Convert meters to cm if telemetry arrives as meters (<=10m)
+                            const currentLvlCm = rawLvl <= 10 ? rawLvl * 100 : rawLvl;
+                            const DANGER_THRESHOLD_CM = 120; // 1.20 meters
+                            let timeToDanger: string | undefined = undefined;
+                            if (riseRate > 0 && currentLvlCm < DANGER_THRESHOLD_CM) {
+                                const cmRemaining = DANGER_THRESHOLD_CM - currentLvlCm;
+                                const hoursRemaining = cmRemaining / riseRate;
+                                if (hoursRemaining > 0 && hoursRemaining < 48) {
+                                    timeToDanger = `${hoursRemaining.toFixed(1)} jam / hours`;
+                                }
+                            }
+
+                            sendTelegramAlert({
+                                sensorName: name,
+                                location: location || data.location || 'Kelantan',
+                                waterLevel: currentLvlCm,
+                                status,
+                                riseRate,
+                                batteryPct: (updatePayload.battery_pct as number) ?? null,
+                                temperatureC: (updatePayload.temperature_c as number) ?? null,
+                                rssiDbm: (updatePayload.rssi_dbm as number) ?? null,
+                                timeToDanger,
+                            }).then(sent => {
+                                if (sent) {
+                                    telegramAlertCooldowns.set(data.id, { lastSent: now, lastStatus: status });
+                                }
+                            }).catch(err => console.error('[Sensors API] Telegram alert dispatch failed:', err));
+                        }
+                    }
                 }
 
                 if (data) {
-                    return NextResponse.json({ success: true, sensor: data });
+                    const res = NextResponse.json({ success: true, sensor: data });
+                    return addRateLimitHeaders(res, limitResult);
                 }
             }
         } catch (dbErr) {
             console.warn('Supabase storage warning:', dbErr);
         }
 
-        return NextResponse.json({ success: true, message: "Telemetry received", telemetry: updatePayload });
+        const successRes = NextResponse.json({ success: true, message: "Telemetry received", telemetry: updatePayload });
+        return addRateLimitHeaders(successRes, limitResult);
     } catch (err: any) {
         console.error('Sensor update error:', err);
-        return NextResponse.json({ success: false, error: 'Failed to process sensor payload.', details: err?.message || String(err), stack: err?.stack }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Failed to process sensor payload.', details: err?.message || String(err) }, { status: 500 });
     }
 }

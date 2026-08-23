@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { checkKomunitiLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
+import { headers } from 'next/headers';
 
 function getAdminSupabase() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dxexikpuezslryywhnnf.supabase.co';
@@ -60,6 +62,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const headersList = await headers();
+    const ip = getClientIp(headersList);
+    const limit = checkKomunitiLimit(ip);
+    if (!limit.allowed) {
+        const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
+        return addRateLimitHeaders(errRes, limit);
+    }
+
     try {
         const body = await request.json();
         const { itemType, ...itemData } = body;
@@ -90,9 +100,11 @@ export async function POST(request: Request) {
             if (error) {
                 console.warn('Supabase insert notice, saved to local store:', error.message);
                 IN_MEMORY_JOBS.unshift(newJob);
-                return NextResponse.json({ success: true, job: newJob });
+                const res = NextResponse.json({ success: true, job: newJob });
+                return addRateLimitHeaders(res, limit);
             }
-            return NextResponse.json({ success: true, job: data });
+            const res = NextResponse.json({ success: true, job: data });
+            return addRateLimitHeaders(res, limit);
         } else if (itemType === 'vendor') {
             const newVendor = {
                 id: `vendor-${Date.now()}`,
@@ -114,12 +126,15 @@ export async function POST(request: Request) {
             if (error) {
                 console.warn('Supabase vendor insert notice, saved to local store:', error.message);
                 IN_MEMORY_VENDORS.unshift(newVendor);
-                return NextResponse.json({ success: true, vendor: newVendor });
+                const res = NextResponse.json({ success: true, vendor: newVendor });
+                return addRateLimitHeaders(res, limit);
             }
-            return NextResponse.json({ success: true, vendor: data });
+            const res = NextResponse.json({ success: true, vendor: data });
+            return addRateLimitHeaders(res, limit);
         }
 
-        return NextResponse.json({ success: false, error: 'Jenis item tidak sah.' }, { status: 400 });
+        const errRes = NextResponse.json({ success: false, error: 'Jenis item tidak sah.' }, { status: 400 });
+        return addRateLimitHeaders(errRes, limit);
     } catch (err: any) {
         return NextResponse.json({ success: false, error: err?.message || 'Gagal' }, { status: 500 });
     }

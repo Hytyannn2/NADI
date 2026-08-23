@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendTelegramAlert } from '@/src/lib/telegram';
+import { checkSensorLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { timingSafeEqual } from 'crypto';
 
 // SECURITY: Constant-time string comparison to prevent timing attacks
@@ -21,24 +22,11 @@ function safeCompare(a: string, b: string): boolean {
 /**
  * POST /api/bencana/sensors/webhook
  *
- * Receives uplink messages from The Things Network (TTN).
- * This is the bridge between the physical LoRaWAN sensors and NADI.
- *
- * TTN sends a POST here on every sensor transmission. We:
- * 1. Extract the decoded payload (water level, battery, BME280 env data, etc.)
- * 2. Upsert the sensor's current state in nadi_bencana_sensors
- * 3. Insert a row into nadi_bencana_sensor_readings (history)
- * 4. Calculate rise rate from recent readings for early warning
- *
- * Uses service role key — no user auth needed (machine-to-machine).
- *
- * TTN Webhook Setup:
- *   URL: https://your-domain.vercel.app/api/bencana/sensors/webhook
- *   Optional: Add X-Webhook-Secret header for auth
+ * Receives uplink messages from The Things Network (TTN) or direct ESP32 IoT Nodes.
+ * This is the bridge between physical water level sensors and NADI.
  */
-// In-memory cache for webhook replay protection, rate limiting, and alert cooldowns
+// In-memory cache for webhook replay protection and alert cooldowns
 const usedNonces = new Map<string, number>();
-const webhookRateLimit = new Map<string, { count: number; expires: number }>();
 const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
 
 function cleanExpiredNonces() {
@@ -50,23 +38,28 @@ function cleanExpiredNonces() {
 
 export async function POST(request: Request) {
     try {
+        const now = Date.now();
+
         // SECURITY: Payload size restriction (max 50KB)
         const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
         if (contentLength > 50000) {
             return NextResponse.json({ success: false, error: 'Payload too large (max 50KB)' }, { status: 413 });
         }
 
-        // SECURITY: Rate limiting (max 60 req/min per IP)
-        const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-client';
-        const now = Date.now();
-        const rateRecord = webhookRateLimit.get(clientIp);
-        if (rateRecord && rateRecord.expires > now) {
-            if (rateRecord.count >= 60) {
-                return NextResponse.json({ success: false, error: 'Rate limit exceeded (max 60 req/min)' }, { status: 429 });
-            }
-            rateRecord.count++;
-        } else {
-            webhookRateLimit.set(clientIp, { count: 1, expires: now + 60000 });
+        // HARDWARE EXEMPTION & RATE LIMITING
+        const nodeKey = request.headers.get('x-node-key') || request.headers.get('x-device-key') || request.headers.get('x-webhook-secret');
+        const expectedNodeKey = process.env.SENSOR_NODE_KEY || process.env.TTN_WEBHOOK_SECRET;
+        const isKnownHardware = Boolean(nodeKey && expectedNodeKey && safeCompare(nodeKey, expectedNodeKey));
+
+        const clientIdentifier = isKnownHardware && nodeKey ? nodeKey : getClientIp(request.headers);
+        const limitResult = checkSensorLimit(clientIdentifier, isKnownHardware);
+
+        if (!limitResult.allowed) {
+            const errRes = NextResponse.json(
+                { success: false, error: limitResult.message, retryAfter: limitResult.retryAfterSeconds },
+                { status: 429 }
+            );
+            return addRateLimitHeaders(errRes, limitResult);
         }
 
         // SECURITY: Webhook authentication with nonce and timestamp replay protection
@@ -282,10 +275,10 @@ export async function POST(request: Request) {
                 const sensorName = sensorInfo?.name || deviceId || `Sensor ${devEui.slice(-4)}`;
                 const location = sensorInfo?.location || 'Unknown';
 
-                // Calculate predicted time to reach danger (1.80m = 180cm) if rising
+                // Calculate predicted time to reach danger threshold (120 cm) if rising
                 let timeToDanger: string | undefined = undefined;
-                if (riseRate > 0 && waterLevel < 1.80) {
-                    const cmRemaining = (1.80 - waterLevel) * 100;
+                if (riseRate > 0 && waterLevel < 120) {
+                    const cmRemaining = 120 - waterLevel;
                     const hoursRemaining = cmRemaining / riseRate;
                     if (hoursRemaining > 0 && hoursRemaining < 48) {
                         timeToDanger = `${hoursRemaining.toFixed(1)} jam / hours`;

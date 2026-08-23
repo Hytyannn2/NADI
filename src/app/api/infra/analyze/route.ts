@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { checkInfraAnalyzeLimit } from '@/src/lib/rateLimit';
+import { checkInfraAnalyzeLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 import { DEFAULT_LOCATION } from '@/src/config/constants';
 
 export async function POST(request: Request) {
     const headersList = await headers();
-    const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || headersList.get('x-real-ip') || 'unknown';
+    const ip = getClientIp(headersList);
     const limit = checkInfraAnalyzeLimit(ip);
     if (!limit.allowed) {
-        return NextResponse.json({ success: false, error: limit.message }, { status: 429 });
+        const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
+        return addRateLimitHeaders(errRes, limit);
     }
 
     try {

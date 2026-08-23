@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { checkBantuanRequestLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
+import { headers } from 'next/headers';
 
 // Supabase admin client (service role — bypasses RLS for anonymous bantuan ops)
 function getAdminSupabase() {
@@ -128,7 +130,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         }
 
-        // Submit new request
+        // Submit new request — with rate limiting
+        const headersList = await headers();
+        const ip = getClientIp(headersList);
+        const limit = checkBantuanRequestLimit(ip);
+        if (!limit.allowed) {
+            const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
+            return addRateLimitHeaders(errRes, limit);
+        }
+
         const { title, description, location, category, type, contact } = body;
         
         // SECURITY: Type enforcement, length limits, and strict HTML entity encoding

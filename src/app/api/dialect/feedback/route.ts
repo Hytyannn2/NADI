@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
 import { addCorrection, exportForPrompt } from '@/src/lib/dialect/engine';
+import { checkDialectFeedbackLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
+import { headers } from 'next/headers';
 
 export async function POST(request: Request) {
+    const headersList = await headers();
+    const ip = getClientIp(headersList);
+    const limit = checkDialectFeedbackLimit(ip);
+    if (!limit.allowed) {
+        const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
+        return addRateLimitHeaders(errRes, limit);
+    }
+
     try {
         const body = await request.json();
         const { dialectText, correctMeaning, region, reportId } = body;

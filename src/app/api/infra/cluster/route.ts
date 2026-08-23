@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { checkRateLimit } from '@/src/lib/rateLimit';
+import { checkInfraClusterLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 
 // ============================================
@@ -40,15 +40,11 @@ function isUrban(lat: number, lng: number): boolean {
 export async function POST(request: Request) {
     // Rate limiting
     const headersList = await headers();
-    const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || headersList.get('x-real-ip') || 'unknown';
-    const limit = checkRateLimit(ip, {
-        maxRequests: 30,
-        windowSeconds: 60,
-        bucketName: 'infra-cluster',
-        blockDurationSeconds: 60,
-    });
+    const ip = getClientIp(headersList);
+    const limit = checkInfraClusterLimit(ip);
     if (!limit.allowed) {
-        return NextResponse.json({ success: false, error: limit.message }, { status: 429 });
+        const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
+        return addRateLimitHeaders(errRes, limit);
     }
 
     try {

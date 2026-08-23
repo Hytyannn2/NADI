@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { checkSuaraLimit } from '@/src/lib/rateLimit';
+import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 import { exportForPrompt } from '@/src/lib/dialect/engine';
 import { DEFAULT_LOCATION } from '@/src/config/constants';
@@ -20,16 +20,15 @@ async function getDialectContext(): Promise<string> {
 
 export async function POST(request: Request) {
   const headersList = await headers();
-  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || headersList.get('x-real-ip')
-    || 'unknown';
+  const ip = getClientIp(headersList);
 
   const limit = checkSuaraLimit(ip);
   if (!limit.allowed) {
-    return NextResponse.json(
+    const errRes = NextResponse.json(
       { success: false, error: limit.message, retryAfter: limit.retryAfterSeconds },
       { status: 429 }
     );
+    return addRateLimitHeaders(errRes, limit);
   }
 
   try {
