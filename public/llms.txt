@@ -18,6 +18,6 @@
 
 ## Canonical URLs & APIs
 
-- Web Application: https://nadi-kelantan.app
-- API Root: https://nadi-kelantan.app/api
+- Web Application: https://nadi-alpha.vercel.app
+- API Root: https://nadi-alpha.vercel.app/api
 - Documentation & Repositories: https://github.com/Hytyannn2/NADI

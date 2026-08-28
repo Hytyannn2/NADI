@@ -99,7 +99,7 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
     };
   }, []);
 
-  // Update map tile layer dynamically when layerMode changes
+  // Switches tile layers when layer mode changes
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -107,11 +107,14 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
       currentTileLayerRef.current.remove();
     }
 
-    let tileUrl = 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png';
+    const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY;
+    let tileUrl = cartoKey
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoKey}`
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
     let options: L.TileLayerOptions = {
-      maxZoom: 19,
+      maxZoom: 20,
       subdomains: ['a', 'b', 'c', 'd'],
-      attribution: '&copy; CARTO &copy; OpenStreetMap',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
     };
 
     if (layerMode === 'streets') {

@@ -121,7 +121,7 @@ export async function GET(request: Request) {
         // Parallel queries: Open-Meteo Weather, Open-Meteo AQI, and Nominatim reverse geocoding
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${numLat}&longitude=${numLng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,weather_code,wind_speed_10m,surface_pressure&minutely_15=precipitation&timezone=auto`;
         const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${numLat}&longitude=${numLng}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone&timezone=auto`;
-        const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?lat=${numLat}&lon=${numLng}&format=json&zoom=14&addressdetails=1`;
+        const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?lat=${numLat}&lon=${numLng}&format=json&zoom=16&addressdetails=1`;
 
         const [weatherRes, aqiRes, geocodeRes] = await Promise.allSettled([
             fetch(weatherUrl, { next: { revalidate: 60 } }),
@@ -139,7 +139,16 @@ export async function GET(request: Request) {
             try {
                 const geoData = await geocodeRes.value.json();
                 const addr = geoData.address || {};
-                resolvedLocationName = addr.city || addr.town || addr.municipality || addr.suburb || addr.village || addr.hamlet || addr.county || addr.state_district || '';
+                // Resolves neighborhood / kampung and town names for display
+                const localArea = addr.neighbourhood || addr.quarter || addr.suburb || addr.village || addr.hamlet || addr.residential || '';
+                const mainTown = addr.city || addr.town || addr.municipality || addr.state_district || '';
+
+                if (localArea && mainTown && !localArea.toLowerCase().includes(mainTown.toLowerCase())) {
+                    resolvedLocationName = `${localArea}, ${mainTown}`;
+                } else {
+                    resolvedLocationName = localArea || mainTown || addr.county || '';
+                }
+
                 resolvedStateName = addr.state || '';
             } catch (e) {
                 console.warn('Geocode parse error:', e);
@@ -166,31 +175,25 @@ export async function GET(request: Request) {
         const recent15MinRain = minutely15.length > 0 ? (minutely15[minutely15.length - 1] * 4) : 0;
 
         const weatherCode = currentW.weather_code || 0;
-        let baseRainMm = Math.max(
+        const actualRain = Math.max(
             currentW.precipitation || 0,
             currentW.rain || 0,
             currentW.showers || 0,
             recent15MinRain
         );
 
-        if ([95, 96, 99].includes(weatherCode)) {
-            baseRainMm = Math.max(baseRainMm, 15.0);
-        } else if ([65, 82].includes(weatherCode)) {
-            baseRainMm = Math.max(baseRainMm, 10.0);
-        }
-
-        const rainMm = baseRainMm;
+        const rainMm = Number(actualRain.toFixed(1));
         const humidity = currentW.relative_humidity_2m || 70;
         const pressure = currentW.surface_pressure || currentW.pressure_msl || 1013;
 
-        // Calculates Flood Risk Index (FRI) from rain intensity, relative humidity, and barometric drop
+        // Calculates Flood Risk Index (FRI) strictly from actual rainfall, humidity, and barometric pressure drop
         const pressureDrop = Math.max(0, 1013 - pressure);
-        const fri = (rainMm * 5.0) + ((humidity / 100) * 10.0) + (pressureDrop * 1.5);
+        const fri = (rainMm * 4.0) + ((humidity / 100) * 8.0) + (pressureDrop * 1.5);
 
         let floodRisk = 'Low';
-        if (fri >= 45 || rainMm >= 10.0) {
+        if (rainMm >= 20.0 || (fri >= 60 && rainMm >= 10.0)) {
             floodRisk = 'High';
-        } else if (fri >= 25 || rainMm >= 4.0) {
+        } else if (rainMm >= 5.0 || (fri >= 35 && rainMm >= 2.0)) {
             floodRisk = 'Moderate';
         }
 

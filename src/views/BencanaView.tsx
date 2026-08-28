@@ -38,6 +38,7 @@ import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kela
 import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanStations';
 import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
 import { FALLBACK_PPS_CENTERS } from '@/src/data/fallbacks';
+import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
 
 export interface FloodZone {
     district: string;
@@ -243,7 +244,17 @@ export default function BencanaView() {
 
     const [selectedJajahan, setSelectedJajahan] = useState<string>('All');
     const [selectedType, setSelectedType] = useState<string>('All');
-    const [sortBy, setSortBy] = useState<'nearest' | 'capacity' | 'name'>('nearest');
+    const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+    const toggleSort = (type: 'distance' | 'name') => {
+        if (sortBy === type) {
+            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(type);
+            setSortOrder('asc');
+        }
+    };
     const [searchPps, setSearchPps] = useState<string>('');
     const [searchJps, setSearchJps] = useState<string>('');
     const [displayLimit, setDisplayLimit] = useState<number>(24);
@@ -299,25 +310,43 @@ export default function BencanaView() {
     }, [userLat, userLng]);
 
     const filteredEvacCenters = useMemo(() => {
+        const hasSearch = Boolean(searchPps && searchPps.trim());
+
         const filtered = allProcessedEvacCenters.filter(c => {
             const matchesJajahan = selectedJajahan === 'All' || c.district.toLowerCase() === selectedJajahan.toLowerCase();
             const matchesType = selectedType === 'All' || c.type.toLowerCase().includes(selectedType.toLowerCase());
-            const matchesSearch = searchPps === '' || c.name.toLowerCase().includes(searchPps.toLowerCase()) || c.district.toLowerCase().includes(searchPps.toLowerCase());
-            return matchesJajahan && matchesType && matchesSearch;
+
+            if (!matchesJajahan || !matchesType) return false;
+            if (!hasSearch) return true;
+
+            return matchCivicSearch(searchPps, [c.name, c.district, c.type]);
         });
 
-        if (sortBy === 'capacity') {
-            filtered.sort((a, b) => b.capacity - a.capacity);
+        if (hasSearch && sortBy === 'distance') {
+            // When actively searching, rank by highest match relevance first, then by distance
+            filtered.sort((a, b) => {
+                const scoreA = scoreCivicSearch(searchPps, a.name, [a.district, a.type]);
+                const scoreB = scoreCivicSearch(searchPps, b.name, [b.district, b.type]);
+                if (scoreA !== scoreB) return scoreB - scoreA;
+
+                const distA = a.distanceKm ?? 9999;
+                const distB = b.distanceKm ?? 9999;
+                return sortOrder === 'asc' ? distA - distB : distB - distA;
+            });
         } else if (sortBy === 'name') {
-            filtered.sort((a, b) => a.name.localeCompare(b.name));
+            filtered.sort((a, b) => sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
         } else {
             if (userLat !== null && userLng !== null) {
-                filtered.sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+                filtered.sort((a, b) => {
+                    const distA = a.distanceKm ?? 9999;
+                    const distB = b.distanceKm ?? 9999;
+                    return sortOrder === 'asc' ? distA - distB : distB - distA;
+                });
             }
         }
 
         return filtered;
-    }, [allProcessedEvacCenters, selectedJajahan, selectedType, searchPps, sortBy, userLat, userLng]);
+    }, [allProcessedEvacCenters, selectedJajahan, selectedType, searchPps, sortBy, sortOrder, userLat, userLng]);
 
     // Map shelters layer (top 10 nearest centers)
     const mapShelters = filteredEvacCenters.slice(0, 10);
@@ -784,33 +813,46 @@ export default function BencanaView() {
                                             ))}
                                         </div>
 
-                                        {/* Sort By Dropdown Pills */}
+                                        {/* Sort controls (toggle ascending or descending) */}
                                         <div className="flex items-center gap-1.5 ml-auto">
                                             <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1">
                                                 <ArrowUpDown className="w-3 h-3 text-purple-400" /> Susun:
                                             </span>
-                                            {[
-                                                { id: 'nearest', label: '📍 Terdekat' },
-                                                { id: 'capacity', label: '👥 Kapasiti' },
-                                                { id: 'name', label: '🔤 Nama A-Z' },
-                                            ].map(s => (
-                                                <button
-                                                    key={s.id}
-                                                    onClick={() => setSortBy(s.id as any)}
-                                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border ${
-                                                        sortBy === s.id
-                                                            ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
-                                                            : 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:text-white'
-                                                    }`}
-                                                >
-                                                    {s.label}
-                                                </button>
-                                            ))}
+
+                                            {/* Distance sort toggle button */}
+                                            <button
+                                                onClick={() => toggleSort('distance')}
+                                                className={`px-3 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border active:scale-95 ${
+                                                    sortBy === 'distance'
+                                                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm'
+                                                        : 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:text-white'
+                                                }`}
+                                            >
+                                                <span>📍 {sortBy === 'distance' && sortOrder === 'desc' ? 'Terjauh' : 'Terdekat'}</span>
+                                                <span className={`text-[11px] font-mono transition-transform duration-200 ${sortBy === 'distance' && sortOrder === 'desc' ? 'rotate-180 text-purple-400' : 'text-purple-400'}`}>
+                                                    ↑
+                                                </span>
+                                            </button>
+
+                                            {/* Alphabetical sort toggle button */}
+                                            <button
+                                                onClick={() => toggleSort('name')}
+                                                className={`px-3 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border active:scale-95 ${
+                                                    sortBy === 'name'
+                                                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm'
+                                                        : 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:text-white'
+                                                }`}
+                                            >
+                                                <span>🔤 {sortBy === 'name' && sortOrder === 'desc' ? 'Nama Z-A' : 'Nama A-Z'}</span>
+                                                <span className={`text-[11px] font-mono transition-transform duration-200 ${sortBy === 'name' && sortOrder === 'desc' ? 'rotate-180 text-purple-400' : 'text-purple-400'}`}>
+                                                    ↑
+                                                </span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* PPS Cards Grid */}
+                                {/* PPS evacuation centers grid */}
                                 {filteredEvacCenters.length === 0 ? (
                                     <div className="p-12 text-center rounded-2xl border border-zinc-800 bg-zinc-900/40">
                                         <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-2 opacity-60" />

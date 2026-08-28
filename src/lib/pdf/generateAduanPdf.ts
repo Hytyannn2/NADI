@@ -44,7 +44,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
 
   // Resolves the current base URL for ticket verification links
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-    (typeof window !== 'undefined' ? window.location.origin : 'https://nadi-kelantan.app');
+    (typeof window !== 'undefined' ? window.location.origin : 'https://nadi-alpha.vercel.app');
 
   const verificationUrl = `${baseUrl}/verify/${anomaly.id}?hash=${payloadHash}`;
 

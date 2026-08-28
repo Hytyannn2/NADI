@@ -5,7 +5,7 @@
  * for local API routes. Strictly ignores cross-origin tile and weather requests.
  */
 
-const CACHE_NAME = 'nadi-v4.1.0-cache';
+const CACHE_NAME = 'nadi-v4.3.4-cache';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

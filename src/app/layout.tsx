@@ -11,7 +11,7 @@ import { LanguageProvider } from "@/src/context/LanguageContext";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { FamilyProvider } from "@/src/context/FamilyContext";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-kelantan.app";
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-alpha.vercel.app";
 
 export const viewport: Viewport = {
   width: "device-width",
