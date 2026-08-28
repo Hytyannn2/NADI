@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import { useLanguage } from '@/src/context/LanguageContext';
+import { sound } from '@/src/lib/audio/soundEffects';
 import pkg from '@/package.json';
 
 interface Tab {
@@ -138,7 +139,10 @@ export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, on
               key={tab.id}
               title={isCollapsed ? tab.name : undefined}
               aria-label={`Navigate to ${tab.name}`}
-              onClick={() => onTabSwitch(tab.id)}
+              onClick={() => {
+                sound.playWaterDrop();
+                onTabSwitch(tab.id);
+              }}
               whileTap={{ scale: 0.97 }}
               className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 p-0' : 'w-full px-3.5 py-2.5 gap-3.5'} rounded-2xl transition-all mx-auto shrink-0 ${
                 isActive

@@ -39,6 +39,7 @@ import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanSta
 import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
 import { FALLBACK_PPS_CENTERS } from '@/src/data/fallbacks';
 import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
+import { sound } from '@/src/lib/audio/soundEffects';
 
 export interface FloodZone {
     district: string;
@@ -767,6 +768,7 @@ export default function BencanaView() {
                                             <button
                                                 key={jajahan}
                                                 onClick={() => {
+                                                    sound.playWaterDrop();
                                                     setSelectedJajahan(jajahan);
                                                     setDisplayLimit(24);
                                                 }}
@@ -799,6 +801,7 @@ export default function BencanaView() {
                                                 <button
                                                     key={t.id}
                                                     onClick={() => {
+                                                        sound.playWaterDrop();
                                                         setSelectedType(t.id);
                                                         setDisplayLimit(24);
                                                     }}
@@ -821,7 +824,10 @@ export default function BencanaView() {
 
                                             {/* Distance sort toggle button */}
                                             <button
-                                                onClick={() => toggleSort('distance')}
+                                                onClick={() => {
+                                                    sound.playSoftTap();
+                                                    toggleSort('distance');
+                                                }}
                                                 className={`px-3 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border active:scale-95 ${
                                                     sortBy === 'distance'
                                                         ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm'
@@ -836,7 +842,10 @@ export default function BencanaView() {
 
                                             {/* Alphabetical sort toggle button */}
                                             <button
-                                                onClick={() => toggleSort('name')}
+                                                onClick={() => {
+                                                    sound.playSoftTap();
+                                                    toggleSort('name');
+                                                }}
                                                 className={`px-3 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border active:scale-95 ${
                                                     sortBy === 'name'
                                                         ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm'

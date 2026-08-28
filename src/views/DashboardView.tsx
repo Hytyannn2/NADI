@@ -11,6 +11,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import pkg from '@/package.json';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useWeather } from '@/src/hooks/useWeather';
+import { sound } from '@/src/lib/audio/soundEffects';
+import { WeatherAtmosphere } from '@/src/components/ambient/WeatherAtmosphere';
 import {
     CloudRain, AlertTriangle, Heart, Activity,
     ChevronRight, Loader2, Thermometer,
@@ -35,12 +37,15 @@ export default function DashboardView() {
                 : (t('greeting.night') || 'Selamat Malam');
 
     const switchToTab = (tabId: string) => {
+        sound.playWaterDrop();
         const btn = document.getElementById(`tour-${tabId}`);
         if (btn) btn.click();
     };
 
     return (
         <div className="p-5 min-h-full w-full flex flex-col relative z-0">
+            {/* Ambient weather backdrop */}
+            <WeatherAtmosphere />
 
             {/* 1. Civic Welcome Header */}
             <motion.div
@@ -159,7 +164,7 @@ export default function DashboardView() {
                     {/* Aduan Sivik Card */}
                     <button
                         onClick={() => switchToTab('aduan')}
-                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 warm-card-hover group cursor-pointer"
                         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
                     >
                         <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 group-hover:bg-blue-500/20 transition-colors">
@@ -179,7 +184,7 @@ export default function DashboardView() {
                     {/* Bantuan & Sukarelawan Card */}
                     <button
                         onClick={() => switchToTab('bantuan')}
-                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 warm-card-hover group cursor-pointer"
                         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
                     >
                         <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 group-hover:bg-rose-500/20 transition-colors">
@@ -199,7 +204,7 @@ export default function DashboardView() {
                     {/* Komuniti & Pekerjaan Card */}
                     <button
                         onClick={() => switchToTab('komuniti')}
-                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 warm-card-hover group cursor-pointer"
                         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
                     >
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 group-hover:bg-emerald-500/20 transition-colors">
@@ -219,7 +224,7 @@ export default function DashboardView() {
                     {/* Bencana & PPS Card */}
                     <button
                         onClick={() => switchToTab('bencana')}
-                        className="p-4 rounded-2xl border text-left flex items-start gap-3 transition-all hover:scale-[1.01] group"
+                        className="p-4 rounded-2xl border text-left flex items-start gap-3 warm-card-hover group cursor-pointer"
                         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
                     >
                         <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 group-hover:bg-amber-500/20 transition-colors">

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
+import { sound } from '@/src/lib/audio/soundEffects';
 import {
   useTheme, THEMES, SENSOR_SAMPLING_RATES,
   type FontSize, type ColorblindMode, type ThemeId, type ClockFormat,
@@ -274,8 +275,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <SettingRow icon={LayoutGrid} iconColor="#8B5CF6" title="Paparan Padat" desc="Kurangkan jarak elemen">
           <ToggleSwitch checked={themeCtx.compactView} onChange={themeCtx.setCompactView} />
         </SettingRow>
-        <SettingRow icon={Volume2} iconColor="#F59E0B" title="Kesan Bunyi" desc="Bunyi makluman & pemberitahuan" noBorder>
-          <ToggleSwitch checked={themeCtx.soundEnabled} onChange={themeCtx.setSoundEnabled} />
+        <SettingRow icon={Volume2} iconColor="#F59E0B" title="Kesan Bunyi" desc="Bunyi makluman & pemberitahuan (opt-in)" noBorder>
+          <ToggleSwitch
+            checked={themeCtx.soundEnabled}
+            onChange={(val) => {
+              themeCtx.setSoundEnabled(val);
+              sound.setSoundEnabled(val);
+              if (val) sound.playWaterDrop();
+            }}
+          />
         </SettingRow>
       </div>
     </div>

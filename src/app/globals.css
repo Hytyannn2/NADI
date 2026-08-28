@@ -555,3 +555,29 @@ html, body {
   background-color: transparent !important;
   box-shadow: none !important;
 }
+
+/* ====== Living Atmosphere & Card Glow Styles ====== */
+@keyframes breathingGlow {
+  0%, 100% {
+    opacity: 0.75;
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.25));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.5));
+  }
+}
+
+.breathing-emerald {
+  animation: breathingGlow 3.5s ease-in-out infinite;
+}
+
+.warm-card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.warm-card-hover:hover {
+  border-color: rgba(251, 191, 36, 0.28) !important;
+  box-shadow: 0 8px 32px -4px rgba(251, 191, 36, 0.08), 0 0 0 1px rgba(251, 191, 36, 0.12) !important;
+  transform: translateY(-2px);
+}
