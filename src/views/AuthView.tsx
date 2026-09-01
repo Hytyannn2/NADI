@@ -51,12 +51,13 @@ function MalaysiaFlagIcon({ className = "w-7 h-7" }: { className?: string }) {
   );
 }
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, User, Phone, MapPin, CheckCircle2, ChevronDown, Check, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, User, Phone, MapPin, CheckCircle2, ChevronDown, Check, AlertCircle, RotateCw } from 'lucide-react';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 
-type Mode = 'login' | 'register' | 'forgot';
+type Mode = 'login' | 'register' | 'forgot' | 'verify_email';
 type Lang = 'BM' | 'EN';
 
 const MALAYSIA_STATES = [
@@ -389,6 +390,37 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
+  // CAPTCHA state (Cloudflare Turnstile)
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileRef = useRef<TurnstileInstance>(null);
+
+  // OTP verification state
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Detect ?verified=true URL param on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('verified') === 'true') {
+        setMessage(lang === 'BM' ? '✅ E-mel berjaya disahkan! Sila log masuk.' : '✅ Email verified! Please log in.');
+        window.history.replaceState({}, '', '/');
+      }
+      if (params.get('error') === 'verification_expired') {
+        setError(lang === 'BM' ? 'Pautan pengesahan telah tamat tempoh. Sila hantar semula.' : 'Verification link expired. Please resend.');
+        window.history.replaceState({}, '', '/');
+      }
+    }
+  }, []);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
   // Load remembered email and password on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -469,6 +501,23 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           return;
         }
 
+        // Verify CAPTCHA token server-side before signup
+        if (captchaToken) {
+          const captchaRes = await fetch('/api/auth/verify-captcha', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: captchaToken }),
+          });
+          const captchaResult = await captchaRes.json();
+          if (!captchaResult.success && !captchaResult.skipped) {
+            setError(lang === 'BM' ? 'Pengesahan CAPTCHA gagal. Sila cuba lagi.' : 'CAPTCHA verification failed. Please try again.');
+            turnstileRef.current?.reset();
+            setCaptchaToken('');
+            setLoading(false);
+            return;
+          }
+        }
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -478,7 +527,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               phone: phone,
               state_region: stateRegion,
             },
-            emailRedirectTo: `${window.location.origin}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
         if (error) {
@@ -494,10 +543,14 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           }
           throw error;
         }
-        setMessage(lang === 'BM' ? 'Pautan pengesahan telah dihantar ke e-mel anda!' : 'Verification link sent to your email!');
+        // Switch to OTP verification screen
+        setOtpDigits(['', '', '', '', '', '']);
+        setMode('verify_email');
+        setResendCooldown(60);
+        setMessage(lang === 'BM' ? 'Kod 6-digit telah dihantar ke e-mel anda!' : '6-digit code sent to your email!');
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/reset`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         });
         if (error) throw error;
         setMessage(lang === 'BM' ? 'Pautan menetapkan semula kata laluan telah dihantar!' : 'Password reset link sent to your email!');
@@ -515,6 +568,22 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             );
             return;
           }
+          // If email not confirmed, auto-switch to OTP verification screen
+          if (errMsg.includes('email_not_confirmed') || errMsg.includes('email not confirmed')) {
+            setOtpDigits(['', '', '', '', '', '']);
+            setMode('verify_email');
+            setMessage(
+              lang === 'BM'
+                ? 'Sila sahkan e-mel anda terlebih dahulu. Kod baru telah dihantar.'
+                : 'Please verify your email first. A new code has been sent.'
+            );
+            // Auto-resend verification
+            try {
+              await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+              setResendCooldown(60);
+            } catch {}
+            return;
+          }
           throw error;
         }
         onSuccess?.();
@@ -523,6 +592,80 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       setError(err.message || (lang === 'BM' ? 'Ralat berlaku. Sila cuba lagi.' : 'An error occurred. Please try again.'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // OTP verification handler
+  const handleVerifyOtp = async () => {
+    const otpCode = otpDigits.join('');
+    if (otpCode.length !== 6) {
+      setError(lang === 'BM' ? 'Sila masukkan kod 6 digit penuh.' : 'Please enter the full 6-digit code.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { error } = await supabase.auth.verifyOtp({ email, token: otpCode, type: 'signup' });
+      if (error) throw error;
+      setMessage(lang === 'BM' ? '✅ E-mel disahkan! Menglog masuk...' : '✅ Email verified! Logging in...');
+      onSuccess?.();
+    } catch (err: any) {
+      setError(err.message || (lang === 'BM' ? 'Kod tidak sah atau telah tamat tempoh.' : 'Invalid or expired code.'));
+      setOtpDigits(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend OTP handler with cooldown
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setError('');
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+      setResendCooldown(60);
+      setMessage(lang === 'BM' ? 'Kod baru telah dihantar ke e-mel anda.' : 'New code sent to your email.');
+    } catch (err: any) {
+      setError(err.message || (lang === 'BM' ? 'Gagal menghantar semula kod.' : 'Failed to resend code.'));
+    }
+  };
+
+  // OTP input handlers
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^[0-9]?$/.test(value)) return;
+    const newDigits = [...otpDigits];
+    newDigits[index] = value;
+    setOtpDigits(newDigits);
+    // Auto-focus next input
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+    // Auto-submit when all 6 digits entered
+    if (value && index === 5 && newDigits.every(d => d !== '')) {
+      setTimeout(() => handleVerifyOtp(), 100);
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) {
+      const newDigits = pasted.split('');
+      setOtpDigits(newDigits);
+      otpRefs.current[5]?.focus();
+      setTimeout(() => handleVerifyOtp(), 100);
     }
   };
 
@@ -1064,6 +1207,20 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 )}
               </AnimatePresence>
 
+              {/* Cloudflare Turnstile CAPTCHA */}
+              {(mode === 'login' || mode === 'register') && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                <div className="flex justify-center">
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken('')}
+                    onError={() => setCaptchaToken('')}
+                    options={{ theme: 'dark', size: 'flexible' }}
+                  />
+                </div>
+              )}
+
               {/* Submit CTA Button */}
               <motion.button
                 id="auth-submit-btn"
@@ -1084,7 +1241,96 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               </motion.button>
             </form>
 
+            {/* OTP Verification Screen */}
+            {mode === 'verify_email' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3">
+                    <Mail className="w-7 h-7 text-emerald-400" />
+                  </div>
+                  <h2 className="text-lg font-extrabold text-white mb-1">
+                    {lang === 'BM' ? 'Sahkan E-Mel Anda' : 'Verify Your Email'}
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    {lang === 'BM'
+                      ? `Kod 6-digit telah dihantar ke ${email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`
+                      : `A 6-digit code was sent to ${email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`}
+                  </p>
+                </div>
+
+                {/* 6-Digit OTP Input */}
+                <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
+                  {otpDigits.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={el => { otpRefs.current[i] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleOtpChange(i, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(i, e)}
+                      className="w-10 h-12 text-center text-lg font-bold bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl text-white outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                      autoFocus={i === 0}
+                    />
+                  ))}
+                </div>
+
+                {/* Error / Success */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl px-4 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400">{error}</motion.div>
+                  )}
+                  {message && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl px-4 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{message}</motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Verify Button */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleVerifyOtp}
+                  disabled={loading || otpDigits.some(d => !d)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.35)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                  ) : (
+                    <><span>{lang === 'BM' ? 'Sahkan Kod' : 'Verify Code'}</span><ArrowRight className="w-4 h-4" /></>
+                  )}
+                </motion.button>
+
+                {/* Resend + Back */}
+                <div className="flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendCooldown > 0}
+                    className="flex items-center gap-1.5 font-semibold text-emerald-400 hover:text-emerald-300 transition-colors disabled:text-slate-600 disabled:cursor-not-allowed"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    {resendCooldown > 0
+                      ? `${lang === 'BM' ? 'Hantar semula dalam' : 'Resend in'} ${resendCooldown}s`
+                      : (lang === 'BM' ? 'Hantar Semula Kod' : 'Resend Code')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('register'); setError(''); setMessage(''); }}
+                    className="font-semibold text-slate-400 hover:text-white transition-colors"
+                  >
+                    {lang === 'BM' ? 'Tukar E-Mel' : 'Change Email'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {/* Bottom Account Mode Switch */}
+            {mode !== 'verify_email' && (
             <div className="mt-2.5 pt-2 border-t border-slate-800/60 text-xs text-slate-400 text-left">
               {mode === 'login' ? (
                 <span>
@@ -1118,6 +1364,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 </button>
               )}
             </div>
+            )}
 
           </div>
 
