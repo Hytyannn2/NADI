@@ -107,10 +107,8 @@ export default function GPSMap({ lat, lng, shelters = [] }: GPSMapProps) {
       currentTileLayerRef.current.remove();
     }
 
-    const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY;
-    let tileUrl = cartoKey
-      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoKey}`
-      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_2fq5_1_bef3664d04037d1f58bc0d33';
+    let tileUrl = `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoKey}`;
     let options: L.TileLayerOptions = {
       maxZoom: 20,
       subdomains: ['a', 'b', 'c', 'd'],
