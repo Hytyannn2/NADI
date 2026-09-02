@@ -371,7 +371,7 @@ export default function SensorTrendChart({
                         <div className="absolute inset-0 z-30 bg-zinc-950/85 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-4 border border-red-500/30 text-center">
                             <AlertTriangle className="w-8 h-8 text-red-500 animate-bounce mb-2" />
                             <p className="text-xs font-bold uppercase tracking-widest text-red-400">
-                                ⚠️ PENDERIA LUAR TALIAN
+                                PENDERIA LUAR TALIAN
                             </p>
                             <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">
                                 Penderia sungai tidak menghantar data pada masa ini.

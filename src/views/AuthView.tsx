@@ -51,20 +51,44 @@ function MalaysiaFlagIcon({ className = "w-7 h-7" }: { className?: string }) {
   );
 }
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, User, Phone, MapPin, CheckCircle2, ChevronDown, Check, AlertCircle, RotateCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, User, Phone, MapPin, CheckCircle2, ChevronDown, Check, AlertCircle, RotateCw, Info } from 'lucide-react';
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 
 type Mode = 'login' | 'register' | 'forgot' | 'verify_email';
 type Lang = 'BM' | 'EN';
 
-const MALAYSIA_STATES = [
-  'Johor', 'Kedah', 'Kelantan', 'Kuala Lumpur', 'Labuan', 'Melaka', 
-  'Negeri Sembilan', 'Pahang', 'Penang', 'Perak', 'Perlis', 'Putrajaya', 
-  'Sabah', 'Sarawak', 'Selangor', 'Terengganu'
-];
+// 11 Official Kelantan Administrative Districts (Alphabetical Ascending Order)
+const KELANTAN_JAJAHAN_LIST = [
+  'Bachok',
+  'Gua Musang',
+  'Jeli',
+  'Kota Bharu',
+  'Kuala Krai',
+  'Lojing',
+  'Machang',
+  'Pasir Mas',
+  'Pasir Puteh',
+  'Tanah Merah',
+  'Tumpat',
+] as const;
+
+// High-Precision Centroid coordinates for GPS proximity detection
+const JAJAHAN_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'Kota Bharu': { lat: 6.1254, lng: 102.2386 },
+  'Pasir Mas': { lat: 6.0422, lng: 102.1414 },
+  'Tumpat': { lat: 6.1978, lng: 102.1710 },
+  'Bachok': { lat: 6.0644, lng: 102.3986 },
+  'Pasir Puteh': { lat: 5.8344, lng: 102.4042 },
+  'Machang': { lat: 5.7644, lng: 102.2144 },
+  'Tanah Merah': { lat: 5.8086, lng: 102.1469 },
+  'Kuala Krai': { lat: 5.5317, lng: 102.2028 },
+  'Gua Musang': { lat: 4.8662, lng: 101.9609 },
+  'Jeli': { lat: 5.6983, lng: 101.8436 },
+  'Lojing': { lat: 4.6344, lng: 101.4659 },
+};
 
 /**
  * 3D Particle Globe Component using HTML5 Canvas perspective projection.
@@ -102,13 +126,13 @@ function ParticleGlobe({ isMobile = false }: { isMobile?: boolean }) {
     };
     window.addEventListener('resize', handleResize);
 
-    // Malaysian city markers for animated globe visualization
-    const MALAYSIA_PLACES = [
-      'Kuala Lumpur', 'Kota Bharu', 'Penang', 'Johor Bahru', 'Kuching', 
-      'Kota Kinabalu', 'Kuantan', 'Ipoh', 'Melaka', 'Kuala Terengganu', 
-      'Alor Setar', 'Sandakan', 'Miri', 'Putrajaya', 'Seremban', 
-      'Kangar', 'Labuan', 'Bintulu', 'Taiping', 'Sibu', 
-      'Tawau', 'Batu Pahat', 'Bangi', 'Cyberjaya'
+    // 24 Strategic Kelantan Jajahan & Civic Flood Telemetry Hubs for animated 3D globe visualization
+    const KELANTAN_PLACES = [
+      'Kota Bharu', 'Pasir Mas', 'Tumpat', 'Bachok', 'Pasir Puteh', 
+      'Machang', 'Tanah Merah', 'Kuala Krai', 'Gua Musang', 'Jeli', 
+      'Lojing', 'Rantau Panjang', 'Pengkalan Chepa', 'Kubang Kerian', 'Dabong', 
+      'Manek Urai', 'Wakaf Bharu', 'Tok Bali', 'Kok Lanas', 'Ketereh', 
+      'Melor', 'Pulai Chondong', 'Bukit Bunga', 'Gual Periok'
     ];
 
     const numPoints = 800;
@@ -116,10 +140,10 @@ function ParticleGlobe({ isMobile = false }: { isMobile?: boolean }) {
 
     const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle
 
-    // Evenly distribute 24 Malaysian locations all around the 3D sphere surface
-    for (let i = 0; i < MALAYSIA_PLACES.length; i++) {
+    // Evenly distribute 24 Kelantan locations all around the 3D sphere surface
+    for (let i = 0; i < KELANTAN_PLACES.length; i++) {
       // Spread latitude evenly from top (+0.85) to bottom (-0.85)
-      const ny = 0.85 - (i / (MALAYSIA_PLACES.length - 1)) * 1.7;
+      const ny = 0.85 - (i / (KELANTAN_PLACES.length - 1)) * 1.7;
       const radiusAtY = Math.sqrt(1 - ny * ny);
       
       // Step longitude around the globe (137.5 degrees step for optimal spacing)
@@ -134,7 +158,7 @@ function ParticleGlobe({ isMobile = false }: { isMobile?: boolean }) {
         nz,
         baseSize: 2.8,
         isHotspot: true,
-        label: MALAYSIA_PLACES[i],
+        label: KELANTAN_PLACES[i],
       });
     }
 
@@ -340,44 +364,88 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [stateRegion, setStateRegion] = useState('');
+  const [district, setDistrict] = useState('Kota Bharu');
+  const [detectedJajahan, setDetectedJajahan] = useState<string>('Kota Bharu');
 
-  // Pure Automatic GPS State Detection (No IP tracking fallback)
+  // Pure Automatic GPS Jajahan Detection (Live Watcher + Bounded Centroid + Sensor Poller)
   useEffect(() => {
     let isMounted = true;
 
-    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
-            const { latitude, longitude } = pos.coords;
-            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
-            const data = await res.json();
-            const rawName = data.principalSubdivision || data.administrative?.[0]?.name || data.locality;
-            if (rawName && isMounted) {
-              const lower = rawName.toLowerCase();
-              const matched = MALAYSIA_STATES.find((s) => {
-                const sLower = s.toLowerCase();
-                return lower.includes(sLower) || sLower.includes(lower);
-              });
-              if (matched) {
-                setStateRegion(matched);
-              }
-            }
-          } catch (err) {
-            // Geocode failed -> defaults to "Sila Pilih Negeri"
+    const processCoords = (latitude: number, longitude: number) => {
+      // Check if coordinates fall within Kelantan geographic boundaries (Lat 4.40 - 6.40, Lng 101.10 - 102.65)
+      const isInsideKelantan = latitude >= 4.40 && latitude <= 6.40 && longitude >= 101.10 && longitude <= 102.65;
+      
+      let closest = 'Kota Bharu';
+      if (isInsideKelantan) {
+        let minDistance = Infinity;
+        for (const [name, coords] of Object.entries(JAJAHAN_COORDINATES)) {
+          const dist = Math.hypot(latitude - coords.lat, longitude - coords.lng);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closest = name;
           }
-        },
-        () => {
-          // GPS denied or error -> defaults to "Sila Pilih Negeri"
-        },
-        { timeout: 5000, enableHighAccuracy: false }
-      );
+        }
+      } else {
+        // When outside Kelantan (e.g. Bangi, KL, Selangor), default to State Capital (Kota Bharu) rather than border districts
+        closest = 'Kota Bharu';
+      }
+
+      console.log(`[NADI GPS] Detected: (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) → Jajahan: ${closest}`);
+
+      if (closest && isMounted) {
+        setDetectedJajahan(closest);
+        setDistrict(closest);
+      }
+    };
+
+    let watchId: number | null = null;
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      const checkGPS = () => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            processCoords(pos.coords.latitude, pos.coords.longitude);
+          },
+          () => {},
+          { timeout: 5000, enableHighAccuracy: true }
+        );
+      };
+
+      // 1. Instant check
+      checkGPS();
+
+      // 2. Continuous real-time watcher
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            processCoords(pos.coords.latitude, pos.coords.longitude);
+          },
+          () => {},
+          { enableHighAccuracy: true }
+        );
+      } catch {}
+
+      // 3. Fast Sensor Poller (ensures DevTools Sensors panel changes apply instantly without refreshing!)
+      pollInterval = setInterval(checkGPS, 1500);
     }
+
     return () => {
       isMounted = false;
+      if (watchId !== null && typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, []);
+
+  // Sorted Jajahan: User's physical location (detectedJajahan) is ALWAYS locked at index 0 (above Bachok)
+  // Selecting a different district in the form will NOT mutate the dropdown order
+  const sortedJajahan = useMemo(() => {
+    const userLocation = detectedJajahan || 'Kota Bharu';
+    const others = KELANTAN_JAJAHAN_LIST.filter((j) => j !== userLocation);
+    return [userLocation, ...others];
+  }, [detectedJajahan]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -389,6 +457,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'warning' | 'info'>('info');
 
   // CAPTCHA state (Cloudflare Turnstile)
   const [captchaToken, setCaptchaToken] = useState('');
@@ -404,11 +473,13 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('verified') === 'true') {
+        setMessageType('success');
         setMessage(lang === 'BM' ? '✅ E-mel berjaya disahkan! Sila log masuk.' : '✅ Email verified! Please log in.');
         window.history.replaceState({}, '', '/');
       }
-      if (params.get('error') === 'verification_expired') {
-        setError(lang === 'BM' ? 'Pautan pengesahan telah tamat tempoh. Sila hantar semula.' : 'Verification link expired. Please resend.');
+      if (params.get('deleted') === 'true') {
+        setMessageType('warning');
+        setMessage(lang === 'BM' ? 'Akaun dan rekod peribadi anda telah berjaya dipadam selama-lamanya.' : 'Your account and personal records have been permanently deleted.');
         window.history.replaceState({}, '', '/');
       }
     }
@@ -453,6 +524,16 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
 
   const supabase = createClient();
 
+  // Helper to ensure clean redirect URL (replaces 0.0.0.0 with localhost for email clients)
+  const getAuthRedirectUrl = () => {
+    if (typeof window === 'undefined') return undefined;
+    let origin = window.location.origin;
+    if (origin.includes('0.0.0.0')) {
+      origin = origin.replace('0.0.0.0', 'localhost');
+    }
+    return `${origin}/auth/callback`;
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -479,24 +560,9 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           return;
         }
 
-        // Validate strong password protocol
-        if (!validateStrongPassword(password)) {
-          setError(
-            lang === 'BM'
-              ? 'Kata laluan mesti sekurang-kurangnya 8 aksara dan mengandungi huruf besar (A-Z) & nombor (0-9).'
-              : 'Password must be at least 8 characters long with an uppercase letter (A-Z) & a number (0-9).'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Validate password confirmation match
-        if (password !== confirmPassword) {
-          setError(
-            lang === 'BM'
-              ? 'Kata laluan dan sahkan kata laluan tidak sepadan.'
-              : 'Password and confirm password do not match.'
-          );
+        // Password criteria are enforced via disabled submit button (tick-box UI)
+        // This is a safety net in case the button state is bypassed
+        if (!validateStrongPassword(password) || password !== confirmPassword) {
           setLoading(false);
           return;
         }
@@ -525,15 +591,17 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             data: {
               full_name: fullName,
               phone: phone,
-              state_region: stateRegion,
+              district: district,
+              state_region: district,
             },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: getAuthRedirectUrl(),
           },
         });
         if (error) {
           const errMsg = (error.message || '').toLowerCase();
           if (errMsg.includes('already registered') || errMsg.includes('already exists') || errMsg.includes('email_exists') || errMsg.includes('user_already_exists')) {
             setMode('login');
+            setMessageType('warning');
             setMessage(
               lang === 'BM'
                 ? 'Nombor telefon atau e-mel ini telah pun berdaftar. Kami telah memindahkan anda ke log masuk!'
@@ -547,12 +615,14 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
         setOtpDigits(['', '', '', '', '', '']);
         setMode('verify_email');
         setResendCooldown(60);
+        setMessageType('success');
         setMessage(lang === 'BM' ? 'Kod 6-digit telah dihantar ke e-mel anda!' : '6-digit code sent to your email!');
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthRedirectUrl(),
         });
         if (error) throw error;
+        setMessageType('success');
         setMessage(lang === 'BM' ? 'Pautan menetapkan semula kata laluan telah dihantar!' : 'Password reset link sent to your email!');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -561,6 +631,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           // If account doesn't exist in Supabase auth database, auto-switch to register mode keeping email & password prefilled
           if (errMsg.includes('invalid login credentials') || errMsg.includes('user not found') || errMsg.includes('invalid_credentials')) {
             setMode('register');
+            setMessageType('warning');
             setMessage(
               lang === 'BM' 
                 ? 'Akaun belum berdaftar. Kami telah memindahkan anda ke borang pendaftaran!' 
@@ -572,6 +643,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           if (errMsg.includes('email_not_confirmed') || errMsg.includes('email not confirmed')) {
             setOtpDigits(['', '', '', '', '', '']);
             setMode('verify_email');
+            setMessageType('warning');
             setMessage(
               lang === 'BM'
                 ? 'Sila sahkan e-mel anda terlebih dahulu. Kod baru telah dihantar.'
@@ -579,7 +651,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
             );
             // Auto-resend verification
             try {
-              await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+              await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: getAuthRedirectUrl() } });
               setResendCooldown(60);
             } catch {}
             return;
@@ -626,7 +698,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: getAuthRedirectUrl() },
       });
       if (error) throw error;
       setResendCooldown(60);
@@ -718,8 +790,9 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       fullNamePlaceholder: 'Sila masukkan nama penuh anda',
       phoneLabel: 'Nombor Telefon',
       phonePlaceholder: 'Contoh: 012-345 6789',
-      stateLabel: 'Negeri',
-      selectStatePlaceholder: 'Sila Pilih Negeri',
+      districtLabel: 'Jajahan',
+      selectDistrictPlaceholder: 'Sila Pilih Jajahan',
+      currentLocationTag: 'Lokasi Semasa',
       confirmPassLabel: 'Sahkan Kata Laluan',
       confirmPassPlaceholder: 'Sila masukkan semula kata laluan anda',
       pass8Chars: '8+ Aksara',
@@ -771,8 +844,9 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       fullNamePlaceholder: 'Enter your full name',
       phoneLabel: 'Phone Number',
       phonePlaceholder: 'e.g. 012-345 6789',
-      stateLabel: 'State',
-      selectStatePlaceholder: 'Select State',
+      districtLabel: 'District (Jajahan)',
+      selectDistrictPlaceholder: 'Select District (Jajahan)',
+      currentLocationTag: 'Current Location',
       pass8Chars: '8+ Chars',
       passUppercase: 'Uppercase (A-Z)',
       passNumber: 'Number (0-9)',
@@ -796,7 +870,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
   }[lang];
 
   return (
-    <div className="h-screen w-full bg-[#050811] text-white flex flex-col justify-between overflow-hidden selection:bg-emerald-500/30 select-none relative">
+    <div className="fixed inset-0 h-screen w-screen bg-[#050811] text-white overflow-hidden selection:bg-emerald-500/30 select-none">
       
       {/* Universal Full-Bleed 3D Particle Globe — Adapts automatically to all devices & window resizing */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -804,25 +878,25 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       </div>
 
       {/* Grid Container — Left Form Column + Right Feature Telemetry Chips */}
-      <div className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 h-screen max-h-screen overflow-hidden relative z-10 pointer-events-none">
+      <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 overflow-hidden relative z-10 pointer-events-none">
         
         {/* Left Column — Dark Sleek Translucent Form Area */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-[#070B14]/35 backdrop-blur-sm lg:bg-[#070B14]/85 lg:backdrop-blur-xl border-r border-slate-800/60 p-4 sm:p-5 lg:p-6 xl:p-8 flex flex-col justify-between h-full relative z-20 shadow-2xl overflow-y-auto lg:overflow-y-hidden pointer-events-auto">
+        <div className="lg:col-span-5 xl:col-span-4 bg-[#070B14]/90 backdrop-blur-2xl border-r border-slate-800/60 p-4 sm:p-5 lg:p-5 xl:p-6 flex flex-col justify-between h-full relative z-20 shadow-2xl overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800/60 pointer-events-auto">
           
           {/* Top Brand Bar + Language Selector */}
           <div>
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-3">
               {/* Brand Logo & Name */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex items-center justify-center w-8.5 h-8.5 rounded-xl bg-[#0C1222] border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)] overflow-hidden">
-                  <img src="/images/malaysia-flag.png" alt="Malaysia Flag" className="w-6 h-6 rounded-full object-cover relative z-10 filter drop-shadow" />
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-[#0C1222] border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)] overflow-hidden">
+                  <img src="/images/malaysia-flag.png" alt="Malaysia Flag" className="w-5.5 h-5.5 rounded-full object-cover relative z-10 filter drop-shadow" />
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 blur-sm pointer-events-none" />
                 </div>
                 <div>
-                  <span className="text-base font-black tracking-wider text-white flex items-center gap-1.5">
-                    NADI <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">{APP_VERSION}</span>
+                  <span className="text-sm sm:text-base font-black tracking-wider text-white flex items-center gap-1.5">
+                    NADI <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">{APP_VERSION}</span>
                   </span>
-                  <p className="text-[9px] text-slate-400 tracking-widest uppercase font-medium">Smart Civic Platform</p>
+                  <p className="text-[8px] sm:text-[9px] text-slate-400 tracking-widest uppercase font-medium">Smart Civic Platform</p>
                 </div>
               </div>
 
@@ -831,7 +905,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                 <button
                   type="button"
                   onClick={() => setShowLangDropdown(!showLangDropdown)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all duration-200"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-900/80 border border-slate-800 text-[10px] sm:text-[11px] font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all duration-200"
                 >
                   <Globe className="w-3 h-3 text-emerald-400" />
                   <span>{lang === 'BM' ? 'Bahasa Melayu' : 'English'}</span>
@@ -865,405 +939,34 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
               </div>
             </div>
 
-            {/* Main Auth Header */}
-            <AnimatePresence mode="wait">
+            {/* Main Auth View vs Verify Email View */}
+            {mode === 'verify_email' ? (
+              /* OTP Verification Screen */
               <motion.div
-                key={mode}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
+                key="verify_email"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.2 }}
-                className="mb-3 sm:mb-4"
-              >
-                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white font-sans">
-                  {mode === 'login' ? t.loginTitle : mode === 'register' ? t.regTitle : t.forgotTitle}
-                </h1>
-                <p className="text-xs text-slate-400 mt-1 leading-normal max-w-sm">
-                  {mode === 'login' ? t.loginSub : mode === 'register' ? t.regSub : t.forgotSub}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Google OAuth Button */}
-            {mode !== 'forgot' && (
-              <motion.button
-                id="google-auth-btn"
-                whileHover={{ scale: 1.01, backgroundColor: 'rgba(255, 255, 255, 0.06)' }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleGoogleAuth}
-                disabled={googleLoading}
-                className="w-full flex items-center justify-center gap-3 font-semibold py-2 px-4 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-white transition-all duration-200 text-xs mb-2.5 sm:mb-3 disabled:opacity-60 shadow-inner group"
-              >
-                {googleLoading ? (
-                  <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin border-white/20 border-t-white" />
-                ) : (
-                  <svg className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                  </svg>
-                )}
-                <span>{t.googleBtn}</span>
-              </motion.button>
-            )}
-
-            {/* Divider */}
-            {mode !== 'forgot' && (
-              <div className="flex items-center gap-3 mb-2.5 sm:mb-3">
-                <div className="flex-1 h-px bg-slate-800/80" />
-                <span className="text-[10px] font-medium text-slate-500 lowercase">{t.orEmail}</span>
-                <div className="flex-1 h-px bg-slate-800/80" />
-              </div>
-            )}
-
-            {/* Main Auth Form */}
-            <form onSubmit={handleEmailAuth} className="space-y-2.5 sm:space-y-3">
-              
-              {/* Extended Register Fields */}
-              {mode === 'register' && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2.5 sm:space-y-3">
-                  {/* Full Name */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">{t.fullNameLabel}</label>
-                    <div className="relative group">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                      <input
-                        type="text"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder={t.fullNamePlaceholder}
-                        required={mode === 'register'}
-                        className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 sm:py-2.5 pl-10 pr-4 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Phone Number */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">{t.phoneLabel}</label>
-                    <div className="relative group">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/[^\d\s-]/g, ''))}
-                        placeholder={t.phonePlaceholder}
-                        required={mode === 'register'}
-                        className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 sm:py-2.5 pl-10 pr-4 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
-                      />
-                    </div>
-                  </div>
-
-                  {/* State Region */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">{t.stateLabel}</label>
-                    <div className="relative group">
-                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors pointer-events-none z-10" />
-                      <select
-                        value={stateRegion}
-                        onChange={(e) => setStateRegion(e.target.value)}
-                        required={mode === 'register'}
-                        className={`w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 sm:py-2.5 pl-10 pr-4 text-xs outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 appearance-none ${stateRegion ? 'text-white' : 'text-slate-500'}`}
-                      >
-                        <option value="" disabled className="bg-[#0B101E] text-slate-500">{t.selectStatePlaceholder}</option>
-                        {MALAYSIA_STATES.map((s) => (
-                          <option key={s} value={s} className="bg-[#0B101E] text-white">{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Email Address */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">{t.emailLabel}</label>
-                <div className="relative group">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                  <input
-                    id="email-input"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={t.emailPlaceholder}
-                    required
-                    className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 sm:py-2.5 pl-10 pr-4 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              {mode !== 'forgot' && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">{t.passLabel}</label>
-                  </div>
-                  <div className="relative group">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                    <input
-                      id="password-input"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={t.passPlaceholder}
-                      required
-                      minLength={6}
-                      className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 sm:py-2.5 pl-10 pr-11 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  {/* Live Password Strength Protocol Indicators for Register Mode */}
-                  {mode === 'register' && (
-                    <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-semibold">
-                      {/* Criterion 1: Min 8 Chars */}
-                      <motion.div
-                        animate={{
-                          backgroundColor: password.length >= 8 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.8)',
-                          borderColor: password.length >= 8 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(30, 41, 59, 0.8)',
-                          color: password.length >= 8 ? '#34d399' : '#64748b',
-                        }}
-                        transition={{ duration: 0.25 }}
-                        className="px-2 py-0.5 rounded-md border flex items-center gap-1 overflow-hidden"
-                      >
-                        <AnimatePresence mode="wait">
-                          {password.length >= 8 && (
-                            <motion.span
-                              key="check-1"
-                              initial={{ scale: 0, opacity: 0, width: 0 }}
-                              animate={{ scale: 1, opacity: 1, width: 'auto' }}
-                              exit={{ scale: 0, opacity: 0, width: 0 }}
-                              transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                              className="flex items-center shrink-0"
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                        <span>{t.pass8Chars}</span>
-                      </motion.div>
-
-                      {/* Criterion 2: Uppercase A-Z */}
-                      <motion.div
-                        animate={{
-                          backgroundColor: /[A-Z]/.test(password) ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.8)',
-                          borderColor: /[A-Z]/.test(password) ? 'rgba(16, 185, 129, 0.4)' : 'rgba(30, 41, 59, 0.8)',
-                          color: /[A-Z]/.test(password) ? '#34d399' : '#64748b',
-                        }}
-                        transition={{ duration: 0.25 }}
-                        className="px-2 py-0.5 rounded-md border flex items-center gap-1 overflow-hidden"
-                      >
-                        <AnimatePresence mode="wait">
-                          {/[A-Z]/.test(password) && (
-                            <motion.span
-                              key="check-2"
-                              initial={{ scale: 0, opacity: 0, width: 0 }}
-                              animate={{ scale: 1, opacity: 1, width: 'auto' }}
-                              exit={{ scale: 0, opacity: 0, width: 0 }}
-                              transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                              className="flex items-center shrink-0"
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                        <span>{t.passUppercase}</span>
-                      </motion.div>
-
-                      {/* Criterion 3: Number 0-9 */}
-                      <motion.div
-                        animate={{
-                          backgroundColor: /[0-9]/.test(password) ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.8)',
-                          borderColor: /[0-9]/.test(password) ? 'rgba(16, 185, 129, 0.4)' : 'rgba(30, 41, 59, 0.8)',
-                          color: /[0-9]/.test(password) ? '#34d399' : '#64748b',
-                        }}
-                        transition={{ duration: 0.25 }}
-                        className="px-2 py-0.5 rounded-md border flex items-center gap-1 overflow-hidden"
-                      >
-                        <AnimatePresence mode="wait">
-                          {/[0-9]/.test(password) && (
-                            <motion.span
-                              key="check-3"
-                              initial={{ scale: 0, opacity: 0, width: 0 }}
-                              animate={{ scale: 1, opacity: 1, width: 'auto' }}
-                              exit={{ scale: 0, opacity: 0, width: 0 }}
-                              transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                              className="flex items-center shrink-0"
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                        <span>{t.passNumber}</span>
-                      </motion.div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Confirm Password Field (Register Mode) */}
-              {mode === 'register' && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">{t.confirmPassLabel}</label>
-                  </div>
-                  <div className="relative group">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                    <input
-                      id="confirm-password-input"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder={t.confirmPassPlaceholder}
-                      required={mode === 'register'}
-                      minLength={6}
-                      className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 sm:py-2.5 pl-10 pr-11 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  {/* Live Real-time Confirm Password Match Indicator */}
-                  {confirmPassword.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -2 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex items-center gap-1.5 mt-1 text-[11px] font-semibold ${
-                        confirmPassword === password ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
-                      {confirmPassword === password ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>{lang === 'BM' ? 'Kata laluan sepadan!' : 'Password matched!'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                          <span>{lang === 'BM' ? 'Kata laluan tidak sepadan' : 'Password does not match'}</span>
-                        </>
-                      )}
-                    </motion.div>
-                  )}
-                </div>
-              )}
-
-              {/* Remember Me & Forgot Password Row */}
-              {mode === 'login' && (
-                <div className="flex items-center justify-between py-1">
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-800 bg-[#0B101E] text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-0 transition-colors cursor-pointer"
-                    />
-                    <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">{t.remember}</span>
-                  </label>
-                  
-                  <button
-                    type="button"
-                    onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}
-                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-                  >
-                    {t.forgotLink}
-                  </button>
-                </div>
-              )}
-
-              {/* Error / Success Alerts */}
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400"
-                  >
-                    {error}
-                  </motion.div>
-                )}
-                {message && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                  >
-                    {message}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Cloudflare Turnstile CAPTCHA */}
-              {(mode === 'login' || mode === 'register') && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-                <div className="flex justify-center">
-                  <Turnstile
-                    ref={turnstileRef}
-                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                    onSuccess={(token) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken('')}
-                    onError={() => setCaptchaToken('')}
-                    options={{ theme: 'dark', size: 'flexible' }}
-                  />
-                </div>
-              )}
-
-              {/* Submit CTA Button */}
-              <motion.button
-                id="auth-submit-btn"
-                type="submit"
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                disabled={loading}
-                className="w-full mt-2 sm:mt-2.5 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.35)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>{mode === 'login' ? t.submitLogin : mode === 'register' ? t.submitRegister : t.submitForgot}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </motion.button>
-            </form>
-
-            {/* OTP Verification Screen */}
-            {mode === 'verify_email' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
+                className="space-y-4 py-2"
               >
                 <div className="text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
                     <Mail className="w-7 h-7 text-emerald-400" />
                   </div>
-                  <h2 className="text-lg font-extrabold text-white mb-1">
+                  <h2 className="text-xl font-extrabold text-white mb-1.5 font-sans">
                     {lang === 'BM' ? 'Sahkan E-Mel Anda' : 'Verify Your Email'}
                   </h2>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                     {lang === 'BM'
-                      ? `Kod 6-digit telah dihantar ke ${email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`
-                      : `A 6-digit code was sent to ${email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`}
+                      ? `Sila masukkan kod 6-digit atau klik pautan pengesahan yang dihantar ke `
+                      : `Please enter the 6-digit code or click the confirmation link sent to `}
+                    <span className="text-emerald-400 font-semibold">{email}</span>
                   </p>
                 </div>
 
                 {/* 6-Digit OTP Input */}
-                <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
+                <div className="flex justify-center gap-2 py-1" onPaste={handleOtpPaste}>
                   {otpDigits.map((digit, i) => (
                     <input
                       key={i}
@@ -1280,13 +983,17 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   ))}
                 </div>
 
-                {/* Error / Success */}
+                {/* Error / Success Alerts */}
                 <AnimatePresence>
                   {error && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl px-4 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400">{error}</motion.div>
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl px-4 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400 text-center">
+                      {error}
+                    </motion.div>
                   )}
                   {message && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl px-4 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{message}</motion.div>
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl px-4 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-center">
+                      {message}
+                    </motion.div>
                   )}
                 </AnimatePresence>
 
@@ -1296,17 +1003,20 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   whileTap={{ scale: 0.98 }}
                   onClick={handleVerifyOtp}
                   disabled={loading || otpDigits.some(d => !d)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.35)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.35)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
                   ) : (
-                    <><span>{lang === 'BM' ? 'Sahkan Kod' : 'Verify Code'}</span><ArrowRight className="w-4 h-4" /></>
+                    <>
+                      <span>{lang === 'BM' ? 'Sahkan Kod' : 'Verify Code'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
                   )}
                 </motion.button>
 
-                {/* Resend + Back */}
-                <div className="flex items-center justify-between text-xs">
+                {/* Resend + Change Email */}
+                <div className="flex items-center justify-between text-xs pt-1">
                   <button
                     type="button"
                     onClick={handleResendOtp}
@@ -1327,6 +1037,366 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   </button>
                 </div>
               </motion.div>
+            ) : (
+              <>
+                {/* Main Auth Header */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={mode}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                    className="mb-2 sm:mb-3"
+                  >
+                    <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-white font-sans">
+                      {mode === 'login' ? t.loginTitle : mode === 'register' ? t.regTitle : t.forgotTitle}
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 leading-normal max-w-sm">
+                      {mode === 'login' ? t.loginSub : mode === 'register' ? t.regSub : t.forgotSub}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Google OAuth Button */}
+                {mode !== 'forgot' && (
+                  <motion.button
+                    id="google-auth-btn"
+                    whileHover={{ scale: 1.01, backgroundColor: 'rgba(255, 255, 255, 0.06)' }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleGoogleAuth}
+                    disabled={googleLoading}
+                    className="w-full flex items-center justify-center gap-2.5 font-semibold py-1.5 sm:py-2 px-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-white transition-all duration-200 text-xs mb-2 disabled:opacity-60 shadow-inner group"
+                  >
+                    {googleLoading ? (
+                      <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                    ) : (
+                      <svg className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                      </svg>
+                    )}
+                    <span>{t.googleBtn}</span>
+                  </motion.button>
+                )}
+
+                {/* Divider */}
+                {mode !== 'forgot' && (
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="flex-1 h-px bg-slate-800/80" />
+                    <span className="text-[9px] font-medium text-slate-500 lowercase">{t.orEmail}</span>
+                    <div className="flex-1 h-px bg-slate-800/80" />
+                  </div>
+                )}
+
+                {/* Main Auth Form */}
+                <form onSubmit={handleEmailAuth} className="space-y-2">
+                  {/* Extended Register Fields (2-Column Compact Grid) */}
+                  {mode === 'register' && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Full Name */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.fullNameLabel}</label>
+                          <div className="relative group">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                            <input
+                              type="text"
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              placeholder={t.fullNamePlaceholder}
+                              required={mode === 'register'}
+                              className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-1.5 pl-9 pr-3 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Phone Number */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.phoneLabel}</label>
+                          <div className="relative group">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                            <input
+                              type="tel"
+                              value={phone}
+                              onChange={(e) => setPhone(e.target.value.replace(/[^\d\s-]/g, ''))}
+                              placeholder={t.phonePlaceholder}
+                              required={mode === 'register'}
+                              className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-1.5 pl-9 pr-3 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Jajahan Selection */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.districtLabel}</label>
+                          <div className="relative group">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-400 transition-colors pointer-events-none z-10" />
+                            <select
+                              value={district}
+                              onChange={(e) => setDistrict(e.target.value)}
+                              required={mode === 'register'}
+                              className={`w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-1.5 pl-9 pr-3 text-xs outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 appearance-none text-white`}
+                            >
+                              <option value="" disabled className="bg-[#0B101E] text-slate-500">{t.selectDistrictPlaceholder}</option>
+                              {sortedJajahan.map((s) => (
+                                <option key={s} value={s} className="bg-[#0B101E] text-white">
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Email Address in Register Mode */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.emailLabel}</label>
+                          <div className="relative group">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                            <input
+                              id="email-input-reg"
+                              type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              placeholder={t.emailPlaceholder}
+                              required
+                              className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-1.5 pl-9 pr-3 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Email Address for Login & Forgot Modes */}
+                  {mode !== 'register' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">{t.emailLabel}</label>
+                      <div className="relative group">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                        <input
+                          id="email-input"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder={t.emailPlaceholder}
+                          required
+                          className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 pl-10 pr-4 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Password Fields — 2-Column for Register, 1-Column for Login */}
+                  {mode === 'register' ? (
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Password */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.passLabel}</label>
+                          <div className="relative group">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                            <input
+                              id="password-input"
+                              type={showPassword ? 'text' : 'password'}
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder={t.passPlaceholder}
+                              required
+                              minLength={6}
+                              className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-1.5 pl-9 pr-9 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Confirm Password */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.confirmPassLabel}</label>
+                          <div className="relative group">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                            <input
+                              id="confirm-password-input"
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder={t.confirmPassPlaceholder}
+                              required
+                              minLength={6}
+                              className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-1.5 pl-9 pr-9 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                              {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Password Requirements Pills & Match Status */}
+                      <div className="flex flex-wrap items-center justify-between gap-1 pt-0.5">
+                        <div className="flex flex-wrap gap-1 text-[10px]">
+                          {/* Criterion 1 */}
+                          <div className={`px-1.5 py-0.5 rounded border flex items-center gap-1 ${password.length >= 8 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-slate-900/80 border-slate-800 text-slate-500'}`}>
+                            {password.length >= 8 && <CheckCircle2 className="w-2.5 h-2.5" />}
+                            <span>8+ Aksara</span>
+                          </div>
+                          {/* Criterion 2 */}
+                          <div className={`px-1.5 py-0.5 rounded border flex items-center gap-1 ${/[A-Z]/.test(password) ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-slate-900/80 border-slate-800 text-slate-500'}`}>
+                            {/[A-Z]/.test(password) && <CheckCircle2 className="w-2.5 h-2.5" />}
+                            <span>Huruf Besar (A-Z)</span>
+                          </div>
+                          {/* Criterion 3 */}
+                          <div className={`px-1.5 py-0.5 rounded border flex items-center gap-1 ${/[0-9]/.test(password) ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-slate-900/80 border-slate-800 text-slate-500'}`}>
+                            {/[0-9]/.test(password) && <CheckCircle2 className="w-2.5 h-2.5" />}
+                            <span>Nombor (0-9)</span>
+                          </div>
+                        </div>
+
+                        {/* Match Status */}
+                        {confirmPassword.length > 0 && (
+                          <span className={`text-[10px] font-semibold flex items-center gap-1 ${confirmPassword === password ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {confirmPassword === password ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                            {confirmPassword === password ? (lang === 'BM' ? 'Sepadan' : 'Matched') : (lang === 'BM' ? 'Tidak sepadan' : 'No match')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : mode === 'login' ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-300">{t.passLabel}</label>
+                      </div>
+                      <div className="relative group">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+                        <input
+                          id="password-input"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder={t.passPlaceholder}
+                          required
+                          minLength={6}
+                          className="w-full bg-[#0B101E] border border-slate-800 focus:border-emerald-500 rounded-xl py-2 pl-10 pr-11 text-xs text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Remember Me & Forgot Password Row */}
+                  {mode === 'login' && (
+                    <div className="flex items-center justify-between py-1">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-800 bg-[#0B101E] text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-0 transition-colors cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">{t.remember}</span>
+                      </label>
+                      
+                      <button
+                        type="button"
+                        onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}
+                        className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        {t.forgotLink}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Error / Success Alerts */}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="rounded-xl px-4 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                    {message && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`rounded-xl px-3.5 py-2.5 text-xs font-semibold flex items-center gap-2.5 transition-all duration-200 ${
+                          messageType === 'warning'
+                            ? 'bg-sky-500/10 border border-sky-500/25 text-sky-300 shadow-[0_0_20px_rgba(14,165,233,0.12)]'
+                            : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                        }`}
+                      >
+                        {messageType === 'warning' ? (
+                          <Info className="w-4 h-4 text-sky-400 shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        )}
+                        <span className="leading-snug">{message}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Cloudflare Turnstile CAPTCHA */}
+                  {(mode === 'login' || mode === 'register') && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                    <div className="flex justify-center">
+                      <Turnstile
+                        ref={turnstileRef}
+                        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                        onSuccess={(token) => setCaptchaToken(token)}
+                        onExpire={() => setCaptchaToken('')}
+                        onError={() => setCaptchaToken('')}
+                        options={{ theme: 'dark', size: 'flexible' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Submit CTA Button */}
+                  <motion.button
+                    id="auth-submit-btn"
+                    type="submit"
+                    whileHover={!(loading || (mode === 'register' && (!validateStrongPassword(password) || password !== confirmPassword))) ? { scale: 1.01 } : {}}
+                    whileTap={!(loading || (mode === 'register' && (!validateStrongPassword(password) || password !== confirmPassword))) ? { scale: 0.98 } : {}}
+                    disabled={loading || (mode === 'register' && (!validateStrongPassword(password) || password !== confirmPassword))}
+                    className={`w-full mt-2 sm:mt-2.5 py-2.5 px-4 rounded-xl font-extrabold text-xs sm:text-sm tracking-wide transition-all duration-200 flex items-center justify-center gap-2 ${
+                      loading || (mode === 'register' && (!validateStrongPassword(password) || password !== confirmPassword))
+                        ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                        : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.35)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)]'
+                    }`}
+                  >
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span>{mode === 'login' ? t.submitLogin : mode === 'register' ? t.submitRegister : t.submitForgot}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </motion.button>
+                </form>
+              </>
             )}
 
             {/* Bottom Account Mode Switch */}
@@ -1391,15 +1461,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           <div className="absolute inset-0 bg-gradient-to-r from-[#070B14] via-transparent to-transparent pointer-events-none" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#03060E] via-transparent to-transparent opacity-80 pointer-events-none" />
 
-          {/* Top Right Live Command Status Pill */}
+          {/* Top Right Verified Satellite PPS Pill */}
           <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/85 border border-slate-800/80 backdrop-blur-xl text-[10px] font-mono font-semibold text-slate-300 shadow-xl">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>{t.systemLive}</span>
-            </div>
             <div className="px-3.5 py-1.5 rounded-full bg-slate-950/85 border border-slate-800/80 backdrop-blur-xl text-[10px] font-mono font-bold text-emerald-400 border-emerald-500/30 shadow-xl">
               {t.satelliteTag}
             </div>

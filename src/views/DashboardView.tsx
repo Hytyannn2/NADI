@@ -111,19 +111,19 @@ export default function DashboardView() {
                         </div>
 
                         {weather && (
-                            <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-default)' }}>
-                                <div className="flex items-center gap-2">
-                                    <Droplets className="w-3 h-3" style={{ color: 'var(--info)' }} />
-                                    <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{weather.humidity}%</span>
+                            <div className="flex flex-col gap-2 border-l pl-4 shrink-0" style={{ borderColor: 'var(--border-default)' }}>
+                                <div className="flex items-center gap-2" title="Kelembapan Udara">
+                                    <Droplets className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
+                                    <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.humidity}% <span className="text-[9px] font-normal opacity-70">Lembap</span></span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Wind className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
-                                    <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{Math.round(weather.windSpeed * 3.6)} km/h</span>
+                                <div className="flex items-center gap-2" title="Kelajuan Angin">
+                                    <Wind className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                                    <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.windSpeed} km/h</span>
                                 </div>
                                 {weather.rainMm > 0 && (
-                                    <div className="flex items-center gap-2">
-                                        <CloudRain className="w-3 h-3" style={{ color: 'var(--info)' }} />
-                                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{weather.rainMm}mm</span>
+                                    <div className="flex items-center gap-2" title="Kadar Hujan">
+                                        <CloudRain className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
+                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.rainMm} mm</span>
                                     </div>
                                 )}
                             </div>

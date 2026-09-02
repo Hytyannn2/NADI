@@ -525,8 +525,8 @@ export default function BencanaView() {
                         </div>
                     </div>
 
-                    {/* 3 Simple Parameters: Rain, Wind, Flood Risk */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* 4 Weather Parameters: Rain, Humidity, Wind, Flood Risk */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
                             <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 shrink-0">
                                 <Droplets className="w-5 h-5" />
@@ -538,11 +538,21 @@ export default function BencanaView() {
                         </div>
 
                         <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                            <div className="p-2.5 rounded-xl bg-sky-500/15 text-sky-400 shrink-0">
+                                <Gauge className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Kelembapan</span>
+                                <span className="text-base font-bold text-white">{weather.humidity} <span className="text-xs font-normal text-zinc-400">%</span></span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
                             <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 shrink-0">
                                 <Wind className="w-5 h-5" />
                             </div>
                             <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Angin</span>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Kelajuan Angin</span>
                                 <span className="text-base font-bold text-white">{weather.windSpeed} <span className="text-xs font-normal text-zinc-400">km/h</span></span>
                             </div>
                         </div>

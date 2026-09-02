@@ -12,9 +12,10 @@ import {
   X, Sun, Moon, Monitor, Globe, LogOut, Award, Eye, Baseline, Activity, Palette,
   Clock, Volume2, RefreshCw, LayoutGrid, SlidersHorizontal, ShieldCheck, Scale,
   Bell, BellOff, Siren, MapPin, MapPinOff, Download, Trash2, Radio, Gauge,
-  MoonStar, Shield, FileJson, FileSpreadsheet, Smartphone
+  MoonStar, Shield, FileJson, FileSpreadsheet, Smartphone, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
+import { createClient } from '@/src/lib/supabase/client';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { sound } from '@/src/lib/audio/soundEffects';
 import {
@@ -107,12 +108,64 @@ interface SettingsModalProps {
 
 // ── Main Component ──────────────────────────────────────────────
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const supabase = createClient();
   const { t, lang, setLang } = useLanguage();
   const themeCtx = useTheme();
   const [activeTab, setActiveTab] = useState<SettingsTab>('paparan');
   const [storageUsage, setStorageUsage] = useState<{ used: number; quota: number } | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
+
+  // Account deletion states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  // Handle permanent account deletion
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'PADAM') return;
+    setIsDeletingAccount(true);
+    setDeleteError('');
+
+    try {
+      if (!user) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/';
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        throw new Error(lang === 'ms' ? 'Sesi autentikasi tidak ditemui.' : 'Authentication session not found.');
+      }
+
+      const res = await fetch('/api/auth/delete-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || (lang === 'ms' ? 'Gagal memadam akaun.' : 'Failed to delete account.'));
+      }
+
+      await signOut();
+      localStorage.clear();
+      sessionStorage.clear();
+      onClose();
+      window.location.href = '/?deleted=true';
+    } catch (err: any) {
+      setDeleteError(err.message || (lang === 'ms' ? 'Ralat berlaku semasa memadam akaun.' : 'An error occurred while deleting account.'));
+      setIsDeletingAccount(false);
+    }
+  };
 
   // Estimate storage on mount
   useEffect(() => {
@@ -539,6 +592,119 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Danger Zone: Padam Akaun ────────────────────────── */}
+      <div className="p-3.5 rounded-2xl border border-red-500/30 bg-gradient-to-b from-red-500/10 to-red-950/20">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-red-400">
+              {lang === 'ms' ? 'Zon Bahaya: Padam Akaun' : 'Danger Zone: Delete Account'}
+            </p>
+            <p className="text-[10px] text-red-300/70">
+              {lang === 'ms' ? 'Pemadaman akaun dan penghapusan data kekal' : 'Permanent account deletion and data wipe'}
+            </p>
+          </div>
+        </div>
+
+        {!showDeleteConfirm ? (
+          <div>
+            <p className="text-[11px] text-slate-300 leading-relaxed mb-3">
+              {lang === 'ms'
+                ? 'Memadam akaun anda akan melupuskan semua data peribadi, rekod aduan sivik, pendaftaran sukarelawan, dan mata ganjaran anda secara kekal. Tindakan ini '
+                : 'Deleting your account will permanently wipe all personal data, civic reports, volunteer missions, and rewards. This action '}
+              <strong className="text-red-400 font-bold">
+                {lang === 'ms' ? 'tidak boleh dibatalkan.' : 'cannot be undone.'}
+              </strong>
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteConfirm(true);
+                setDeleteConfirmText('');
+                setDeleteError('');
+              }}
+              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {lang === 'ms' ? 'Padam Akaun Saya' : 'Delete My Account'}
+            </button>
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-2.5 pt-1"
+          >
+            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-[11px] text-red-200 space-y-1.5 shadow-inner">
+              <p className="font-black text-red-400 flex items-center gap-1.5 text-xs">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 animate-pulse" />
+                {lang === 'ms' ? 'AMARAN KERAS: TINDAKAN KEKAL' : 'CRITICAL WARNING: IRREVERSIBLE ACTION'}
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-[10px] text-red-200/90 leading-normal">
+                <li>
+                  {lang === 'ms' ? 'Akaun anda ' : 'Your account '}
+                  <strong className="text-white">{user?.email || (lang === 'ms' ? 'anda' : 'your user')}</strong>
+                  {lang === 'ms' ? ' akan dipadam dari pangkalan data serta-merta.' : ' will be permanently deleted from the database.'}
+                </li>
+                <li>{lang === 'ms' ? 'Semua sejarah aduan infrastruktur & bukti gambar akan dilupuskan.' : 'All civic infrastructure reports & photo evidence will be purged.'}</li>
+                <li>{lang === 'ms' ? 'Semua rekod bantuan bencana, perbualan sukarelawan & mata sivik akan dipadam.' : 'All disaster aid records, volunteer chat & civic points will be wiped.'}</li>
+                <li>{lang === 'ms' ? 'Anda akan dilog keluar dan tidak boleh mengembalikan data ini lagi.' : 'You will be logged out and cannot recover this data.'}</li>
+              </ul>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                {lang === 'ms' ? 'Taip perkataan ' : 'Type the word '}
+                <span className="text-red-400 font-mono font-black text-xs px-1.5 py-0.5 rounded bg-red-500/20 border border-red-500/40">PADAM</span>
+                {lang === 'ms' ? ' untuk mengesahkan:' : ' to confirm:'}
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={lang === 'ms' ? 'Taip PADAM di sini' : 'Type PADAM here'}
+                className="w-full bg-[#0B101E] border border-red-500/40 focus:border-red-500 rounded-xl py-2 px-3 text-xs text-white placeholder:text-slate-600 outline-none uppercase font-mono tracking-widest text-center focus:ring-2 focus:ring-red-500/30"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-[10px] font-bold text-red-400 text-center bg-red-500/10 py-1 rounded-lg border border-red-500/20">{deleteError}</p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmText('');
+                  setDeleteError('');
+                }}
+                disabled={isDeletingAccount}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold border transition-colors text-slate-300 hover:text-white cursor-pointer"
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+              >
+                {lang === 'ms' ? 'Batal' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText.trim().toUpperCase() !== 'PADAM' || isDeletingAccount}
+                className="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-[0_0_20px_rgba(239,68,68,0.35)] cursor-pointer"
+              >
+                {isDeletingAccount ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{lang === 'ms' ? 'Sahkan Pemadaman' : 'Confirm Deletion'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

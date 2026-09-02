@@ -14,7 +14,7 @@ const cspHeader = [
   "style-src 'self' 'unsafe-inline' https://translate.googleapis.com https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://*.openstreetmap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://*.global.ssl.fastly.net https://server.arcgisonline.com https://services.arcgisonline.com https://*.google.com https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://*.googleusercontent.com https://*.open-meteo.com https://*.supabase.co https://api.mapbox.com https://ui-avatars.com https://translate.google.com https://www.google.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com https://publicinfobanjir.water.gov.my https://translate.googleapis.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com https://publicinfobanjir.water.gov.my https://translate.googleapis.com https://api.bigdatacloud.net",
   "frame-src 'self'",
 ].join('; ');
 
