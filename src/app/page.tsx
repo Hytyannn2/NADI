@@ -69,7 +69,7 @@ export default function App() {
   }, [notificationsList, isNotificationAllowed]);
 
   // === UI State ===
-  const [activeTab, setActiveTab] = useState<TabId>('aduan');
+  const [activeTab, setActiveTab] = useState<TabId>('utama');
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
   const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(false);
 
