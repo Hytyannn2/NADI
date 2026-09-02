@@ -12,7 +12,6 @@ import pkg from '@/package.json';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useWeather } from '@/src/hooks/useWeather';
 import { sound } from '@/src/lib/audio/soundEffects';
-import { WeatherAtmosphere } from '@/src/components/ambient/WeatherAtmosphere';
 import {
     CloudRain, AlertTriangle, Heart, Activity,
     ChevronRight, Loader2, Thermometer,
@@ -95,9 +94,6 @@ export default function DashboardView() {
 
     return (
         <div className="p-5 min-h-full w-full flex flex-col relative z-0">
-            {/* Ambient weather backdrop */}
-            <WeatherAtmosphere />
-
             {/* 1. Civic Welcome Header */}
             <motion.div
                 initial={{ opacity: 0, y: 12 }}

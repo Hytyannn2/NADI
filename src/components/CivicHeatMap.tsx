@@ -30,6 +30,8 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Car,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
@@ -52,12 +54,44 @@ const Popup = dynamic(() => import('react-leaflet').then((m) => m.Popup), { ssr:
 export type HeatType = 'pothole' | 'flood' | 'volunteer' | 'pps' | 'sensor' | 'vendor';
 
 interface HeatPoint {
+  id?: string;
   lat: number;
   lng: number;
   type: HeatType;
   label: string;
   sublabel?: string;
   severity: number;
+  createdAt?: string;
+}
+
+function formatReportRelative(dateInput?: string | number | Date, isMs = true): string {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const diffMs = Date.now() - d.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 45) return isMs ? 'Baru sahaja' : 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return isMs ? `${diffMin} minit lalu` : `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return isMs ? `${diffHours} jam lalu` : `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return isMs ? `${diffDays} hari lalu` : `${diffDays}d ago`;
+  return d.toLocaleDateString(isMs ? 'ms-MY' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatReportExact(dateInput?: string | number | Date, isMs = true): string {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString(isMs ? 'ms-MY' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 interface ClusterPoint {
@@ -131,6 +165,9 @@ function runUnionMergePass(items: ClusterPoint[], zoom: number): ClusterPoint[] 
 
       for (let j = 0; j < nextList.length; j++) {
         const existing = nextList[j];
+        // Enforce strict category isolation: Never merge different categories together!
+        if (existing.type !== item.type) continue;
+
         const cB = projectLatLonToPixel(existing.lat, existing.lng, zoom);
         const rB = existing.radius || 11;
 
@@ -460,21 +497,29 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         .from('nadi_infra_reports')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (infraData) {
         infraData.forEach((r: any) => {
           const lat = r.latitude || r.lat;
           const lng = r.longitude || r.lng;
           if (lat && lng) {
-            const reportType = (r.issue_type === 'flood' || r.ai_analysis?.type === 'flood') ? 'flood' : 'pothole';
+            const isFlood = (r.issue_type === 'flood' || r.ai_analysis?.type === 'flood' || (r.title && /banjir|air naik/i.test(r.title)));
+            const reportType: HeatType = isFlood ? 'flood' : 'pothole';
+            const mainLabel = r.title || r.ai_analysis?.damageType || (reportType === 'pothole' ? (isMs ? 'Lubang Jalan Dikesan' : 'Detected Pothole') : (isMs ? 'Laporan Banjir Awam' : 'Public Flood Report'));
+            const subLabel = r.ai_analysis?.riskAssessment 
+              || r.location_name 
+              || (r.z_dropped ? `Impak: ${Number(r.z_dropped).toFixed(1)}g • ${r.status === 'verified' ? '✓ Disahkan' : 'Dalam Semakan'}` : (r.status === 'verified' ? '✓ Disahkan PBT' : 'Dalam Semakan'));
+
             heatPoints.push({
+              id: r.id,
               lat: Number(lat),
               lng: Number(lng),
               type: reportType,
-              label: r.title || r.ai_analysis?.summary || (isMs ? 'Laporan Awam' : 'Civic Report'),
-              sublabel: r.issue_type || r.status || '',
-              severity: Number(r.severity || r.ai_analysis?.severity || 3),
+              label: mainLabel,
+              sublabel: subLabel,
+              severity: Number(r.severity || r.ai_analysis?.severity || (r.z_dropped > 2 ? 4 : 3)),
+              createdAt: r.created_at,
             });
           }
         });
@@ -703,10 +748,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         radius: p.type === 'sensor' ? 14 : 11,
       }));
     } else {
-      // 3. Otherwise, initial spatial grid grouping
+      // 3. Otherwise, initial spatial grid grouping partitioned strictly by category
       const gridMap: Record<string, HeatPoint[]> = {};
       basePoints.forEach((p) => {
-        const key = `${Math.floor(p.lat / gridSize)}_${Math.floor(p.lng / gridSize)}`;
+        const key = `${p.type}_${Math.floor(p.lat / gridSize)}_${Math.floor(p.lng / gridSize)}`;
         if (!gridMap[key]) gridMap[key] = [];
         gridMap[key].push(p);
       });
@@ -730,11 +775,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         } else {
           const avgLat = group.reduce((sum, item) => sum + item.lat, 0) / group.length;
           const avgLng = group.reduce((sum, item) => sum + item.lng, 0) / group.length;
-          const counts: Record<string, number> = {};
-          group.forEach((item) => {
-            counts[item.type] = (counts[item.type] || 0) + 1;
-          });
-          const dominantType = (Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'pps') as HeatType;
+          const clusterType = group[0].type;
           const initialRadius = Math.min(45, Math.max(19, Math.round(16 + Math.log2(group.length) * 3)));
 
           initialItems.push({
@@ -744,7 +785,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             lng: avgLng,
             count: group.length,
             points: group,
-            type: dominantType,
+            type: clusterType,
             radius: initialRadius,
           });
         }
@@ -1031,8 +1072,17 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                         </span>
                       </div>
 
-                      {/* d) META ROW */}
-                      <div className="flex flex-col gap-1">
+                      {/* d) META ROW & TIMESTAMPS */}
+                      <div className="flex flex-col gap-1.5">
+                        {point.createdAt && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-300 font-mono bg-zinc-900/90 px-2 py-1 rounded-lg border border-zinc-800">
+                            <Clock className="w-3 h-3 text-[#C5A367] shrink-0" />
+                            <span className="font-semibold text-white">{formatReportRelative(point.createdAt, isMs)}</span>
+                            <span className="text-zinc-500">•</span>
+                            <span className="text-zinc-400">{formatReportExact(point.createdAt, isMs)}</span>
+                          </div>
+                        )}
+
                         {distFromUser !== null && (
                           <div className="flex items-center gap-1 text-[10px] font-semibold">
                             <Navigation className="w-3 h-3 text-blue-400 shrink-0" />

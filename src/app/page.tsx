@@ -29,6 +29,7 @@ import CivicHeatMap from '@/src/components/CivicHeatMap';
 import SideNav from '@/src/components/SideNav';
 import BottomNav from '../components/BottomNav';
 import LoadingScreen from '../components/LoadingScreen';
+import { WeatherAtmosphere } from '@/src/components/ambient/WeatherAtmosphere';
 
 // Navigation Tab Identifiers
 type TabId = 'utama' | 'bencana' | 'bantuan' | 'aduan' | 'komuniti';
@@ -403,8 +404,11 @@ export default function App() {
 
           {/* === Main Content === */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth pb-24 md:pb-6 no-scrollbar flex flex-col">
+            {/* Ambient dynamic weather backdrop across all 5 views */}
+            <WeatherAtmosphere />
+
             <AnimatePresence mode="wait">
-              <div className="w-full max-w-[1720px] mx-auto flex-1 flex flex-col min-h-full">
+              <div className="w-full max-w-[1720px] mx-auto flex-1 flex flex-col min-h-full relative z-10">
                 <motion.div
                   key={activeTab}
                   initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}

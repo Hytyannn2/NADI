@@ -280,17 +280,6 @@ export default function KomunitiView() {
             {/* Standardized Header */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <div>
-                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            📍 {locationLabel || 'Lokasi Semasa'}
-                        </span>
-                        {userLat && userLng && (
-                            <span className="text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
-                                <Navigation className="w-2.5 h-2.5" /> GPS Aktif
-                            </span>
-                        )}
-                    </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white font-serif">{t('komuniti.header_title') || 'Papan Komuniti'}</h1>
                     <p className="text-xs font-medium text-zinc-400 mt-0.5">Cari kerja kosong dan sokong perniagaan tempatan di kawasan anda.</p>
                 </div>

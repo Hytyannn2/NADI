@@ -31,13 +31,16 @@ import {
     Volume2,
     Compass,
     AlertTriangle,
-    Building2
+    Building2,
+    Clock,
+    Calendar,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { usePotholeDetector, type PotholeDetection } from '../hooks/usePotholeDetector';
+import { useAuth } from '@/src/context/AuthContext';
+import { usePotholeContext } from '@/src/context/PotholeDetectorContext';
 import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
@@ -194,6 +197,7 @@ interface ClusterInfo {
 
 interface Anomaly {
     id: string;
+    userId?: string;
     lat: number;
     lng: number;
     category?: CivicCategory;
@@ -201,6 +205,7 @@ interface Anomaly {
     verifications: number;
     status: 'pending' | 'verified';
     time: string;
+    createdAt?: string;
     aiAnalysis?: AiAnalysis | null;
     isAnalyzing?: boolean;
     photoBase64?: string;
@@ -222,6 +227,36 @@ interface Anomaly {
     suggestedAgency?: string;
 }
 
+function formatReportRelative(dateInput?: string | number | Date, isMs = true): string {
+    if (!dateInput) return isMs ? 'Baru sahaja' : 'Just now';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return isMs ? 'Baru sahaja' : 'Just now';
+    const diffMs = Date.now() - d.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 45) return isMs ? 'Baru sahaja' : 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return isMs ? `${diffMin} minit lalu` : `${diffMin}m ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return isMs ? `${diffHours} jam lalu` : `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return isMs ? `${diffDays} hari lalu` : `${diffDays}d ago`;
+    return d.toLocaleDateString(isMs ? 'ms-MY' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatReportExact(dateInput?: string | number | Date, isMs = true): string {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(isMs ? 'ms-MY' : 'en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
 function getDeviceFingerprint(): string {
     const key = 'nadi_device_fp';
     if (typeof window === 'undefined') return 'dev_server';
@@ -238,6 +273,7 @@ interface AduanViewProps {
 }
 
 export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) {
+    const { user } = useAuth();
     const { t } = useLanguage();
     const { formatTime, applyLocationPrecision, locationPrecision, playAlertSound } = useTheme();
     const [filter, setFilter] = useState<'all' | 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain' | 'verified'>('all');
@@ -270,7 +306,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const photoFileInputRef = useRef<HTMLInputElement>(null);
 
     const supabase = createClient();
-    const detector = usePotholeDetector();
+    const detector = usePotholeContext();
     const dashcam = useDashcam();
 
     const isDesktop = typeof window !== 'undefined' && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -460,8 +496,10 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         const reportLat = userGpsLocation?.lat || resData?.coordinates?.lat || 0;
         const reportLng = userGpsLocation?.lng || resData?.coordinates?.lng || 0;
 
+        const createdAtIso = new Date().toISOString();
         const newA: Anomaly = {
             id: `aduan-${Date.now()}`,
+            userId: user?.id,
             lat: reportLat,
             lng: reportLng,
             category: reportCategory,
@@ -469,7 +507,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             zDropped: 0,
             verifications: 1,
             status: photoToProcess ? 'verified' : 'pending',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            createdAt: createdAtIso,
+            time: formatReportRelative(createdAtIso, true),
             title: `${intent} @ ${locName}`,
             source: photoToProcess ? 'dashcam' : 'voice',
             originalText: textToProcess || `Aduan bergambar (${catConfig?.label})`,
@@ -510,7 +549,12 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             }
         };
 
-        setAnomalies(prev => [newA, ...prev]);
+        setAnomalies(prev => {
+            const updated = [newA, ...prev];
+            const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
+            try { localStorage.setItem(cacheKey, JSON.stringify(updated.slice(0, 50))); } catch {}
+            return updated;
+        });
         setManualDescription('');
         setAttachedPhotoBase64(null);
         setHasManuallySelectedCategory(false);
@@ -518,14 +562,17 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         try {
             const deviceFp = getDeviceFingerprint();
             await supabase.from('nadi_infra_reports').insert({
+                user_id: user?.id || null,
                 lat: String(newA.lat),
                 lng: String(newA.lng),
                 z_dropped: 0,
                 confidence_score: parsedConfidence,
                 device_fingerprint: deviceFp,
                 status: newA.status,
+                title: newA.title,
                 ai_analysis: newA.aiAnalysis,
                 photo_url: photoToProcess || null,
+                created_at: createdAtIso,
             });
         } catch (dbErr) {
             console.warn('DB insert error:', dbErr);
@@ -592,7 +639,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     };
 
     useEffect(() => {
-        const savedLocal = localStorage.getItem('nadi_local_potholes');
+        const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
+        const savedLocal = localStorage.getItem(cacheKey) || localStorage.getItem('nadi_local_potholes');
         if (savedLocal) {
             try {
                 const parsed = JSON.parse(savedLocal);
@@ -600,31 +648,41 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             } catch {}
         }
 
-        supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(50)
+        supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(100)
             .then(({ data }) => {
                 if (data && data.length > 0) {
                     const mapped: Anomaly[] = data.map((d: any) => ({
                         id: d.id,
-                        lat: typeof d.lat === 'string' ? parseFloat(d.lat) : d.lat,
-                        lng: typeof d.lng === 'string' ? parseFloat(d.lng) : d.lng,
-                        zDropped: d.z_dropped,
-                        verifications: d.verifications,
-                        status: d.status,
-                        time: formatTime(d.created_at),
+                        userId: d.user_id,
+                        lat: typeof d.lat === 'string' ? parseFloat(d.lat) : (d.lat || d.latitude || 0),
+                        lng: typeof d.lng === 'string' ? parseFloat(d.lng) : (d.lng || d.longitude || 0),
+                        zDropped: Number(d.z_dropped || 0),
+                        verifications: Number(d.verifications || 1),
+                        status: d.status || 'pending',
+                        createdAt: d.created_at,
+                        time: formatReportRelative(d.created_at, true),
+                        title: d.title || d.ai_analysis?.damageType || (d.z_dropped ? `Lubang Jalan Dikesan (${Number(d.z_dropped).toFixed(1)}g)` : 'Aduan Infrastruktur'),
                         aiAnalysis: d.ai_analysis,
                         photoBase64: d.photo_url,
                         confidenceScore: d.confidence_score || 0,
                         speedKmh: d.speed_kmh || 0,
                         snapshotBase64: d.snapshot_base64,
+                        suggestedAgency: d.ai_analysis?.routingAgency || 'JKR / PBT',
                     }));
+
                     setAnomalies(prev => {
                         const merged = [...prev];
                         mapped.forEach(m => {
-                            if (!merged.some(item => item.id === m.id)) {
+                            const existingIndex = merged.findIndex(item => item.id === m.id);
+                            if (existingIndex >= 0) {
+                                merged[existingIndex] = { ...merged[existingIndex], ...m };
+                            } else {
                                 merged.push(m);
                             }
                         });
-                        localStorage.setItem('nadi_local_potholes', JSON.stringify(merged.slice(0, 50)));
+                        try {
+                            localStorage.setItem(cacheKey, JSON.stringify(merged.slice(0, 50)));
+                        } catch {}
                         return merged;
                     });
                 }
@@ -638,19 +696,25 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                         if (prev.some(a => a.id === d.id)) return prev;
                         const updated = [{
                             id: d.id,
-                            lat: typeof d.lat === 'string' ? parseFloat(d.lat) : d.lat,
-                            lng: typeof d.lng === 'string' ? parseFloat(d.lng) : d.lng,
-                            zDropped: d.z_dropped,
-                            verifications: d.verifications,
-                            status: d.status,
-                            time: formatTime(d.created_at),
+                            userId: d.user_id,
+                            lat: typeof d.lat === 'string' ? parseFloat(d.lat) : (d.lat || d.latitude || 0),
+                            lng: typeof d.lng === 'string' ? parseFloat(d.lng) : (d.lng || d.longitude || 0),
+                            zDropped: Number(d.z_dropped || 0),
+                            verifications: Number(d.verifications || 1),
+                            status: d.status || 'pending',
+                            createdAt: d.created_at,
+                            time: formatReportRelative(d.created_at, true),
+                            title: d.title || d.ai_analysis?.damageType || (d.z_dropped ? `Lubang Jalan Dikesan (${Number(d.z_dropped).toFixed(1)}g)` : 'Aduan Infrastruktur'),
                             aiAnalysis: d.ai_analysis,
                             photoBase64: d.photo_url,
                             confidenceScore: d.confidence_score || 0,
                             speedKmh: d.speed_kmh || 0,
                             snapshotBase64: d.snapshot_base64,
+                            suggestedAgency: d.ai_analysis?.routingAgency || 'JKR / PBT',
                         }, ...prev];
-                        localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
+                        try {
+                            localStorage.setItem(cacheKey, JSON.stringify(updated.slice(0, 50)));
+                        } catch {}
                         return updated;
                     });
                 }
@@ -658,20 +722,23 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [supabase]);
+    }, [supabase, user]);
 
     useEffect(() => {
         if (!detector.lastDetection) return;
         const det = detector.lastDetection;
         const tempId = det.id;
 
+        // Check if Dashcam frame snapshot can be attached
         let snapshot: string | null = null;
         if (dashcam.isDashcamEnabled && dashcam.isStreaming) {
             snapshot = dashcam.captureFrame();
         }
 
+        const createdAtIso = new Date().toISOString();
         const newAnomaly: Anomaly = {
             id: tempId,
+            userId: user?.id,
             lat: det.lat,
             lng: det.lng,
             category: 'jalan',
@@ -679,37 +746,37 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             zDropped: det.zDrop,
             verifications: 1,
             status: 'pending',
-            time: 'Baru sahaja',
+            createdAt: createdAtIso,
+            time: formatReportRelative(createdAtIso, true),
             confidenceScore: det.confidenceScore,
             speedKmh: det.speedKmh,
             snapshotBase64: snapshot || undefined,
             title: `Lubang Jalan Dikesan (${det.zDrop.toFixed(1)}g)`,
         };
 
+        const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
         setAnomalies(prev => {
+            if (prev.some(a => a.id === tempId)) {
+                return prev.map(a => a.id === tempId ? { ...a, snapshotBase64: snapshot || a.snapshotBase64 } : a);
+            }
             const updated = [newAnomaly, ...prev];
-            localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(updated.slice(0, 50)));
+            } catch {}
             return updated;
         });
 
-        const deviceFp = getDeviceFingerprint();
-        supabase.from('nadi_infra_reports').insert({
-            lat: String(det.lat),
-            lng: String(det.lng),
-            z_dropped: det.zDrop,
-            speed_kmh: det.speedKmh,
-            gyro_max_rotation: det.gyroMaxRotation,
-            waveform_duration_ms: det.waveformDurationMs,
-            confidence_score: det.confidenceScore,
-            device_fingerprint: deviceFp,
-            snapshot_base64: snapshot?.split(',')[1] || null,
-            status: 'pending'
-        }).select().single().then(async ({ data }) => {
-            if (data) {
-                setAnomalies(prev => prev.map(a => a.id === tempId ? { ...a, id: data.id } : a));
-            }
-        });
-    }, [detector.lastDetection]);
+        // If snapshot is captured from dashcam HUD, update Supabase record
+        if (snapshot) {
+            const rawBase64 = snapshot.split(',')[1] || null;
+            supabase.from('nadi_infra_reports')
+                .update({ snapshot_base64: rawBase64 })
+                .eq('user_id', user?.id || null)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .then(() => {});
+        }
+    }, [detector.lastDetection, user, dashcam.isDashcamEnabled, dashcam.isStreaming]);
 
     const handleToggleDashcam = async () => {
         detector.startDriving();
@@ -1257,8 +1324,15 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                         <Building2 className="w-2.5 h-2.5 text-[#C5A367]" />
                                                         Agensi: {a.suggestedAgency || a.aiAnalysis?.routingAgency || catConfig.suggestedAgency}
                                                     </span>
-                                                    <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
-                                                        #{a.id.slice(-4)} • {a.time}
+                                                    <span className="text-[10px] font-mono text-zinc-300 font-medium bg-zinc-900/90 px-2.5 py-0.5 rounded-md border border-zinc-800 flex items-center gap-1.5 shadow-sm">
+                                                        <Clock className="w-3 h-3 text-[#C5A367]" />
+                                                        <span className="font-semibold text-white">{formatReportRelative(a.createdAt || a.time, true)}</span>
+                                                        {a.createdAt && (
+                                                            <>
+                                                                <span className="text-zinc-600">•</span>
+                                                                <span className="text-zinc-400">{formatReportExact(a.createdAt, true)}</span>
+                                                            </>
+                                                        )}
                                                     </span>
                                                 </div>
                                                 <h4 className="font-sans text-base font-bold text-white leading-snug mt-1">

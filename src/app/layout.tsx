@@ -10,6 +10,7 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { LanguageProvider } from "@/src/context/LanguageContext";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { FamilyProvider } from "@/src/context/FamilyContext";
+import { PotholeDetectorProvider } from "@/src/context/PotholeDetectorContext";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-alpha.vercel.app";
 
@@ -147,9 +148,11 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>
             <ThemeProvider>
+              <PotholeDetectorProvider>
                 <FamilyProvider>
-                    {children}
+                  {children}
                 </FamilyProvider>
+              </PotholeDetectorProvider>
             </ThemeProvider>
           </LanguageProvider>
         </AuthProvider>

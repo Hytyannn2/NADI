@@ -267,15 +267,10 @@ export default function BencanaView() {
         setMounted(true);
     }, []);
 
-    const handleSosClick = (e: React.MouseEvent) => {
-        const isMobileOrTablet = typeof window !== 'undefined' && (
-            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-            (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
-        );
-        if (!isMobileOrTablet) {
-            e.preventDefault();
-            setShowSosModal(true);
-        }
+    const handleSosClick = (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        sound.playWaterDrop();
+        setShowSosModal(true);
     };
 
     useEffect(() => {
@@ -398,12 +393,6 @@ export default function BencanaView() {
                 className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4"
             >
                 <div>
-                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            LIVE • 📍 {locationLabel === 'Locating...' ? 'Kelantan, Malaysia' : locationLabel}
-                        </span>
-                    </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white font-serif">
                         {t('bencana.title')}
                     </h1>
@@ -436,14 +425,15 @@ export default function BencanaView() {
                         <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                         <span>Pusat Pemindahan (PPS)</span>
                     </button>
-                    <a
-                        href="tel:999"
+                    <button
+                        type="button"
                         onClick={handleSosClick}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg border border-red-500/50 transition-all flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-950/40 border border-red-500/50 transition-all flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+                        title="Talian Kecemasan Bencana"
                     >
                         <Phone className="w-3.5 h-3.5 animate-bounce" />
                         <span>SOS 999</span>
-                    </a>
+                    </button>
                 </div>
             </motion.div>
 
@@ -1322,29 +1312,56 @@ export default function BencanaView() {
                                 </div>
 
                                 <div className="space-y-2.5 text-xs">
-                                    <div className="p-3.5 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between shadow-sm">
-                                        <div>
-                                            <span className="font-bold text-white block">MERS 999 (Polis, Ambulans, Hospital)</span>
-                                            <span className="text-[10px] text-zinc-400">Talian Utama Semua Kecemasan</span>
+                                    <a
+                                        href="tel:999"
+                                        onClick={() => sound.playWaterDrop()}
+                                        className="p-3.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-750 active:bg-zinc-700 border border-zinc-700/50 hover:border-red-500/40 flex items-center justify-between shadow-sm transition-all active:scale-[0.98] group cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <Phone className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <span className="font-bold text-white block group-hover:text-red-400 transition-colors">MERS 999 (Polis, Ambulans, Hospital)</span>
+                                                <span className="text-[10px] text-zinc-400">Talian Utama Semua Kecemasan</span>
+                                            </div>
                                         </div>
-                                        <a href="tel:999" className="px-3.5 py-1.5 rounded-xl font-bold bg-red-600 text-white text-xs hover:bg-red-500 transition-colors shrink-0">999</a>
-                                    </div>
+                                        <span className="px-3.5 py-1.5 rounded-xl font-bold bg-red-600 text-white text-xs group-hover:bg-red-500 transition-colors shrink-0 shadow-md">999</span>
+                                    </a>
 
-                                    <div className="p-3.5 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between shadow-sm">
-                                        <div>
-                                            <span className="font-bold text-white block">Bomba & Penyelamat</span>
-                                            <span className="text-[10px] text-zinc-400">Penyelamatan Banjir & Kebakaran</span>
+                                    <a
+                                        href="tel:994"
+                                        onClick={() => sound.playWaterDrop()}
+                                        className="p-3.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-750 active:bg-zinc-700 border border-zinc-700/50 hover:border-amber-500/40 flex items-center justify-between shadow-sm transition-all active:scale-[0.98] group cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <Phone className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <span className="font-bold text-white block group-hover:text-amber-400 transition-colors">Bomba & Penyelamat</span>
+                                                <span className="text-[10px] text-zinc-400">Penyelamatan Banjir & Kebakaran</span>
+                                            </div>
                                         </div>
-                                        <a href="tel:994" className="px-3.5 py-1.5 rounded-xl font-bold bg-amber-600 text-white text-xs hover:bg-amber-500 transition-colors shrink-0">994</a>
-                                    </div>
+                                        <span className="px-3.5 py-1.5 rounded-xl font-bold bg-amber-600 text-white text-xs group-hover:bg-amber-500 transition-colors shrink-0 shadow-md">994</span>
+                                    </a>
 
-                                    <div className="p-3.5 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between shadow-sm">
-                                        <div>
-                                            <span className="font-bold text-white block">Pertahanan Awam (APM)</span>
-                                            <span className="text-[10px] text-zinc-400">Bantuan Skuad Bencana Banjir</span>
+                                    <a
+                                        href="tel:991"
+                                        onClick={() => sound.playWaterDrop()}
+                                        className="p-3.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-750 active:bg-zinc-700 border border-zinc-700/50 hover:border-blue-500/40 flex items-center justify-between shadow-sm transition-all active:scale-[0.98] group cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <Phone className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <span className="font-bold text-white block group-hover:text-blue-400 transition-colors">Pertahanan Awam (APM)</span>
+                                                <span className="text-[10px] text-zinc-400">Bantuan Skuad Bencana Banjir</span>
+                                            </div>
                                         </div>
-                                        <a href="tel:991" className="px-3.5 py-1.5 rounded-xl font-bold bg-blue-600 text-white text-xs hover:bg-blue-500 transition-colors shrink-0">991</a>
-                                    </div>
+                                        <span className="px-3.5 py-1.5 rounded-xl font-bold bg-blue-600 text-white text-xs group-hover:bg-blue-500 transition-colors shrink-0 shadow-md">991</span>
+                                    </a>
                                 </div>
                             </motion.div>
                         </motion.div>

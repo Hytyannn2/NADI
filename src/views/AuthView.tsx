@@ -745,10 +745,14 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
     setGoogleLoading(true);
     setError('');
     try {
+      const redirectOrigin = typeof window !== 'undefined'
+        ? window.location.origin.replace('0.0.0.0', 'localhost')
+        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${redirectOrigin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

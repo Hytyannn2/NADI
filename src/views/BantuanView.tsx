@@ -393,12 +393,6 @@ export default function BantuanView() {
                 className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
             >
                 <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            📍 {locationName && !locationName.toLowerCase().includes('singapore') ? locationName : (locationLabel || 'Lokasi Semasa')}
-                        </span>
-                    </div>
                     <h2 className="text-2xl font-bold tracking-tight text-white font-serif">{t('bantuan.header_title') || 'Bantuan & Sukarelawan'}</h2>
                     <p className="text-xs font-medium text-zinc-400 mt-0.5">
                         {t('bantuan.header_subtitle') || 'Cari program bantuan kewangan dan peluang sukarelawan berhampiran anda.'}
