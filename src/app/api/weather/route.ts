@@ -182,7 +182,8 @@ export async function GET(request: Request) {
             recent15MinRain
         );
 
-        const rainMm = Number(actualRain.toFixed(1));
+        // Treats precipitation < 0.5 mm/h as dry/negligible trace condensation
+        const rainMm = actualRain >= 0.5 ? Number(actualRain.toFixed(1)) : 0;
         const humidity = currentW.relative_humidity_2m || 70;
         const pressure = currentW.surface_pressure || currentW.pressure_msl || 1013;
 

@@ -16,7 +16,9 @@ import { WeatherAtmosphere } from '@/src/components/ambient/WeatherAtmosphere';
 import {
     CloudRain, AlertTriangle, Heart, Activity,
     ChevronRight, Loader2, Thermometer,
-    Wind, Droplets, ClipboardList, ShoppingBag
+    Wind, Droplets, ClipboardList, ShoppingBag,
+    Sun, Moon, CloudSun, CloudMoon, CloudLightning,
+    CloudDrizzle, Cloud
 } from 'lucide-react';
 
 export default function DashboardView() {
@@ -35,6 +37,55 @@ export default function DashboardView() {
             : hour < 19 
                 ? (t('greeting.evening') || 'Selamat Petang') 
                 : (t('greeting.night') || 'Selamat Malam');
+
+    // Resolves live contextual weather icon based on WMO code, rainfall, and temperature
+    const renderWeatherIcon = () => {
+        if (!weather) return <Thermometer className="w-6 h-6" style={{ color: 'var(--warning)' }} />;
+
+        const code = weather.weatherCode ?? 0;
+        const rain = weather.rainMm ?? 0;
+        const temp = weather.temp ?? 30;
+        const isNight = hour < 6 || hour >= 19;
+
+        // 1. Thunderstorm (Ribut Petir) - WMO 95, 96, 99
+        if (code === 95 || code === 96 || code === 99) {
+            return <CloudLightning className="w-6 h-6 text-amber-400 animate-pulse" />;
+        }
+
+        // 2. Heavy / Moderate Rain (Hujan) - WMO 61, 63, 65, 80, 81, 82 or rain >= 2.5mm
+        if (rain >= 2.5 || [61, 63, 65, 80, 81, 82].includes(code)) {
+            return <CloudRain className="w-6 h-6 text-blue-400" />;
+        }
+
+        // 3. Light Drizzle (Hujan Renyai / Gerimis) - WMO 51, 53, 55, 56, 57 or rain >= 0.5mm
+        if (rain >= 0.5 || [51, 53, 55, 56, 57].includes(code)) {
+            return <CloudDrizzle className="w-6 h-6 text-sky-400" />;
+        }
+
+        // 4. Overcast / Heavy Clouds (Mendung) - WMO 2, 3
+        if (code === 2 || code === 3) {
+            return <Cloud className="w-6 h-6 text-slate-300" />;
+        }
+
+        // 5. Partly Cloudy (Cerah Berawan) - WMO 1
+        if (code === 1) {
+            return isNight 
+                ? <CloudMoon className="w-6 h-6 text-indigo-300" />
+                : <CloudSun className="w-6 h-6 text-amber-300" />;
+        }
+
+        // 6. Clear Night (Malam Tenang)
+        if (isNight) {
+            return <Moon className="w-6 h-6 text-indigo-300" />;
+        }
+
+        // 7. Hot Sunny / Terik (Panas / Clear Sky)
+        if (temp >= 32 || code === 0) {
+            return <Sun className="w-6 h-6 text-amber-400 animate-[spin_16s_linear_infinite]" />;
+        }
+
+        return <Thermometer className="w-6 h-6" style={{ color: 'var(--warning)' }} />;
+    };
 
     const switchToTab = (tabId: string) => {
         sound.playWaterDrop();
@@ -94,11 +145,7 @@ export default function DashboardView() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
-                                {weather?.rainMm && weather.rainMm > 0 ? (
-                                    <CloudRain className="w-6 h-6" style={{ color: 'var(--info)' }} />
-                                ) : (
-                                    <Thermometer className="w-6 h-6" style={{ color: 'var(--warning)' }} />
-                                )}
+                                {renderWeatherIcon()}
                             </div>
                             <div>
                                 <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -120,7 +167,7 @@ export default function DashboardView() {
                                     <Wind className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
                                     <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.windSpeed} km/h</span>
                                 </div>
-                                {weather.rainMm > 0 && (
+                                {weather.rainMm >= 0.5 && (
                                     <div className="flex items-center gap-2" title="Kadar Hujan">
                                         <CloudRain className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
                                         <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.rainMm} mm</span>
