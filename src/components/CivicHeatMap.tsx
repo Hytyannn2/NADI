@@ -17,21 +17,18 @@ import {
   Construction,
   Loader2,
   MapPin,
-  Info,
   Home,
   Radio,
   Store,
   Navigation,
-  ZoomIn,
   Search,
   Crosshair,
-  Compass,
   ChevronUp,
   ChevronDown,
   SlidersHorizontal,
   Car,
   Clock,
-  Calendar,
+  CheckCircle2,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
@@ -42,6 +39,7 @@ import { useLanguage } from '@/src/context/LanguageContext';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } from '@/src/data/kelantanPpsCenters';
 import { DEFAULT_LOCATION, DEFAULT_SENSOR_NODE } from '@/src/config/constants';
 import { FALLBACK_FLOOD_ZONES, FALLBACK_VENDORS } from '@/src/data/fallbacks';
+import PpsVerificationModal from '@/src/components/PpsVerificationModal';
 
 // Dynamic import to prevent SSR window reference errors in Leaflet
 const MapContainer = dynamic(() => import('react-leaflet').then((m) => m.MapContainer), { ssr: false });
@@ -62,6 +60,8 @@ interface HeatPoint {
   sublabel?: string;
   severity: number;
   createdAt?: string;
+  isExact?: boolean;
+  snappedTo?: string | null;
 }
 
 function formatReportRelative(dateInput?: string | number | Date, isMs = true): string {
@@ -144,6 +144,9 @@ function unprojectPixelToLatLon(x: number, y: number, zoom: number): { lat: numb
 
 // Bounding-Circle Union Merge Pass: Merges any overlapping circles tip-to-tip across all zoom levels
 function runUnionMergePass(items: ClusterPoint[], zoom: number): ClusterPoint[] {
+  // Performance Guard: Skip expensive merge passes at deep zoom where individual pins are visible
+  if (zoom > 15.8) return items;
+
   let currentList: (ClusterPoint & { radius: number })[] = items.map((it) => ({
     ...it,
     radius: it.radius ?? (it.isCluster ? (Math.min(72, Math.max(38, Math.round(32 + Math.log2(it.count) * 6))) / 2) : (it.type === 'sensor' ? 14 : 11)),
@@ -199,19 +202,12 @@ function runUnionMergePass(items: ClusterPoint[], zoom: number): ClusterPoint[] 
           const unionPoints = [...existing.points, ...item.points];
           const totalCount = existing.count + item.count;
 
-          // Dominant type for color styling
-          const counts: Record<string, number> = {};
-          unionPoints.forEach((p) => {
-            counts[p.type] = (counts[p.type] || 0) + 1;
-          });
-          const dominantType = (Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || existing.type) as HeatType;
-
           existing.lat = newCenter.lat;
           existing.lng = newCenter.lng;
           existing.radius = mergedR;
           existing.count = totalCount;
           existing.points = unionPoints;
-          existing.type = dominantType;
+          existing.type = item.type; // Guaranteed same category by isolation check
           existing.isCluster = true;
           existing.id = `union-${existing.lat.toFixed(5)}-${existing.lng.toFixed(5)}-${totalCount}`;
 
@@ -290,7 +286,7 @@ const createClusterIcon = (count: number, color: string, diameter?: number) => {
   }
 };
 
-// Fixed Map event listener component (Stores active map instance & updates state safely on zoom/move)
+// Robust Map event listener component (Stores active map instance & updates state safely on zoom/move)
 function MapEventsController({
   onMapInit,
   onMapChange,
@@ -300,52 +296,49 @@ function MapEventsController({
 }) {
   const { useMapEvents } = require('react-leaflet');
 
-  const safeUpdateState = useCallback(() => {
-    try {
-      if (map && map._loaded && typeof map.getZoom === 'function' && typeof map.getBounds === 'function') {
-        const z = map.getZoom();
-        const b = map.getBounds();
-        if (z !== undefined && b && b.getSouthWest) {
-          onMapChange(z, b);
-        }
-      }
-    } catch {}
-  }, [onMapChange]);
-
   const map = useMapEvents({
-    zoomend: safeUpdateState,
-    moveend: safeUpdateState,
+    zoomend(e: any) {
+      try {
+        const m = e.target;
+        if (m && typeof m.getZoom === 'function') {
+          onMapChange(m.getZoom(), m.getBounds());
+        }
+      } catch {}
+    },
+    moveend(e: any) {
+      try {
+        const m = e.target;
+        if (m && typeof m.getZoom === 'function') {
+          onMapChange(m.getZoom(), m.getBounds());
+        }
+      } catch {}
+    },
   });
 
   useEffect(() => {
-    if (map) {
+    if (!map) return;
+
+    onMapInit(map);
+
+    const timer = setTimeout(() => {
       try {
-        onMapInit(map);
+        map.invalidateSize();
+        onMapChange(map.getZoom(), map.getBounds());
       } catch {}
-      safeUpdateState();
+    }, 150);
 
-      const timer = setTimeout(() => {
-        try {
-          if (map && map.invalidateSize) map.invalidateSize();
-          safeUpdateState();
-        } catch {}
-      }, 150);
-
-      return () => {
-        clearTimeout(timer);
-        try {
-          onMapInit(null);
-        } catch {}
-      };
-    }
-  }, [map, onMapInit, safeUpdateState]);
+    return () => {
+      clearTimeout(timer);
+      onMapInit(null);
+    };
+  }, [map, onMapInit, onMapChange]);
 
   return null;
 }
 
 export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   const { lang } = useLanguage();
-  const isMs = lang === 'ms';
+  const isMs = lang === 'ms' || (lang as string) === 'BM';
   const [mounted, setMounted] = useState(false);
   const [filters, setFilters] = useState<Record<HeatType, boolean>>({
     pothole: true,
@@ -368,6 +361,14 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [activeMap, setActiveMap] = useState<any>(null);
+  const [verifyCenter, setVerifyCenter] = useState<{
+    name: string;
+    jajahan?: string;
+    district?: string;
+    currentLat?: number;
+    currentLng?: number;
+    snappedTo?: string | null;
+  } | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   const { userLat, userLng } = useWeather();
@@ -504,12 +505,20 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
           const lat = r.latitude || r.lat;
           const lng = r.longitude || r.lng;
           if (lat && lng) {
-            const isFlood = (r.issue_type === 'flood' || r.ai_analysis?.type === 'flood' || (r.title && /banjir|air naik/i.test(r.title)));
+            const damageType = String(r.ai_analysis?.damageType || r.issue_type || r.title || '').toLowerCase();
+            const isFlood = damageType.includes('flood') || damageType.includes('banjir') || damageType.includes('air naik') || r.ai_analysis?.type === 'flood';
             const reportType: HeatType = isFlood ? 'flood' : 'pothole';
             const mainLabel = r.title || r.ai_analysis?.damageType || (reportType === 'pothole' ? (isMs ? 'Lubang Jalan Dikesan' : 'Detected Pothole') : (isMs ? 'Laporan Banjir Awam' : 'Public Flood Report'));
             const subLabel = r.ai_analysis?.riskAssessment 
               || r.location_name 
               || (r.z_dropped ? `Impak: ${Number(r.z_dropped).toFixed(1)}g • ${r.status === 'verified' ? '✓ Disahkan' : 'Dalam Semakan'}` : (r.status === 'verified' ? '✓ Disahkan PBT' : 'Dalam Semakan'));
+
+            const severity = Number(
+              r.severity ??
+              r.ai_analysis?.severityScore ??
+              r.ai_analysis?.visualSeverity ??
+              (r.z_dropped > 2 ? 4 : 3)
+            );
 
             heatPoints.push({
               id: r.id,
@@ -518,7 +527,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               type: reportType,
               label: mainLabel,
               sublabel: subLabel,
-              severity: Number(r.severity || r.ai_analysis?.severity || (r.z_dropped > 2 ? 4 : 3)),
+              severity,
               createdAt: r.created_at,
             });
           }
@@ -580,6 +589,8 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             label: center.name,
             sublabel: `${center.jajahan} · ${center.type}`,
             severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
+            isExact: center.isExact,
+            snappedTo: center.snappedTo,
           });
         });
       }
@@ -592,6 +603,8 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
           label: center.name,
           sublabel: `${center.jajahan} · ${center.type}`,
           severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
+          isExact: center.isExact,
+          snappedTo: center.snappedTo,
         });
       });
     }
@@ -689,12 +702,12 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const channel = supabase
       .channel('heatmap_realtime_updates')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_infra_reports' }, () => {
-        console.log('⚡ [CivicHeatMap] Live infra report detected — updating map points');
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'nadi_infra_reports' }, () => {
+        console.log('⚡ [CivicHeatMap] Live infra report change detected — updating map points');
         loadHeatPoints();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_bencana_jobs' }, () => {
-        console.log('⚡ [CivicHeatMap] Live volunteer mission detected — updating map points');
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'nadi_bencana_jobs' }, () => {
+        console.log('⚡ [CivicHeatMap] Live volunteer mission change detected — updating map points');
         loadHeatPoints();
       })
       .subscribe();
@@ -1034,10 +1047,11 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                   center={[point.lat, point.lng]}
                   radius={point.type === 'sensor' ? 14 : 11}
                   pathOptions={{
-                    color: cfg.color,
-                    fillColor: cfg.color,
-                    fillOpacity: 0.38,
+                    color: point.type === 'pps' && !point.isExact ? '#F59E0B' : cfg.color,
+                    fillColor: point.type === 'pps' && !point.isExact ? '#F59E0B' : cfg.color,
+                    fillOpacity: point.type === 'pps' && !point.isExact ? 0.25 : 0.38,
                     weight: 2.5,
+                    dashArray: point.type === 'pps' && !point.isExact ? '4, 4' : undefined,
                   }}
                 >
                   <Popup className="nadi-popup">
@@ -1137,22 +1151,52 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                             <span className="text-white">Waze</span>
                           </a>
                           <a
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`}
+                            href={point.type === 'pps' && !point.isExact
+                              ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(point.label + ' ' + (point.sublabel || 'Kelantan'))}`
+                              : `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="bg-emerald-600 hover:bg-emerald-500 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
                           >
                             <Map className="w-3.5 h-3.5 text-white shrink-0" />
-                            <span className="text-white">Maps</span>
+                            <span className="text-white">{point.type === 'pps' && !point.isExact ? 'Cari Maps' : 'Maps'}</span>
                           </a>
                         </div>
                       )}
 
                       {/* f) TRUST FOOTER (PPS only) */}
                       {point.type === 'pps' && (
-                        <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[8px] uppercase tracking-widest text-zinc-500 font-semibold">
-                          <span>RASMI · JKM / NADMA</span>
-                          <span className="text-emerald-500 font-bold">DISAHKAN</span>
+                        <div className="pt-2 border-t border-zinc-800/60 flex flex-col gap-2">
+                          <div className="flex items-center justify-between text-[8px] uppercase tracking-widest text-zinc-500 font-semibold">
+                            <span>RASMI · JKM / NADMA</span>
+                            {point.isExact ? (
+                              <span className="text-emerald-500 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> DISAHKAN
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 font-bold flex items-center gap-1">
+                                <AlertTriangle className="w-2.5 h-2.5" /> ANGGARAN {point.snappedTo ? `(${point.snappedTo})` : ''}
+                              </span>
+                            )}
+                          </div>
+
+                          {!point.isExact && (
+                            <button
+                              type="button"
+                              onClick={() => setVerifyCenter({
+                                name: point.label,
+                                jajahan: point.sublabel?.split(' · ')[0] || 'Kelantan',
+                                district: point.sublabel?.split(' · ')[0] || 'Kelantan',
+                                currentLat: point.lat,
+                                currentLng: point.lng,
+                                snappedTo: point.snappedTo,
+                              })}
+                              className="w-full py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px] border border-amber-500/40 transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
+                            >
+                              <MapPin className="w-3 h-3 text-amber-300 shrink-0" />
+                              <span>Bantu Sahkan Lokasi Ini</span>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1256,6 +1300,13 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </div>
+
+        {/* PPS Crowd-sourced Verification Modal */}
+        <PpsVerificationModal
+          isOpen={!!verifyCenter}
+          onClose={() => setVerifyCenter(null)}
+          center={verifyCenter}
+        />
       </div>
     </motion.div>
   );
