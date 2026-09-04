@@ -5,15 +5,9 @@
  * across Malaysian neighborhoods.
  */
 import { NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { checkKomunitiLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
-
-function getAdminSupabase() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dxexikpuezslryywhnnf.supabase.co';
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4ZXhpa3B1ZXpzbHJ5eXdobm5mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM0NDQxOSwiZXhwIjoyMDkyOTIwNDE5fQ.kxdMDFBbVehjKCsIRfgyhebLeu-vUP2D2sAjNywMOQE';
-    return createSupabaseClient(supabaseUrl, serviceKey);
-}
+import { requireServerAuth, getAdminSupabase } from '@/src/lib/auth/serverAuth';
 
 // In-memory fallback cache for jobs and local vendors
 let IN_MEMORY_JOBS: any[] = [];
@@ -77,14 +71,19 @@ export async function POST(request: Request) {
     }
 
     try {
+        // Enforce Server-Side Caller Authentication (CWE-862 Remediation)
+        const { user, adminSupa, errorResponse } = await requireServerAuth(request);
+        if (errorResponse) {
+            return errorResponse;
+        }
+
         const body = await request.json();
         const { itemType, ...itemData } = body;
-
-        const adminSupa = getAdminSupabase();
 
         if (itemType === 'job') {
             const newJob = {
                 id: `job-${Date.now()}`,
+                userId: user.id,
                 title: itemData.title,
                 employer: itemData.employer,
                 location: itemData.location,
@@ -114,6 +113,7 @@ export async function POST(request: Request) {
         } else if (itemType === 'vendor') {
             const newVendor = {
                 id: `vendor-${Date.now()}`,
+                userId: user.id,
                 name: itemData.name,
                 category: itemData.category || 'Makanan',
                 location: itemData.location,

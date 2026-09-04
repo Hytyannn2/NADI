@@ -22,21 +22,50 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { dialectText, correctMeaning, region, reportId } = body;
 
-        if (!dialectText?.trim()) {
+        const rawDialect = typeof dialectText === 'string' ? dialectText.trim() : '';
+        const rawMeaning = typeof correctMeaning === 'string' ? correctMeaning.trim() : '';
+
+        if (!rawDialect) {
             return NextResponse.json(
                 { success: false, error: 'Dialect text is required.' },
                 { status: 400 }
             );
         }
 
-        // Persists user correction to dialect database
+        // Tier 1 Ingest Gate: Length bounds
+        if (rawDialect.length > 35 || rawMeaning.length > 40) {
+            return NextResponse.json(
+                { success: false, error: 'Teks dialek atau maksud melebihi had panjang yang dibenarkan (maksimum 35-40 aksara).' },
+                { status: 400 }
+            );
+        }
+
+        // Tier 1 Ingest Gate: Strict character whitelist (letters, spaces, hyphens, apostrophes)
+        const VALID_DIALECT_REGEX = /^[\p{L}\s'-]+$/u;
+        if (!VALID_DIALECT_REGEX.test(rawDialect) || (rawMeaning && !VALID_DIALECT_REGEX.test(rawMeaning))) {
+            return NextResponse.json(
+                { success: false, error: 'Hanya huruf, ruang, tanda sempang (-), dan apostrof (\') dibenarkan. Kod, simbol, atau baris baru ditolak.' },
+                { status: 400 }
+            );
+        }
+
+        // Tier 1 Ingest Gate: Anti-prompt-injection heuristic filter
+        const FORBIDDEN_KEYWORDS = /(\bignore\b|\bsystem\b|\binstruction\b|\bprompt\b|\bbypass\b|\bjailbreak\b|\bassistant\b|\buser\b|\brule\b|\boverride\b|\bjson\b|<script|<xml|```)/i;
+        if (FORBIDDEN_KEYWORDS.test(rawDialect) || FORBIDDEN_KEYWORDS.test(rawMeaning)) {
+            return NextResponse.json(
+                { success: false, error: 'Kandungan mengandungi perkataan atau format arahan yang dilarang.' },
+                { status: 400 }
+            );
+        }
+
+        // Persists vetted user correction to dialect database
         let engineResult = null;
         try {
-            if (correctMeaning?.trim()) {
+            if (rawMeaning) {
                 engineResult = await addCorrection(
-                    dialectText.trim(),
-                    correctMeaning.trim(),
-                    region || 'kelantan'
+                    rawDialect,
+                    rawMeaning,
+                    typeof region === 'string' && region.length < 20 ? region : 'kelantan'
                 );
             }
         } catch (err) {

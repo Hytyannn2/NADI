@@ -7,9 +7,9 @@
  * - Rural zones: 2 unique devices
  */
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { checkInfraClusterLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 // Approximate coordinates for Kota Bharu urban center
 const KOTA_BHARU_BOUNDS = {
@@ -43,6 +43,12 @@ export async function POST(request: Request) {
         return addRateLimitHeaders(errRes, limit);
     }
 
+    // Enforce server-side caller authentication before executing spatial clustering RPC (CWE-862)
+    const { user, adminSupa, errorResponse } = await requireServerAuth(request);
+    if (errorResponse) {
+        return errorResponse;
+    }
+
     try {
         const body = await request.json();
         const { reportId, lat, lng, deviceFingerprint } = body;
@@ -54,18 +60,12 @@ export async function POST(request: Request) {
             );
         }
 
-        // Uses Supabase service role key for server operations
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-
         const parsedLat = typeof lat === 'string' ? parseFloat(lat) : lat;
         const parsedLng = typeof lng === 'string' ? parseFloat(lng) : lng;
         const threshold = isUrban(parsedLat, parsedLng) ? URBAN_THRESHOLD : RURAL_THRESHOLD;
 
         // Executes atomic spatial clustering stored procedure
-        const { data: rpcData, error: rpcError } = await supabase.rpc('atomic_cluster_pothole', {
+        const { data: rpcData, error: rpcError } = await adminSupa.rpc('atomic_cluster_pothole', {
             p_report_id: reportId,
             p_lat: parsedLat,
             p_lng: parsedLng,

@@ -84,8 +84,8 @@ export async function POST(request: Request) {
             usedNonces.set(nonce, now + 600000); // Stores for 10 minutes
         }
 
-        // Webhook secret validation
-        const allowUnauthenticatedDev = process.env.ALLOW_UNAUTHENTICATED_WEBHOOK_DEV === 'true';
+        // Webhook secret validation (Dev bypass strictly forbidden in production)
+        const allowUnauthenticatedDev = process.env.ALLOW_UNAUTHENTICATED_WEBHOOK_DEV === 'true' && process.env.NODE_ENV !== 'production';
 
         if (!allowUnauthenticatedDev) {
             if (!webhookSecret) {

@@ -9,6 +9,7 @@ import Groq from 'groq-sdk';
 import { checkInfraAnalyzeLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 import { DEFAULT_LOCATION } from '@/src/config/constants';
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 export async function POST(request: Request) {
     const headersList = await headers();
@@ -17,6 +18,12 @@ export async function POST(request: Request) {
     if (!limit.allowed) {
         const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
         return addRateLimitHeaders(errRes, limit);
+    }
+
+    // Enforce server-side caller authentication before executing AI analysis (CWE-862)
+    const { user, errorResponse } = await requireServerAuth(request);
+    if (errorResponse) {
+        return errorResponse;
     }
 
     try {

@@ -129,8 +129,8 @@ export async function POST(request: Request) {
             return addRateLimitHeaders(errRes, limitResult);
         }
 
-        // In production: enforce authentication unless running in local development
-        const isDevMode = process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_SIMULATION === 'true';
+        // In production: enforce authentication unless running strictly in local development
+        const isDevMode = process.env.NODE_ENV === 'development' || (process.env.ALLOW_DEV_SIMULATION === 'true' && process.env.NODE_ENV !== 'production');
         if (!isDevMode) {
             if (!expectedNodeKey) {
                 console.error('[Sensors API] FATAL: SENSOR_NODE_KEY not configured in production. Rejecting all requests.');

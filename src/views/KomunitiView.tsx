@@ -99,7 +99,7 @@ function timeAgo(ts: number): string {
 }
 
 export default function KomunitiView() {
-    const { user } = useAuth();
+    const { user, session } = useAuth();
     const { t } = useLanguage();
     const { locationLabel, userLat, userLng } = useWeather();
     const [subTab, setSubTab] = useState<'kerja' | 'niaga'>('kerja');
@@ -220,6 +220,11 @@ export default function KomunitiView() {
         e.preventDefault();
         if (!titleOrName || !location || !description) return;
 
+        if (!session?.access_token) {
+            alert('Sila log masuk terlebih dahulu untuk menyiarkan iklan komuniti.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const payload = subTab === 'kerja' ? {
@@ -249,7 +254,10 @@ export default function KomunitiView() {
 
             const res = await fetch('/api/komuniti', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
                 body: JSON.stringify(payload)
             });
             const data = await res.json();

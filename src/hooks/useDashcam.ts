@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createClient } from '@/src/lib/supabase/client';
 
 /**
  * Dashcam Video Stream & Snapshot Capture Hook
@@ -247,9 +248,19 @@ export function useDashcam(): UseDashcamReturn {
 
       setIsProcessingBgFrame(true);
       try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setIsProcessingBgFrame(false);
+          return null;
+        }
+
         const res = await fetch('/api/infra/vision', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({
             imageBase64,
             lat: payload.lat,

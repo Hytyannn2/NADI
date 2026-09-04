@@ -140,50 +140,43 @@ export async function lookup(wordRaw: string): Promise<LookupResult | null> {
   return best;
 }
 
-/**
- * Translates a sentence word-by-word and returns translation coverage stats.
- */
-export async function translatePhrase(text: string) {
-  const words = text.toLowerCase().trim().split(/\s+/);
-  const per_word: LookupResult[] = [];
-  const translated: string[] = [];
-  const unknown_words: string[] = [];
+// Validation guards against prompt injection and untrusted crowd data
+const VALID_DIALECT_TOKEN = /^[\p{L}\s'-]+$/u;
+const FORBIDDEN_KEYWORDS = /(\bignore\b|\bsystem\b|\binstruction\b|\bprompt\b|\bbypass\b|\bjailbreak\b|\bassistant\b|\buser\b|\brule\b|\boverride\b|\bjson\b|<script|<xml|```)/i;
 
-  for (const w of words) {
-    const r = await lookup(w);
-    if (r) {
-      per_word.push(r);
-      translated.push(r.standard);
-    } else {
-      per_word.push({ input: w, standard: w, confidence: 'unknown' });
-      translated.push(w);
-      unknown_words.push(w);
-    }
+/**
+ * Safely exports vetted dialect mappings as a validated key-value dictionary.
+ * Rejects any mapping with invalid characters, prompt-injection patterns, or excessive length.
+ * Caps at maximum `limit` entries to prevent context stuffing.
+ */
+export async function exportSafeDictionary(limit = 50): Promise<Record<string, string>> {
+  const m = await allMappings();
+  const safeEntries: [string, string][] = [];
+
+  for (const [d, s] of Object.entries(m)) {
+    if (d === s || !d || !s) continue;
+    if (d.length > 35 || s.length > 40) continue;
+    if (!VALID_DIALECT_TOKEN.test(d) || !VALID_DIALECT_TOKEN.test(s)) continue;
+    if (FORBIDDEN_KEYWORDS.test(d) || FORBIDDEN_KEYWORDS.test(s)) continue;
+
+    safeEntries.push([d, s]);
   }
 
-  return {
-    original: text,
-    translated: translated.join(' '),
-    per_word,
-    unknown_words,
-    coverage: Math.round((1 - unknown_words.length / Math.max(words.length, 1)) * 100) / 100,
-  };
+  safeEntries.sort((a, b) => a[0].localeCompare(b[0]));
+  return Object.fromEntries(safeEntries.slice(0, limit));
 }
 
 /**
- * Serializes all dialect mappings into a key=value string to enrich LLM prompts.
+ * Serializes vetted dialect mappings into a secure JSON string to enrich LLM prompts.
  */
-export async function exportForPrompt(): Promise<string> {
-  const m = await allMappings();
-  return Object.entries(m)
-    .filter(([d, s]) => d !== s)
-    .sort((a, b) => a[1].localeCompare(b[1]))
-    .map(([d, s]) => `${d}=${s}`)
-    .join(', ');
+export async function exportForPrompt(limit = 50): Promise<string> {
+  const dict = await exportSafeDictionary(limit);
+  if (Object.keys(dict).length === 0) return '';
+  return JSON.stringify(dict);
 }
 
 /**
- * Records a community translation correction to Supabase and clears the local cache.
+ * Records a community translation correction to Supabase with strict validation.
  */
 export async function addCorrection(
   dialectText: string,
@@ -192,16 +185,28 @@ export async function addCorrection(
 ) {
   const dialect = dialectText.toLowerCase().trim();
   const standard = correctMeaning.toLowerCase().trim();
+
+  // Tier 2 Ingest Validation
+  if (dialect.length > 35 || standard.length > 40) {
+    return { status: 'rejected', error: 'Exceeded length bounds (max 35-40 chars).' };
+  }
+  if (!VALID_DIALECT_TOKEN.test(dialect) || !VALID_DIALECT_TOKEN.test(standard)) {
+    return { status: 'rejected', error: 'Contains forbidden characters.' };
+  }
+  if (FORBIDDEN_KEYWORDS.test(dialect) || FORBIDDEN_KEYWORDS.test(standard)) {
+    return { status: 'rejected', error: 'Contains forbidden instruction keywords.' };
+  }
+
   const dw = dialect.split(/\s+/);
   const sw = standard.split(/\s+/);
   const new_mappings: { dialect_text: string; correct_meaning: string; region: string }[] = [
     { dialect_text: dialect, correct_meaning: standard, region },
   ];
 
-  // If word counts match, also record individual word pairings
+  // If word counts match, also record individual word pairings if they pass validation
   if (dw.length === sw.length) {
     for (let i = 0; i < dw.length; i++) {
-      if (dw[i] !== sw[i]) {
+      if (dw[i] !== sw[i] && VALID_DIALECT_TOKEN.test(dw[i]) && VALID_DIALECT_TOKEN.test(sw[i])) {
         new_mappings.push({ dialect_text: dw[i], correct_meaning: sw[i], region });
       }
     }

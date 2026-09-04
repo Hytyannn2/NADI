@@ -8,14 +8,7 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkInfraVisionLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 export async function POST(request: Request) {
   const headersList = await headers();
@@ -24,6 +17,12 @@ export async function POST(request: Request) {
   if (!limit.allowed) {
     const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
     return addRateLimitHeaders(errRes, limit);
+  }
+
+  // Enforce server-side authentication before Vision processing & database writes (CWE-862)
+  const { user, adminSupa, errorResponse } = await requireServerAuth(request);
+  if (errorResponse) {
+    return errorResponse;
   }
 
   try {
@@ -107,23 +106,21 @@ TASK & SCALING RULES:
     analysis.estimatedAreaM2 = parseFloat((Math.PI * Math.pow(analysis.estimatedDiameterCm / 200, 2)).toFixed(2));
     analysis.estimatedDimensions = `~${analysis.estimatedDiameterCm}cm lebar, ~${analysis.estimatedDepthCm}cm dalam`;
 
-    // Persists verified report to Supabase
-    const supabase = getSupabaseAdmin();
-    if (supabase) {
-      try {
-        await supabase.from('nadi_infra_reports').insert({
-          lat: lat || 6.1251,
-          lng: lng || 102.2345,
-          z_dropped: parseFloat((zDropped || magnitudeG || 1.2).toFixed(2)),
-          speed_kmh: Math.round(speedKmh || 0),
-          waveform_duration_ms: 150,
-          confidence_score: 95,
-          status: 'verified',
-          ai_analysis: analysis,
-        });
-      } catch (dbErr) {
-        console.error('[infra/vision] Supabase insert error:', dbErr);
-      }
+    // Persists verified report to Supabase attributed to the authenticated user
+    try {
+      await adminSupa.from('nadi_infra_reports').insert({
+        user_id: user.id,
+        lat: lat || 6.1251,
+        lng: lng || 102.2345,
+        z_dropped: parseFloat((zDropped || magnitudeG || 1.2).toFixed(2)),
+        speed_kmh: Math.round(speedKmh || 0),
+        waveform_duration_ms: 150,
+        confidence_score: 95,
+        status: 'verified',
+        ai_analysis: analysis,
+      });
+    } catch (dbErr) {
+      console.error('[infra/vision] Supabase insert error:', dbErr);
     }
 
     return NextResponse.json({ success: true, analysis });
