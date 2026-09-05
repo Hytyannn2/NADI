@@ -1,6 +1,6 @@
 {
   "name": "nadi",
-  "version": "4.8.1",
+  "version": "4.8.2",
   "private": true,
   "scripts": {
     "clean": "powershell -Command \"if (Test-Path .next) { Remove-Item -Recurse -Force .next }\"",
