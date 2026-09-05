@@ -33,9 +33,9 @@ const DEFAULT_WEATHER: WeatherData = {
 };
 
 // ── Weather Simulation Presets for Testing ───────────────────────────
-export type SimulatedWeather = 'auto' | 'thunderstorm' | 'heavy_rain' | 'drizzle' | 'sunny' | 'cloudy' | 'night' | 'heat' | 'flood';
+type SimulatedWeather = 'auto' | 'thunderstorm' | 'heavy_rain' | 'drizzle' | 'sunny' | 'cloudy' | 'night' | 'heat' | 'flood';
 
-export interface WeatherPresetInfo {
+interface WeatherPresetInfo {
     id: SimulatedWeather;
     label: string;
     icon: string;
@@ -44,7 +44,7 @@ export interface WeatherPresetInfo {
     locationLabel: string;
 }
 
-export const SIMULATED_WEATHER_PRESETS: Record<Exclude<SimulatedWeather, 'auto'>, WeatherPresetInfo> = {
+const SIMULATED_WEATHER_PRESETS: Record<Exclude<SimulatedWeather, 'auto'>, WeatherPresetInfo> = {
     thunderstorm: {
         id: 'thunderstorm',
         label: 'Ribut Petir',

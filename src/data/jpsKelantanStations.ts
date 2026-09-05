@@ -1,4 +1,4 @@
-export interface JpsStation {
+interface JpsStation {
     id: string;
     name: string;
     district: string;

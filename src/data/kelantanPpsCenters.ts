@@ -5,7 +5,7 @@
  * with center types and estimated capacities.
  */
 
-export interface EvacCenterItem {
+interface EvacCenterItem {
     name: string;
     jajahan: string;
     type: 'Sekolah' | 'Masjid' | 'Dewan' | 'Madrasah' | 'Balai Raya' | 'Lain-lain';
@@ -135,7 +135,7 @@ function getEstimatedCapacity(type: string): number {
     return 200;
 }
 
-export const RAW_PPS_DATA: Record<string, string[]> = {
+const RAW_PPS_DATA: Record<string, string[]> = {
     "Bachok": [
         "Balai KRT Kuau",
         "Balai Penggawa Daerah Tanjung Pauh",
@@ -843,10 +843,9 @@ function getSubdistrictCoordinates(name: string, jajahan: string): { coords: { l
     return { coords: fallbackCoords, subdistrict: null };
 }
 
-import rawGeocodedCache from './geocoded_cache.json';
-const geocodedCache = rawGeocodedCache as Record<string, { lat: number; lng: number; exact: boolean }>;
+import { geocodedCache } from './geocodedCache';
 
-export function normalizePpsName(s: string): string {
+function normalizePpsName(s: string): string {
     return s.toUpperCase()
         .replace(/\bSEK(?:OLAH)?\s+KEB(?:ANGSAAN)?\b/g, 'SK')
         .replace(/\bSEK(?:OLAH)?\s+MEN(?:ENGAH)?\s+KEB(?:ANGSAAN)?\b/g, 'SMK')
