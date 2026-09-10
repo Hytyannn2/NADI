@@ -40,6 +40,7 @@ import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
 import { FALLBACK_PPS_CENTERS } from '@/src/data/fallbacks';
 import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
 import { sound } from '@/src/lib/audio/soundEffects';
+import PpsVerificationModal from '@/src/components/PpsVerificationModal';
 
 export interface FloodZone {
     district: string;
@@ -56,6 +57,9 @@ export interface EvacCenter {
     type: string;
     lat?: number;
     lng?: number;
+    distanceKm?: number | null;
+    isExact?: boolean;
+    snappedTo?: string;
 }
 
 // Calculates Haversine distance in km between two GPS coordinates
@@ -261,6 +265,14 @@ export default function BencanaView() {
     const [displayLimit, setDisplayLimit] = useState<number>(24);
     const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
     const [showSosModal, setShowSosModal] = useState<boolean>(false);
+    const [verifyCenter, setVerifyCenter] = useState<{
+        name: string;
+        jajahan: string;
+        district: string;
+        currentLat: number;
+        currentLng: number;
+        snappedTo?: string;
+    } | null>(null);
     const [mounted, setMounted] = useState<boolean>(false);
 
     useEffect(() => {
@@ -301,6 +313,8 @@ export default function BencanaView() {
                 lat: center.lat,
                 lng: center.lng,
                 distanceKm: dist,
+                isExact: center.isExact,
+                snappedTo: center.snappedTo,
             };
         });
     }, [userLat, userLng]);
@@ -875,7 +889,7 @@ export default function BencanaView() {
                                                 <motion.div
                                                     key={`${center.district}-${center.name}-${i}`}
                                                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(0.2, 0.03 * (i % 12)) }}
-                                                    className="flex items-center justify-between p-3.5 rounded-2xl transition-all hover:border-emerald-500/40 hover:bg-zinc-900/80 group"
+                                                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl transition-all hover:border-emerald-500/40 hover:bg-zinc-900/80 group gap-2.5"
                                                     style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0">
@@ -884,7 +898,7 @@ export default function BencanaView() {
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="text-xs font-bold truncate group-hover:text-emerald-400 transition-colors" style={{ color: 'var(--text-primary)' }}>{center.name}</p>
-                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                            <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
                                                                 <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{center.district} · {center.type}</span>
                                                                 {center.distanceKm !== null && (
                                                                     <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -894,12 +908,34 @@ export default function BencanaView() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right shrink-0 ml-2">
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                            Official PPS
-                                                        </span>
-                                                        <p className="text-[8px] font-bold uppercase text-zinc-500 mt-0.5">JKM / NADMA</p>
+                                                    <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 gap-1 mt-1 sm:mt-0">
+                                                        {center.isExact ? (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                                Disahkan
+                                                            </span>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="inline-flex items-center gap-1 text-[8.5px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                    ⚠️ Anggaran {center.snappedTo ? `(${center.snappedTo})` : ''}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setVerifyCenter({
+                                                                        name: center.name,
+                                                                        jajahan: center.district,
+                                                                        district: center.district,
+                                                                        currentLat: center.lat || 0,
+                                                                        currentLng: center.lng || 0,
+                                                                        snappedTo: center.snappedTo || undefined,
+                                                                    })}
+                                                                    className="px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[9px] border border-amber-500/30 transition-all cursor-pointer"
+                                                                >
+                                                                    Sahkan
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        <p className="text-[8px] font-bold uppercase text-zinc-500">JKM / NADMA</p>
                                                     </div>
                                                 </motion.div>
                                             ))}
@@ -1369,6 +1405,13 @@ export default function BencanaView() {
                 </AnimatePresence>,
                 document.body
             )}
+
+            {/* PPS Verification Modal */}
+            <PpsVerificationModal
+                isOpen={!!verifyCenter}
+                onClose={() => setVerifyCenter(null)}
+                center={verifyCenter}
+            />
         </div>
     );
 }

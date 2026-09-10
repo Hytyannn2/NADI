@@ -36,7 +36,23 @@ export async function createClient(request: NextRequest) {
   );
 
   // Refreshes the session token so authenticated requests stay valid
-  await supabase.auth.getUser();
+  try {
+    const { error } = await supabase.auth.getUser();
+    if (error && (
+      error.message?.includes('Refresh Token') ||
+      error.message?.includes('refresh_token_not_found') ||
+      (error as any).code === 'refresh_token_not_found'
+    )) {
+      // Purge stale auth cookies if the refresh token is missing or invalid
+      request.cookies.getAll().forEach((cookie) => {
+        if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-')) {
+          supabaseResponse.cookies.delete(cookie.name);
+        }
+      });
+    }
+  } catch {
+    // Middleware should never throw unhandled errors on expired or stale tokens
+  }
 
   return supabaseResponse;
 }

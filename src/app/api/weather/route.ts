@@ -123,12 +123,19 @@ export async function GET(request: Request) {
         const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${numLat}&longitude=${numLng}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone&timezone=auto`;
         const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?lat=${numLat}&lon=${numLng}&format=json&zoom=16&addressdetails=1`;
 
+        // Parallel queries with explicit timeouts so slow external APIs don't freeze the request or fail the page
         const [weatherRes, aqiRes, geocodeRes] = await Promise.allSettled([
-            fetch(weatherUrl, { next: { revalidate: 60 } }),
-            fetch(aqiUrl, { next: { revalidate: 120 } }),
+            fetch(weatherUrl, { 
+                next: { revalidate: 60 },
+                signal: AbortSignal.timeout(5000) 
+            }),
+            fetch(aqiUrl, { 
+                next: { revalidate: 120 },
+                signal: AbortSignal.timeout(4000) 
+            }),
             fetch(geocodeUrl, { 
                 headers: { 'User-Agent': 'NADI-Civic-App/1.0 (https://nadi.my; contact@nadi.my)' },
-                signal: AbortSignal.timeout(3500)
+                signal: AbortSignal.timeout(2500)
             })
         ]);
 

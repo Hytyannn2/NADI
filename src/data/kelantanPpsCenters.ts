@@ -12,6 +12,8 @@ export interface EvacCenterItem {
     capacity: number;
     lat: number;
     lng: number;
+    isExact?: boolean;
+    snappedTo?: string | null;
 }
 
 // Approximate center coordinates per district (Jajahan) for pin positioning
@@ -826,16 +828,49 @@ export const RAW_PPS_DATA: Record<string, string[]> = {
     ]
 };
 
-function getSubdistrictCoordinates(name: string, jajahan: string): { lat: number; lng: number } {
-    return JAJAHAN_CENTER_COORDS[jajahan] || { lat: 6.1254, lng: 102.2381 };
+function getSubdistrictCoordinates(name: string, jajahan: string): { coords: { lat: number; lng: number }; subdistrict: string | null } {
+    const clean = name.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ');
+    const subdistricts = Object.keys(SUBDISTRICT_COORDS).sort((a, b) => b.length - a.length);
+
+    for (const sub of subdistricts) {
+        const regex = new RegExp(`(^|\\s)${sub}(\\s|$)`, 'i');
+        if (regex.test(clean)) {
+            return { coords: SUBDISTRICT_COORDS[sub], subdistrict: sub };
+        }
+    }
+
+    const fallbackCoords = JAJAHAN_CENTER_COORDS[jajahan] || { lat: 6.1254, lng: 102.2381 };
+    return { coords: fallbackCoords, subdistrict: null };
 }
 
-// Pre-geocoded coordinates cache (if generated)
-let geocodedCache: Record<string, { lat: number; lng: number; exact: boolean }> | null = null;
-try {
-    geocodedCache = require('./geocoded_cache.json');
-} catch {
-    geocodedCache = null;
+import rawGeocodedCache from './geocoded_cache.json';
+const geocodedCache = rawGeocodedCache as Record<string, { lat: number; lng: number; exact: boolean }>;
+
+export function normalizePpsName(s: string): string {
+    return s.toUpperCase()
+        .replace(/\bSEK(?:OLAH)?\s+KEB(?:ANGSAAN)?\b/g, 'SK')
+        .replace(/\bSEK(?:OLAH)?\s+MEN(?:ENGAH)?\s+KEB(?:ANGSAAN)?\b/g, 'SMK')
+        .replace(/\bS\s*\.?\s*M\s*\.?\s*K\s*\.?\b/g, 'SMK')
+        .replace(/\bS\s*\.?\s*K\s*\.?\b/g, 'SK')
+        .replace(/\bS\s*\.?\s*M\s*\.?\s*AGAMA\b/g, 'SMA')
+        .replace(/\bS\s*\.?\s*M\s*\.?\s*A\s*\.?\b/g, 'SMA')
+        .replace(/S\s*\.?\s*M\s*\.?\s*U\s*\.?(?:\s*\(\s*A\s*\)|\s+A\b)?/gi, 'SMU')
+        .replace(/\bKG\.?\b/g, 'KG')
+        .replace(/\bKAMPONG\b/g, 'KAMPUNG')
+        .replace(/\bBALAI\s+RAYA\b/g, 'BALAIRAYA')
+        .replace(/[^A-Z0-9]/g, '');
+}
+
+// Pre-indexed normalized map for fast, resilient lookups
+const normalizedCacheMap = new Map<string, { lat: number; lng: number; exact: boolean }>();
+if (geocodedCache) {
+    for (const [k, v] of Object.entries(geocodedCache)) {
+        const colonIdx = k.indexOf(':');
+        if (colonIdx === -1) continue;
+        const j = k.substring(0, colonIdx).trim().toLowerCase();
+        const n = k.substring(colonIdx + 1).trim();
+        normalizedCacheMap.set(`${j}:${normalizePpsName(n)}`, v);
+    }
 }
 
 export const ALL_KELANTAN_PPS_CENTERS: EvacCenterItem[] = Object.entries(RAW_PPS_DATA).flatMap(([jajahan, names]) => {
@@ -846,12 +881,30 @@ export const ALL_KELANTAN_PPS_CENTERS: EvacCenterItem[] = Object.entries(RAW_PPS
 
         let lat: number;
         let lng: number;
+        let isExact = false;
+        let snappedTo: string | null = null;
 
-        if (geocodedCache && geocodedCache[cacheKey] && geocodedCache[cacheKey].exact) {
-            lat = geocodedCache[cacheKey].lat;
-            lng = geocodedCache[cacheKey].lng;
+        // 1. Direct cache check, followed by normalized lookup
+        let cached: { lat: number; lng: number; exact: boolean } | undefined = geocodedCache?.[cacheKey];
+        if (!cached && geocodedCache) {
+            cached = normalizedCacheMap.get(`${jajahan.toLowerCase()}:${normalizePpsName(name)}`);
+        }
+
+        if (cached && cached.exact) {
+            lat = cached.lat;
+            lng = cached.lng;
+            isExact = true;
+        } else if (cached && !cached.exact && cached.lat && cached.lng) {
+            lat = cached.lat;
+            lng = cached.lng;
+            isExact = false;
+            const match = getSubdistrictCoordinates(name, jajahan);
+            snappedTo = match.subdistrict;
         } else {
-            const baseCoords = getSubdistrictCoordinates(name, jajahan);
+            // Snaps unverified / un-geocoded centers to their mukim/kampung center with dispersion
+            const match = getSubdistrictCoordinates(name, jajahan);
+            snappedTo = match.subdistrict;
+            const baseCoords = match.coords;
             const angle = (idx * 137.5 * Math.PI) / 180;
             const radius = 0.002 + ((idx % 8) * 0.0008);
             lat = Number((baseCoords.lat + Math.sin(angle) * radius).toFixed(6));
@@ -873,6 +926,8 @@ export const ALL_KELANTAN_PPS_CENTERS: EvacCenterItem[] = Object.entries(RAW_PPS
             capacity,
             lat,
             lng,
+            isExact,
+            snappedTo,
         };
     });
 });

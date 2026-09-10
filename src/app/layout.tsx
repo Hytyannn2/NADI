@@ -113,7 +113,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="ms" className="dark">
+    <html lang="ms" className="dark" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -144,7 +144,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased text-white h-full w-full overflow-hidden" style={{ background: 'var(--bg-base, #0F0F11)' }}>
+      <body className="antialiased text-white h-full w-full overflow-hidden" style={{ background: 'var(--bg-base, #0F0F11)' }} suppressHydrationWarning>
         <AuthProvider>
           <LanguageProvider>
             <ThemeProvider>

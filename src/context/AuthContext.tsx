@@ -6,7 +6,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, User, type AuthChangeEvent, type AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/src/lib/supabase/client';
 
 interface AuthContextType {
@@ -37,23 +37,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false);
     }, 1000);
 
-    // Fetches active session on initial mount
+    // Fetches active session on initial mount with stale token recovery
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(async (res: { data: { session: Session | null }; error: AuthError | null }) => {
+        const { data, error } = res;
+        const session = data?.session ?? null;
+        if (error) {
+          const msg = error.message || '';
+          if (
+            msg.includes('Refresh Token') ||
+            msg.includes('refresh_token_not_found') ||
+            (error as any).status === 400
+          ) {
+            console.warn('[AuthContext] Stale or invalid refresh token detected. Purging corrupted session.');
+            try {
+              await supabase.auth.signOut({ scope: 'local' });
+            } catch {}
+            if (mounted) {
+              setSession(null);
+              setUser(null);
+            }
+          }
+          return;
+        }
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
         }
       })
-      .catch((err) => {
+      .catch(async (err: any) => {
         console.warn('[AuthContext] Session fetch warning:', err);
+        const msg = err?.message || '';
+        if (msg.includes('Refresh Token') || msg.includes('refresh_token_not_found') || err?.status === 400) {
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+          } catch {}
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+          }
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false);
       });
 
     // Subscribes to Supabase auth state changes (sign-in, sign-out, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      if (event === 'SIGNED_OUT') {
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
@@ -69,7 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // If server sign out fails (e.g. token already dead), force local sign out
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {}
+    } finally {
+      setSession(null);
+      setUser(null);
+    }
   };
 
   return (
