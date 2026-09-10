@@ -34,6 +34,12 @@ import {
     Building2,
     Clock,
     Calendar,
+    
+    Phone,
+    Heart,
+    Flame,
+    Siren,
+    ShieldAlert,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
@@ -82,7 +88,7 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         activeBg: 'bg-sky-500/15',
         activeBorder: 'border-sky-500/30',
         activeGlow: 'shadow-[0_0_12px_rgba(56,189,248,0.15)]',
-        keywords: ['longkang', 'parit', 'saliran', 'tersumbat', 'melimpah', 'parit busuk', 'air bertakung', 'takung', 'lumpur', 'culvert', 'kotoran parit', 'tali air', 'parit pecah'],
+        keywords: ['longkang', 'parit', 'saliran', 'tersumbat', 'melimpah', 'parit busuk', 'air bertakung', 'takung', 'lumpur', 'culvert', 'kotoran parit', 'tali air', 'parit pecah', 'jentik-jentik', 'pembiakan aedes', 'takungan nyamuk'],
         suggestedAgency: 'JPS / PBT'
     },
     {
@@ -137,29 +143,127 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         activeBg: 'bg-zinc-700/25',
         activeBorder: 'border-zinc-500/40',
         activeGlow: 'shadow-[0_0_12px_rgba(161,161,170,0.15)]',
-        keywords: ['haiwan', 'anjing', 'monyet', 'kucing terbiar', 'kacau ganggu', 'lain', 'cadangan', 'umum', 'bantuan'],
-        suggestedAgency: 'PBT / Jabatan Berkaitan'
+        keywords: ['haiwan', 'anjing', 'monyet', 'kucing terbiar', 'kacau ganggu', 'lain', 'cadangan', 'umum', 'bantuan', 'denggi', 'dengue', 'aedes', 'fogging', 'semburan', 'wabak', 'vektor', 'kesihatan', 'penyakit', 'keracunan', 'anjing gila', 'rabies'],
+        suggestedAgency: 'Pejabat Kesihatan Daerah (PKD) / PBT'
     }
 ];
 
-// Disaster Emergency Keywords for Real-Time Handoff Banner
-const EMERGENCY_DISASTER_KEYWORDS = [
-    'banjir besar',
-    'banjir kilat teruk',
-    'air naik mendadak',
-    'terperangkap banjir',
-    'arus deras',
-    'pindah banjir',
-    'lemas',
-    'tanah runtuh besar',
-    'rumah tenggelam',
-    'paras bahaya',
-    'bencana alam'
-];
+// =================================================================
+// SMART EMERGENCY DISPATCH PROTOCOLS & OFFICIAL HOTLINES
+// =================================================================
+export interface EmergencyProtocol {
+    id: 'medical' | 'electrical' | 'dengue' | 'disaster';
+    title: string;
+    subtitle: string;
+    actionLabel: string;
+    primaryPhone: string;
+    primaryTel: string;
+    primaryLabel: string;
+    secondaryPhone?: string;
+    secondaryTel?: string;
+    secondaryLabel?: string;
+    agencyName: string;
+    badgeText: string;
+    instructions: string[];
+    canOpenBencana?: boolean;
+}
 
-function isEmergencyDisasterText(text: string): boolean {
+export function detectEmergencyProtocol(text: string): EmergencyProtocol | null {
+    if (!text || text.trim().length < 3) return null;
     const lower = text.toLowerCase();
-    return EMERGENCY_DISASTER_KEYWORDS.some(kw => lower.includes(kw));
+
+    // 1. Acute Medical Emergency (Heart Attack, Stroke, Cardiac Arrest, Collapse, Unconscious)
+    if (/(sakit jantung|serangan jantung|heart attack|strok|stroke|pengsan|tak sedar|koma|lemas|drowning|sesak nafas teruk|pendarahan teruk|kemalangan parah)/i.test(lower)) {
+        return {
+            id: 'medical',
+            title: 'Kecemasan Perubatan & Nyawa (Sakit Jantung / Kemalangan)',
+            subtitle: 'Situasi perubatan akut mengancam nyawa. Jangan tunggu aduan sivik — hubungi Ambulans 999 sekarang juga!',
+            actionLabel: 'Hubungi Ambulans (999)',
+            primaryPhone: '999',
+            primaryTel: 'tel:999',
+            primaryLabel: 'Hubungi Ambulans (999)',
+            agencyName: 'MERS 999 (Ambulans & KKM)',
+            badgeText: 'Kecemasan Nyawa 999',
+            instructions: [
+                'Baringkan mangsa dalam posisi selesa & longgarkan pakaian ketat.',
+                'Jika tidak sedarkan diri & tiada pernafasan normal, mulakan CPR segera atau dapatkan AED.',
+                'Minta seseorang tunggu di simpang masuk utama untuk memandu ambulans ke lokasi.'
+            ]
+        };
+    }
+
+    // 2. Electrical Hazard & Fallen Tree on Power Line / High Voltage Fire
+    const isTreeOnWire = (
+        (/(pokok|dahan)/i.test(lower) && /(tumbang|hempap|patah|jatuh)/i.test(lower) && /(tiang|wayar|kabel|elektrik|api)/i.test(lower)) ||
+        (/(tiang api|tiang elektrik|wayar elektrik|kabel elektrik|pencawang|renjatan)/i.test(lower) && /(tumbang|hempap|putus|terbakar|meletup|jatuh|bawah)/i.test(lower))
+    );
+    if (isTreeOnWire) {
+        return {
+            id: 'electrical',
+            title: 'Bahaya Renjatan Elektrik (Pokok Atas Tiang Api)',
+            subtitle: 'Pokok menimpa tiang elektrik / wayar hidup berisiko renjatan maut! Jauhi lokasi & hubungi Bomba / TNB segera.',
+            actionLabel: 'Panggil Bomba (999) / TNB (15454)',
+            primaryPhone: '999',
+            primaryTel: 'tel:999',
+            primaryLabel: 'Panggil Bomba (999)',
+            secondaryPhone: '15454',
+            secondaryTel: 'tel:15454',
+            secondaryLabel: 'TNB CareLine (15454)',
+            agencyName: 'Bomba & Penyelamat / TNB',
+            badgeText: 'Bahaya Renjatan Maut',
+            instructions: [
+                'JAUHI kawasan sekurang-kurangnya 10 meter (33 kaki). Anggap semua wayar yang jatuh berkuasa hidup.',
+                'Jangan sentuh pokok, dahan atau air yang menyentuh wayar elektrik.',
+                'Sekat laluan orang ramai atau kanak-kanak daripada menghampiri tempat kejadian.'
+            ]
+        };
+    }
+
+    // 3. Dengue Epidemic Outbreak / Aedes / Vector Disease
+    if (/(denggi|dengue|aedes|wabak denggi|demam berdarah|pembiakan aedes|anjing gila|rabies)/i.test(lower)) {
+        return {
+            id: 'dengue',
+            title: 'Amaran Wabak Denggi & Pembiakan Aedes',
+            subtitle: 'Wabak denggi memerlukan tindakan kawalan vektor & semburan fogging segera oleh Pejabat Kesihatan Daerah (PKD)!',
+            actionLabel: 'Hubungi Bilik Gerakan Denggi',
+            primaryPhone: '03-8881 0200',
+            primaryTel: 'tel:0388810200',
+            primaryLabel: 'CPRC KKM (03-8881 0200)',
+            secondaryPhone: '999',
+            secondaryTel: 'tel:999',
+            secondaryLabel: 'Kecemasan 999 (Kritikal)',
+            agencyName: 'Bilik Gerakan Denggi PKD / CPRC KKM',
+            badgeText: 'Kawalan Vektor KKM',
+            instructions: [
+                'Jika pesakit ada tanda bahaya (muntah berterusan, sakit perut teruk, pendarahan), bawa ke hospital kecemasan serta-merta.',
+                'Cari & musnahkan takungan air jentik-jentik di sekeliling rumah selama 10 minit.',
+                'Laporkan ke PKD untuk operasi semburan kabus (fogging) dalam radius 200m.'
+            ]
+        };
+    }
+
+    // 4. Natural Disaster / Flooding / Entrapment
+    if (/(banjir besar|banjir kilat teruk|air naik mendadak|terperangkap banjir|arus deras|pindah banjir|tanah runtuh besar|rumah tenggelam|paras bahaya|bencana alam|gas bocor)/i.test(lower)) {
+        return {
+            id: 'disaster',
+            title: 'Kecemasan Bencana Alam & Pemindahan',
+            subtitle: 'Situasi bencana membahayakan nyawa atau kediaman terancam. Hubungi MERS 999 atau buka Modul Bencana NADI.',
+            actionLabel: 'Panggil Penyelamat MERS 999',
+            primaryPhone: '999',
+            primaryTel: 'tel:999',
+            primaryLabel: 'Penyelamat MERS 999',
+            agencyName: 'MERS 999 (Bomba, APM & Polis)',
+            badgeText: 'Bencana & Penyelamat',
+            canOpenBencana: true,
+            instructions: [
+                'Matikan suis utama bekalan elektrik & gas rumah sebelum air meningkat.',
+                'Bawa dokumen penting, ubat-ubatan & berpindah ke Pusat Pemindahan Sementara (PPS).',
+                'Jangan sesekali meredah air banjir yang berarus deras.'
+            ]
+        };
+    }
+
+    return null;
 }
 
 function detectCategoryFromText(text: string): CivicCategory {
@@ -169,7 +273,24 @@ function detectCategoryFromText(text: string): CivicCategory {
             return cat.id;
         }
     }
-    return 'jalan';
+    return 'lain';
+}
+
+export function detectUrgencyFromText(text: string): 'Low' | 'Medium' | 'High' {
+    const lower = text.toLowerCase();
+    // Critical public health, epidemic, or life-threatening hazards
+    if (/(denggi|dengue|aedes|wabak|rabies|bangkai|keracunan|gas bocor|lemas|tanah runtuh|kebakaran|api|renjatan)/i.test(lower)) {
+        return 'High';
+    }
+    // Severe infrastructure or safety risks
+    if (/(lubang besar|pothole besar|terputus|hancur|banjir|melimpah|tiang tumbang|pokok tumbang)/i.test(lower)) {
+        return 'High';
+    }
+    // Standard civic defect
+    if (/(lubang|rosak|lampu padam|tersumbat|longkang|sampah|busuk)/i.test(lower)) {
+        return 'Medium';
+    }
+    return 'Low';
 }
 
 interface AiAnalysis {
@@ -311,9 +432,11 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
     const isDesktop = typeof window !== 'undefined' && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    const isEmergencyDetected = useMemo(() => {
-        return isEmergencyDisasterText(manualDescription);
+    const activeEmergencyProtocol = useMemo(() => {
+        return detectEmergencyProtocol(manualDescription);
     }, [manualDescription]);
+
+    const [interceptEmergency, setInterceptEmergency] = useState<EmergencyProtocol | null>(null);
 
     const handleVoiceSuccess = (transcript: string) => {
         if (!transcript.trim()) return;
@@ -432,10 +555,20 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         }
     };
 
-    const handleSendAduan = async () => {
+    const handleSendAduan = async (bypassEmergencyCheck = false) => {
         const textToProcess = manualDescription.trim();
         const photoToProcess = attachedPhotoBase64;
         if ((!textToProcess && !photoToProcess) || isParsingVoice) return;
+
+        // Emergency intercept guard: direct user to official hotline before slow civic filing
+        if (!bypassEmergencyCheck) {
+            const detectedEmergency = detectEmergencyProtocol(textToProcess);
+            if (detectedEmergency) {
+                setInterceptEmergency(detectedEmergency);
+                try { playAlertSound('siren'); } catch {}
+                return;
+            }
+        }
 
         if (!user || !session?.access_token) {
             alert('Sila log masuk terlebih dahulu untuk menghantar aduan.');
@@ -445,7 +578,6 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         setIsParsingVoice(true);
         let resData: any = null;
         let visionAnalysis: any = null;
-        const reportCategory = selectedCategory;
 
         try {
             if (textToProcess) {
@@ -490,12 +622,26 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             setIsParsingVoice(false);
         }
 
+        const detectedCat = detectCategoryFromText(textToProcess);
+        const reportCategory = (!hasManuallySelectedCategory && resData?.category)
+            ? resData.category
+            : (hasManuallySelectedCategory ? selectedCategory : (detectedCat || 'lain'));
+
         const catConfig = CIVIC_CATEGORIES.find(c => c.id === reportCategory);
         const intent = visionAnalysis?.damageType || resData?.intent || `Aduan ${catConfig?.label || 'Sivik'}`;
         const locName = userGpsLocation?.label || resData?.location || (userGpsLocation?.lat ? `${userGpsLocation.lat.toFixed(4)}°N, ${userGpsLocation.lng.toFixed(4)}°E` : 'Lokasi Semasa');
         const translation = resData?.simplifiedTranslation || textToProcess || visionAnalysis?.damageType || `Aduan ${catConfig?.label || 'Sivik'}`;
         const dialect = resData?.detectedDialect || 'kelantan';
-        const urgency = (resData?.urgency || (visionAnalysis?.severityScore >= 4 ? 'High' : 'Medium')) as 'Low' | 'Medium' | 'High';
+
+        // Public health, vector threats, & dengue are ALWAYS High urgency!
+        const isVectorOrHealth = /(denggi|dengue|aedes|wabak|rabies|vektor|fogging)/i.test(textToProcess);
+        const clientUrgency = detectUrgencyFromText(textToProcess);
+        const urgency: 'Low' | 'Medium' | 'High' = isVectorOrHealth
+            ? 'High'
+            : ((resData?.urgency || (visionAnalysis?.severityScore >= 4 ? 'High' : clientUrgency)) as 'Low' | 'Medium' | 'High');
+
+        const effectiveAgency = resData?.suggestedAgency || (isVectorOrHealth ? 'Pejabat Kesihatan Daerah (PKD) / KKM' : catConfig?.suggestedAgency || 'PBT');
+
         const intendedMeaning = resData?.userIntendedMeaning || translation;
         const parsedConfidence = resData?.confidenceScore
             ? Number(resData.confidenceScore)
@@ -511,7 +657,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             lat: reportLat,
             lng: reportLng,
             category: reportCategory,
-            suggestedAgency: catConfig?.suggestedAgency || 'PBT',
+            suggestedAgency: effectiveAgency,
             zDropped: 0,
             verifications: 1,
             status: photoToProcess ? 'verified' : 'pending',
@@ -534,26 +680,26 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 damageType: visionAnalysis.damageType || intent,
                 estimatedWidth: visionAnalysis.estimatedWidth || '—',
                 estimatedDepth: visionAnalysis.estimatedDepth || '—',
-                repairMethod: visionAnalysis.recommendedAction || 'Penilaian & Tindakan PBT',
+                repairMethod: visionAnalysis.recommendedAction || (isVectorOrHealth ? 'Pemeriksaan Tapak & Semburan Fogging' : 'Penilaian & Tindakan PBT'),
                 repairCostMYR: 'Mengikut Skop Kerosakan',
-                priorityScore: visionAnalysis.priorityScore || 75,
+                priorityScore: visionAnalysis.priorityScore || (isVectorOrHealth ? 95 : 75),
                 riskAssessment: visionAnalysis.riskAssessment || intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: visionAnalysis.recommendedAction || 'Penugasan Skuad Tindakan Tapak',
-                routingAgency: catConfig?.suggestedAgency || 'PBT'
+                recommendedAction: visionAnalysis.recommendedAction || (isVectorOrHealth ? 'Kawalan Vektor & Hapus Tempat Pembiakan' : 'Penugasan Skuad Tindakan Tapak'),
+                routingAgency: effectiveAgency
             } : {
                 severityScore: urgency === 'High' ? 4 : urgency === 'Medium' ? 3 : 2,
                 severityLabel: `Aduan ${catConfig?.label}`,
                 damageType: intent,
                 estimatedWidth: '—',
                 estimatedDepth: '—',
-                repairMethod: 'Penilaian & Tindakan PBT',
+                repairMethod: isVectorOrHealth ? 'Pemeriksaan Tapak & Semburan Fogging' : 'Penilaian & Tindakan PBT',
                 repairCostMYR: 'Mengikut Skop Kerosakan',
-                priorityScore: urgency === 'High' ? 88 : urgency === 'Medium' ? 68 : 48,
+                priorityScore: isVectorOrHealth ? 95 : urgency === 'High' ? 88 : urgency === 'Medium' ? 68 : 48,
                 riskAssessment: intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: 'Penugasan Skuad Tindakan Tapak',
-                routingAgency: catConfig?.suggestedAgency || 'PBT'
+                recommendedAction: isVectorOrHealth ? 'Kawalan Vektor & Hapus Tempat Pembiakan' : 'Penugasan Skuad Tindakan Tapak',
+                routingAgency: effectiveAgency
             }
         };
 
@@ -652,7 +798,22 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         if (savedLocal) {
             try {
                 const parsed = JSON.parse(savedLocal);
-                setAnomalies(parsed);
+                // Sanitize any historic dengue reports that were mistakenly tagged Low/Biasa or JKR
+                const sanitized = parsed.map((item: Anomaly) => {
+                    const txt = `${item.title || ''} ${item.originalText || ''} ${item.translatedText || ''}`.toLowerCase();
+                    if (/(denggi|dengue|aedes|wabak|rabies)/i.test(txt)) {
+                        return {
+                            ...item,
+                            urgency: 'High' as const,
+                            suggestedAgency: (!item.suggestedAgency || item.suggestedAgency === 'JKR / PBT' || item.suggestedAgency === 'PBT')
+                                ? 'Pejabat Kesihatan Daerah (PKD) / KKM'
+                                : item.suggestedAgency,
+                            category: (item.category === 'jalan' ? 'lain' : item.category) as CivicCategory
+                        };
+                    }
+                    return item;
+                });
+                setAnomalies(sanitized);
             } catch {}
         }
 
@@ -1050,43 +1211,99 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                     />
                 </div>
 
-                {/* REAL-TIME EMERGENCY DISASTER HANDOFF BANNER */}
+                {/* REAL-TIME SMART EMERGENCY CALL BANNER */}
                 <AnimatePresence>
-                    {isEmergencyDetected && (
+                    {activeEmergencyProtocol && (
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             className="relative z-10 mb-3 overflow-hidden"
                         >
-                            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 via-red-900/40 to-red-950/80 border border-red-500/40 text-red-200 flex items-center justify-between gap-3 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center shrink-0">
-                                        <AlertTriangle className="w-4 h-4 text-red-400 animate-bounce" />
+                            <div className={`p-4 rounded-2xl border shadow-xl ${
+                                activeEmergencyProtocol.id === 'medical'
+                                    ? 'bg-gradient-to-r from-red-950/90 via-red-900/40 to-red-950/90 border-red-500/50 shadow-red-950/40'
+                                    : activeEmergencyProtocol.id === 'electrical'
+                                    ? 'bg-gradient-to-r from-amber-950/90 via-orange-950/40 to-amber-950/90 border-orange-500/50 shadow-orange-950/40'
+                                    : activeEmergencyProtocol.id === 'dengue'
+                                    ? 'bg-gradient-to-r from-rose-950/90 via-red-950/40 to-rose-950/90 border-rose-500/50 shadow-rose-950/40'
+                                    : 'bg-gradient-to-r from-red-950/90 via-red-900/40 to-red-950/90 border-red-500/50 shadow-red-950/40'
+                            }`}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                            {activeEmergencyProtocol.id === 'medical' && <Heart className="w-5 h-5 text-red-400 animate-pulse" />}
+                                            {activeEmergencyProtocol.id === 'electrical' && <Zap className="w-5 h-5 text-amber-400 animate-bounce" />}
+                                            {activeEmergencyProtocol.id === 'dengue' && <ShieldAlert className="w-5 h-5 text-rose-400 animate-pulse" />}
+                                            {activeEmergencyProtocol.id === 'disaster' && <AlertTriangle className="w-5 h-5 text-red-400 animate-bounce" />}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
+                                                    {activeEmergencyProtocol.badgeText}
+                                                </span>
+                                                <span className="text-[11px] font-bold text-zinc-300">
+                                                    {activeEmergencyProtocol.agencyName}
+                                                </span>
+                                            </div>
+                                            <h4 className="text-sm font-black text-white leading-snug">
+                                                {activeEmergencyProtocol.title}
+                                            </h4>
+                                            <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
+                                                {activeEmergencyProtocol.subtitle}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-red-300">
-                                            Kecemasan Bencana Dikesan
-                                        </p>
-                                        <p className="text-[11px] text-red-300/80 leading-snug">
-                                            Untuk situasi bencana & pemindahan segera, sila buka <strong>Modul Bencana</strong> atau hubungi talian kecemasan 999.
-                                        </p>
+
+                                    {/* Direct Call Action Buttons */}
+                                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+                                        <a
+                                            href={activeEmergencyProtocol.primaryTel}
+                                            onClick={() => { try { playAlertSound('beep'); } catch {} }}
+                                            className="px-4 py-2.5 rounded-xl font-black text-xs text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg flex items-center gap-2 ring-2 ring-red-500/30 animate-pulse whitespace-nowrap"
+                                        >
+                                            <Phone className="w-3.5 h-3.5" />
+                                            <span>{activeEmergencyProtocol.primaryLabel}</span>
+                                        </a>
+
+                                        {activeEmergencyProtocol.secondaryTel && (
+                                            <a
+                                                href={activeEmergencyProtocol.secondaryTel}
+                                                onClick={() => { try { playAlertSound('beep'); } catch {} }}
+                                                className="px-3.5 py-2.5 rounded-xl font-bold text-xs text-zinc-200 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 active:scale-95 transition-all flex items-center gap-1.5 whitespace-nowrap"
+                                            >
+                                                <Phone className="w-3.5 h-3.5 text-amber-400" />
+                                                <span>{activeEmergencyProtocol.secondaryLabel}</span>
+                                            </a>
+                                        )}
+
+                                        {activeEmergencyProtocol.canOpenBencana && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (onNavigateToBencana) onNavigateToBencana();
+                                                    else window.location.href = '/?tab=bencana';
+                                                }}
+                                                className="px-3.5 py-2.5 rounded-xl font-bold text-xs text-white bg-red-700/80 hover:bg-red-600 border border-red-500/40 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap"
+                                            >
+                                                <span>Buka Bencana</span>
+                                                <span>➔</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (onNavigateToBencana) {
-                                            onNavigateToBencana();
-                                        } else {
-                                            window.location.href = '/?tab=bencana';
-                                        }
-                                    }}
-                                    className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shrink-0 transition-all active:scale-95 shadow-md flex items-center gap-1.5"
-                                >
-                                    <span>Buka Bencana</span>
-                                    <span>➔</span>
-                                </button>
+
+                                {/* Safety Protocol Quick Checklist */}
+                                <div className="pt-2.5 border-t border-white/10 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-300">
+                                    <span className="font-bold text-white flex items-center gap-1">
+                                        ⚠️ Tindakan Segera:
+                                    </span>
+                                    {activeEmergencyProtocol.instructions.map((inst, idx) => (
+                                        <span key={idx} className="flex items-center gap-1">
+                                            <span className="text-red-400 font-bold">•</span> {inst}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -1150,7 +1367,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                         {/* Primary Submit Button */}
                         <button
-                            onClick={handleSendAduan}
+                            onClick={() => handleSendAduan(false)}
                             disabled={(!manualDescription.trim() && !attachedPhotoBase64) || isParsingVoice}
                             className="px-5 py-2.5 rounded-xl text-xs font-bold text-black bg-gradient-to-r from-[#D4AF37] to-[#AA820A] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-[0_4px_16px_rgba(212,175,55,0.25)] active:scale-95 shrink-0"
                         >
@@ -1751,6 +1968,109 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                     className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all"
                                 >
                                     Langkau
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            {/* ================================================================= */}
+            {/* 9. EMERGENCY INTERCEPT MODAL: LIFE-SAFETY PHONE CALL GATEWAY      */}
+            {/* ================================================================= */}
+            <AnimatePresence>
+                {interceptEmergency && (
+                    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="w-full max-w-lg rounded-3xl bg-[#111116] border border-red-500/50 p-6 shadow-[0_0_60px_rgba(239,68,68,0.3)] relative overflow-hidden text-white"
+                        >
+                            {/* Glow Background */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 blur-3xl pointer-events-none rounded-full" />
+
+                            {/* Header */}
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 shrink-0 shadow-inner">
+                                    <Phone className="w-7 h-7 animate-pulse" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-red-600 text-white shadow-sm">
+                                        {interceptEmergency.badgeText}
+                                    </span>
+                                    <h3 className="text-xl font-extrabold text-white mt-1 leading-snug">
+                                        {interceptEmergency.title}
+                                    </h3>
+                                    <p className="text-xs text-zinc-400">
+                                        {interceptEmergency.agencyName}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Warning message */}
+                            <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 mb-5">
+                                <p className="text-xs sm:text-sm text-red-200 leading-relaxed font-medium">
+                                    ⚠️ <strong>PENTING:</strong> Aduan awam melalui aplikasi NADI memerlukan masa pemprosesan pegawai bertugas dan <strong>BUKAN saluran respons kecemasan segera</strong>.
+                                </p>
+                                <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
+                                    Situasi ini memerlukan bantuan penyelamat atau tindakan teknikal serta-merta. Sila <strong>hubungi nombor kecemasan sekarang</strong> sebelum menunggu laporan diproses.
+                                </p>
+                            </div>
+
+                            {/* Safety instructions */}
+                            <div className="mb-5 space-y-1.5 text-xs text-zinc-300 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
+                                <p className="font-bold text-white text-[11px] uppercase tracking-wider mb-1">
+                                    Langkah Keselamatan Segera:
+                                </p>
+                                {interceptEmergency.instructions.map((step, idx) => (
+                                    <p key={idx} className="flex items-start gap-2">
+                                        <span className="text-red-400 font-bold">✓</span>
+                                        <span>{step}</span>
+                                    </p>
+                                ))}
+                            </div>
+
+                            {/* Direct Calling Buttons */}
+                            <div className="space-y-2.5 mb-4">
+                                <a
+                                    href={interceptEmergency.primaryTel}
+                                    onClick={() => setInterceptEmergency(null)}
+                                    className="w-full py-3.5 px-5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(239,68,68,0.35)] ring-2 ring-red-500/40 animate-pulse"
+                                >
+                                    <Phone className="w-5 h-5" />
+                                    <span>HUBUNGI SEGERA: {interceptEmergency.primaryPhone} ({interceptEmergency.primaryLabel})</span>
+                                </a>
+
+                                {interceptEmergency.secondaryTel && (
+                                    <a
+                                        href={interceptEmergency.secondaryTel}
+                                        onClick={() => setInterceptEmergency(null)}
+                                        className="w-full py-3 px-5 rounded-2xl font-bold text-xs text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Phone className="w-4 h-4 text-amber-400" />
+                                        <span>HUBUNGI TALIAN KEDUA: {interceptEmergency.secondaryPhone} ({interceptEmergency.secondaryLabel})</span>
+                                    </a>
+                                )}
+                            </div>
+
+                            {/* Secondary Actions */}
+                            <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
+                                <button
+                                    type="button"
+                                    onClick={() => setInterceptEmergency(null)}
+                                    className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                    Tutup & Buat Panggilan
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setInterceptEmergency(null);
+                                        handleSendAduan(true);
+                                    }}
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#C5A367] bg-[#C5A367]/10 hover:bg-[#C5A367]/20 border border-[#C5A367]/30 transition-all active:scale-95"
+                                >
+                                    Simpan Rekod Aduan Sahaja ➔
                                 </button>
                             </div>
                         </motion.div>

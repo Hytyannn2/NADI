@@ -68,15 +68,18 @@ TASK:
 Extract the intent and location from the citizen report. Also provide a translation into standard Malay (${targetLanguage || 'Malay'}).
 
 CRITICAL RULES:
-- PHYSICAL DEFECTS: If the report specifies a real physical infrastructure issue (e.g. pothole, broken streetlight, blocked drain, water leak, trash dump, landslide, flood), set "intent" to a clean 2-4 word Malay title (e.g. "Jalan Berlubang", "Lampu Jalan Rosak", "Longkang Tersumbat", "Banjir Kilat"). Set "urgency" to "High" or "Medium".
-- EMOTIONAL / GENERAL: If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga", set "location" to "${DEFAULT_SENSOR_LOCATION.district}", and set "urgency" to "Low". DO NOT invent or hallucinate unmentioned physical damage.
+- PUBLIC HEALTH & VECTOR HAZARDS: If the report mentions dengue (denggi/aedes), communicable diseases, fever outbreaks, animal attacks/rabies, contaminated drinking water, dead animals, or chemical smells, set "intent" to a concise title (e.g. "Kes Denggi / Pembiakan Aedes", "Risiko Kesihatan Awam"), set "category" to "lain" (or "saliran" if stagnant drain water), set "suggestedAgency" to "Pejabat Kesihatan Daerah (PKD) / KKM", and set "urgency" to "High" (since dengue and vector outbreaks carry immediate medical and epidemic risks).
+- PHYSICAL DEFECTS: If the report specifies a real physical infrastructure issue (e.g. pothole, broken streetlight, blocked drain, water leak, trash dump, landslide, flood), set "intent" to a clean 2-4 word Malay title (e.g. "Jalan Berlubang", "Lampu Jalan Rosak", "Longkang Tersumbat", "Banjir Kilat"). Map "category" to one of: 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain'. Route "suggestedAgency" appropriately (JKR/PBT for roads, JPS/PBT for drainage, TNB/PBT for electricity, Alam Flora/PBT for trash). Set "urgency" to "High" or "Medium".
+- EMOTIONAL / GENERAL: If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga", "category" to "lain", "suggestedAgency" to "PBT / Kaunseling Komuniti", set "location" to "${DEFAULT_SENSOR_LOCATION.district}", and set "urgency" to "Low". DO NOT invent or hallucinate unmentioned physical damage.
 - In "simplifiedTranslation", provide an accurate standard Malay translation of what the user actually said.
 - In "userIntendedMeaning", explain the EXACT intent or metaphorical meaning of the user's dialect expression (e.g. "Ungkapan kelesuan/stres (Kiasan Kelantan: 'sakit kepala') — Tiada kerosakan fizikal" or "Aduan kerosakan fizikal jalan raya").
 - In "confidenceScore", provide an integer between 70 and 98 representing NLP parsing confidence.
 
 Respond strictly with a JSON object in this format:
 {
-  "intent": "Short title in Malay (e.g. Jalan Berlubang, Lampu Jalan Rosak, Aduan Warga)",
+  "intent": "Short title in Malay (e.g. Kes Denggi / Pembiakan Aedes, Jalan Berlubang, Lampu Jalan Rosak, Aduan Warga)",
+  "category": "jalan | saliran | lampu | sampah | pokok | kemudahan | lain",
+  "suggestedAgency": "Routing Agency (e.g. Pejabat Kesihatan Daerah (PKD) / KKM, JKR / PBT, JPS / PBT, TNB / PBT, Alam Flora / PBT)",
   "location": "Extracted location name or '${DEFAULT_SENSOR_LOCATION.district}'",
   "coordinates": {"lat": ${DEFAULT_SENSOR_LOCATION.lat}, "lng": ${DEFAULT_SENSOR_LOCATION.lng}},
   "urgency": "Low, Medium, or High",
@@ -156,6 +159,51 @@ Respond strictly with a JSON object in this format:
         else data.intent = 'Kerosakan Infrastruktur Awam';
 
         if (data.urgency === 'Low') data.urgency = 'Medium';
+      }
+
+      // Acute Medical Emergency Guard (Heart attack, stroke, unconscious, severe bleeding)
+      const medicalKeywords = /(sakit jantung|serangan jantung|heart attack|strok|stroke|pengsan|tak sedar|koma|lemas|sesak nafas|pendarahan teruk|kemalangan parah)/i;
+      if (medicalKeywords.test(inputText)) {
+        data.intent = 'Kecemasan Perubatan (Ambulans 999)';
+        data.category = 'lain';
+        data.suggestedAgency = 'MERS 999 (Ambulans & Hospital)';
+        data.urgency = 'High';
+      }
+
+      // Electrical Hazard & Tree on Power Line Guard
+      const isElectricalHazard = (
+        (/(tiang api|tiang elektrik|wayar elektrik|kabel elektrik|pencawang|renjatan)/i.test(inputText) && /(tumbang|hempap|reput|pokok|putus|terbakar|meletup|jatuh|bawah)/i.test(inputText)) ||
+        (/(pokok tumbang|dahan patah|pokok hempap)/i.test(inputText) && /(tiang|wayar|kabel|api|elektrik)/i.test(inputText))
+      );
+      if (isElectricalHazard) {
+        data.intent = 'Bahaya Pokok Hempap Tiang Api / Renjatan';
+        data.category = 'lampu';
+        data.suggestedAgency = 'Bomba & Penyelamat (999) / TNB CareLine (15454)';
+        data.urgency = 'High';
+      }
+
+      // Public Health & Vector Disease Guard (Dengue, Aedes, Rabies, Epidemic)
+      const healthKeywords = /(denggi|dengue|aedes|wabak|fogging|semburan|keracunan|anjing gila|rabies|bangkai)/i;
+      if (healthKeywords.test(inputText)) {
+        if (/denggi|dengue|aedes/i.test(inputText)) {
+          data.intent = 'Kes Denggi / Pembiakan Aedes';
+          data.category = 'lain';
+          data.suggestedAgency = 'Pejabat Kesihatan Daerah (PKD) / KKM';
+        } else if (/anjing gila|rabies/i.test(inputText)) {
+          data.intent = 'Anjing Liar Berbahaya / Risiko Rabies';
+          data.category = 'lain';
+          data.suggestedAgency = 'Jabatan Perkhidmatan Veterinar / PBT';
+        } else if (/fogging|semburan/i.test(inputText)) {
+          data.intent = 'Permohonan Semburan Fogging';
+          data.category = 'lain';
+          data.suggestedAgency = 'Unit Vektor Pejabat Kesihatan (PKD)';
+        } else {
+          data.intent = 'Risiko Kesihatan Awam & Vektor';
+          data.category = 'lain';
+          data.suggestedAgency = 'Pejabat Kesihatan Daerah (PKD) / KKM';
+        }
+        // Dengue and communicable diseases are ALWAYS High urgency!
+        data.urgency = 'High';
       }
 
       // Confidence score normalization

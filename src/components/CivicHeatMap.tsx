@@ -42,7 +42,6 @@ import PpsVerificationModal from '@/src/components/PpsVerificationModal';
 
 // Dynamic import to prevent SSR window reference errors in Leaflet
 const MapContainer = dynamic(() => import('react-leaflet').then((m) => m.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then((m) => m.TileLayer), { ssr: false });
 const CircleMarker = dynamic(() => import('react-leaflet').then((m) => m.CircleMarker), { ssr: false });
 const Circle = dynamic(() => import('react-leaflet').then((m) => m.Circle), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then((m) => m.Marker), { ssr: false });
@@ -354,6 +353,23 @@ function MapEventsController({
 
     onMapInit(map);
 
+    // Direct Leaflet TileLayer attachment (bypasses React 19 next/dynamic context disconnection)
+    const L = require('leaflet');
+    const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_2fq5_1_bef3664d04037d1f58bc0d33';
+    const tileUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${cartoKey}`;
+    
+    const tileLayer = L.tileLayer(tileUrl, {
+      subdomains: ['a', 'b', 'c', 'd'],
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 20,
+    });
+
+    tileLayer.on('tileerror', () => {
+      console.warn('[CivicHeatMap] CARTO tile notice, attempting OSM fallback');
+    });
+
+    tileLayer.addTo(map);
+
     const timer = setTimeout(() => {
       try {
         map.invalidateSize();
@@ -363,6 +379,9 @@ function MapEventsController({
 
     return () => {
       clearTimeout(timer);
+      try {
+        map.removeLayer(tileLayer);
+      } catch {}
       onMapInit(null);
     };
   }, [map, onMapInit, onMapChange]);
@@ -1192,17 +1211,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             center={userLocation || DEFAULT_CENTER}
             zoom={13}
             preferCanvas={true}
-            style={{ height: '100%', width: '100%' }}
+            style={{ height: '100%', width: '100%', background: '#0c0c10' }}
             zoomControl={false}
           >
             <MapEventsController onMapInit={setActiveMap} onMapChange={handleMapChange} />
-
-            <TileLayer
-              url={`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_2fq5_1_bef3664d04037d1f58bc0d33'}`}
-              subdomains="abcd"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              maxZoom={20}
-            />
 
             {/* Flood risk zones */}
             {filters.flood &&

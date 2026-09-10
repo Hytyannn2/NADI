@@ -7,8 +7,8 @@
  * - Safe Bypass for Next.js HMR/Dev and Realtime APIs (Supabase, Groq, OpenWeather)
  */
 
-const CACHE_NAME = 'nadi-v4.5.0-cache';
-const TILE_CACHE_NAME = 'nadi-map-tiles-v1';
+const CACHE_NAME = 'nadi-v4.9.1-cache';
+const TILE_CACHE_NAME = 'nadi-map-tiles-v2';
 
 // Maximum map tiles to keep in storage (~10-15MB) to avoid phone quota exhaustion
 const MAX_CACHED_TILES = 1000;
@@ -175,22 +175,25 @@ self.addEventListener('fetch', (event) => {
   if (isMapTileRequest(url)) {
     event.respondWith(
       caches.open(TILE_CACHE_NAME).then(async (tileCache) => {
-        const cached = await tileCache.match(event.request);
-        if (cached) {
-          return cached;
-        }
-
         try {
-          const networkRes = await fetch(event.request, { mode: 'cors' });
-          if (networkRes && networkRes.status === 200) {
-            tileCache.put(event.request, networkRes.clone());
-            event.waitUntil(pruneOldTiles(tileCache));
+          const cached = await tileCache.match(event.request);
+          if (cached) {
+            return cached;
+          }
+
+          const networkRes = await fetch(event.request);
+          if (networkRes && (networkRes.status === 200 || networkRes.type === 'opaque')) {
+            try {
+              tileCache.put(event.request, networkRes.clone());
+              event.waitUntil(pruneOldTiles(tileCache));
+            } catch {}
           }
           return networkRes;
         } catch {
-          // If offline/dead connection and not cached
-          if (cached) return cached;
-          return new Response('', { status: 504, statusText: 'Tile Offline' });
+          // If offline / dead connection and cached
+          const cachedFallback = await tileCache.match(event.request);
+          if (cachedFallback) return cachedFallback;
+          return fetch(event.request);
         }
       })
     );

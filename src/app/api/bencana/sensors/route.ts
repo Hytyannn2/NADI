@@ -28,8 +28,12 @@ function safeCompare(a: string, b: string): boolean {
 // 30-minute cooldown cache between Telegram alerts per sensor
 const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
 
-// Fallback in-memory sensor state for local testing and demo mode
-const inMemorySensors: Record<string, any> = {
+// Fallback in-memory sensor state for local testing, TTN webhooks, and demo mode
+declare global {
+    var __NADI_SENSORS__: Record<string, any> | undefined;
+}
+
+const defaultInitialSensors: Record<string, any> = {
     "Sungai Kelantan Node A": {
         id: "node-a-01",
         name: "Sungai Kelantan Node A",
@@ -60,6 +64,11 @@ const inMemorySensors: Record<string, any> = {
     }
 };
 
+if (!globalThis.__NADI_SENSORS__) {
+    globalThis.__NADI_SENSORS__ = defaultInitialSensors;
+}
+const inMemorySensors = globalThis.__NADI_SENSORS__;
+
 // GET: Fetches all sensors, merging Supabase records with in-memory telemetry
 export async function GET() {
     try {
@@ -74,12 +83,35 @@ export async function GET() {
             } catch (e) { /* fallback to memory */ }
         }
 
-        // Merge DB data with in-memory telemetry and apply 30s staleness watchdog
+        // Merge DB data with in-memory telemetry
         const mergedMap = new Map();
         Object.values(inMemorySensors).forEach(s => mergedMap.set(s.name, s));
         dbSensors.forEach(s => mergedMap.set(s.name, { ...mergedMap.get(s.name), ...s }));
 
         const now = Date.now();
+
+        // In local development: if hardware is transmitting to production Vercel, bridge it locally
+        const isLocalDev = process.env.NODE_ENV !== 'production' || !process.env.VERCEL;
+        if (isLocalDev) {
+            try {
+                const prodUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nadi-alpha.vercel.app';
+                const prodRes = await fetch(`${prodUrl}/api/bencana/sensors`, { cache: 'no-store' });
+                if (prodRes.ok) {
+                    const prodJson = await prodRes.json();
+                    if (prodJson.sensors && Array.isArray(prodJson.sensors)) {
+                        for (const ps of prodJson.sensors) {
+                            const psTs = ps.last_reading ? new Date(ps.last_reading).getTime() : 0;
+                            // If production has a fresh reading from the last 60s, adopt it
+                            if (psTs && (now - psTs) < 60000 && ps.is_online) {
+                                mergedMap.set(ps.name, ps);
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Ignore network issues
+            }
+        }
         const sensorsList = Array.from(mergedMap.values()).map((s: any) => {
             const lastReadingTs = s.last_reading ? new Date(s.last_reading).getTime() : 0;
             const isStale = !lastReadingTs || (now - lastReadingTs) > 30000;

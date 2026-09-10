@@ -86,9 +86,9 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Bachok:SK Kubang Telaga": {
-    "lat": 6.055853,
-    "lng": 102.405247,
-    "exact": false
+    "lat": 5.954323850066093,
+    "lng": 102.43651068030852,
+    "exact": true
   },
   "Bachok:SK Kuchelong": {
     "lat": 6.022834918267819,
@@ -121,19 +121,19 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Bachok:SMA Kg. Chap": {
-    "lat": 6.086419,
-    "lng": 102.381852,
-    "exact": false
+    "lat": 6.037719595693014,
+    "lng": 102.3395945836241,
+    "exact": true
   },
   "Bachok:SMA Kubor Besar": {
-    "lat": 6.055884,
-    "lng": 102.377618,
-    "exact": false
+    "lat": 6.0769493808224935,
+    "lng": 102.35951598646373,
+    "exact": true
   },
   "Bachok:SMA Tangok": {
-    "lat": 6.079994,
-    "lng": 102.4087,
-    "exact": false
+    "lat": 6.008798683462958,
+    "lng": 102.39709457598198,
+    "exact": true
   },
   "Bachok:SMK Dato": {
     "lat": 6.0124793,
