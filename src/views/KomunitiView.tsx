@@ -369,9 +369,10 @@ export default function KomunitiView() {
                 </div>
             </div>
 
-            {/* Category Filter Pills */}
-            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="flex gap-2 mb-5 overflow-x-auto no-scrollbar pb-1"
+            {/* Category Filter Pills (Fixed height so they don't squish into lines) */}
+            <div
+                className="flex items-center gap-2 mb-5 overflow-x-auto no-scrollbar py-1 shrink-0"
+                style={{ minHeight: '42px' }}
             >
                 {(subTab === 'kerja' ? JOB_CATEGORIES : VENDOR_CATEGORIES).map(cat => {
                     const isActive = subTab === 'kerja' ? selectedJobCategory === cat : selectedVendorCategory === cat;
@@ -379,17 +380,26 @@ export default function KomunitiView() {
                         <button
                             key={cat}
                             onClick={() => subTab === 'kerja' ? setSelectedJobCategory(cat) : setSelectedVendorCategory(cat)}
-                            className="px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition-all"
-                            style={isActive
-                                ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
-                                : { background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
-                            }
+                            className="rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition-all"
+                            style={{
+                                height: '34px',
+                                minHeight: '34px',
+                                padding: '0 14px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                lineHeight: '1',
+                                ...(isActive
+                                    ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
+                                    : { background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
+                                )
+                            }}
                         >
                             {cat}
                         </button>
                     );
                 })}
-            </motion.div>
+            </div>
 
             {/* Content */}
             <AnimatePresence mode="wait">

@@ -94,23 +94,25 @@ export default function DashboardView() {
     };
 
     return (
-        <div className="p-5 min-h-full w-full flex flex-col relative z-0">
+        <div className="p-3.5 sm:p-5 min-h-full w-full flex flex-col relative z-0 pb-28 sm:pb-24">
             {/* 1. Civic Welcome Header */}
             <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative rounded-2xl p-5 mb-5 overflow-hidden"
+                className="relative rounded-2xl p-4 sm:p-5 mb-4 sm:mb-5 shrink-0 shadow-sm"
                 style={{
-                    background: '#0D0D10',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-default)',
+                    minHeight: 'fit-content',
+                    flexShrink: 0,
                 }}
             >
                 <div className="relative z-10 flex items-start justify-between">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--accent)' }}>
                             {greetingText}
                         </p>
-                        <h2 className="text-xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
+                        <h2 className="text-lg sm:text-xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
                             Selamat Datang, {userName}
                         </h2>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>

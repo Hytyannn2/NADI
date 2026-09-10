@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Lexend:wght@400;500;600;700&display=swap');
+/* Tailwind v4 Entry */
 @import "tailwindcss";
+
 
 @theme {
   --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
