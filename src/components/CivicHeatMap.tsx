@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -26,7 +26,6 @@ import {
   ChevronUp,
   ChevronDown,
   SlidersHorizontal,
-  Car,
   Clock,
   CheckCircle2,
 } from 'lucide-react';
@@ -37,7 +36,7 @@ import { createClient } from '@/src/lib/supabase/client';
 import { useWeather } from '@/src/hooks/useWeather';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } from '@/src/data/kelantanPpsCenters';
-import { DEFAULT_LOCATION, DEFAULT_SENSOR_NODE } from '@/src/config/constants';
+import { DEFAULT_SENSOR_NODE, DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
 import { FALLBACK_FLOOD_ZONES, FALLBACK_VENDORS } from '@/src/data/fallbacks';
 import PpsVerificationModal from '@/src/components/PpsVerificationModal';
 
@@ -62,6 +61,9 @@ interface HeatPoint {
   createdAt?: string;
   isExact?: boolean;
   snappedTo?: string | null;
+  jajahan?: string;
+  loraRadius?: number;
+  loraMaxRadius?: number;
 }
 
 function formatReportRelative(dateInput?: string | number | Date, isMs = true): string {
@@ -120,8 +122,8 @@ const TYPE_CONFIG: Record<
   vendor: { color: '#EC4899', labelMs: 'Perniagaan Komuniti', labelEn: 'Local Businesses', icon: Store },
 };
 
-// Default center (Kota Bharu, Kelantan)
-const DEFAULT_CENTER: [number, number] = [DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng];
+// Default center (Jambatan Sultan Yahya Petra, Kota Bharu)
+const DEFAULT_CENTER: [number, number] = [DEFAULT_SENSOR_LOCATION.lat, DEFAULT_SENSOR_LOCATION.lng];
 
 // Web Mercator pixel projection at given zoom (256px tile standard)
 function projectLatLonToPixel(lat: number, lng: number, zoom: number): { x: number; y: number } {
@@ -239,6 +241,38 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
   return parseFloat((R * c).toFixed(1));
 }
 
+// Map any point's district name or coordinates to one of the 10 official Kelantan Jajahans
+export function matchJajahan(nameOrDistrict?: string | null, lat?: number, lng?: number): string {
+  if (nameOrDistrict) {
+    const s = nameOrDistrict.toLowerCase().trim();
+    for (const j of Object.keys(JAJAHAN_CENTER_COORDS)) {
+      if (s.includes(j.toLowerCase())) return j;
+    }
+    if (s.includes('rantau panjang') || s.includes('chetok') || s.includes('meranti') || s.includes('bunut susu') || s.includes('kangkong') || s.includes('gual')) {
+      return 'Pasir Mas';
+    }
+    if (s.includes('pengkalan chepa') || s.includes('kubang kerian') || s.includes('panji') || s.includes('peringat') || s.includes('ketereh')) {
+      return 'Kota Bharu';
+    }
+    if (s.includes('wakaf bharu') || s.includes('chabang empat') || s.includes('pengkalan kubor')) {
+      return 'Tumpat';
+    }
+  }
+  if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+    let closest = 'Kota Bharu';
+    let minDist = Infinity;
+    for (const [jajahan, coords] of Object.entries(JAJAHAN_CENTER_COORDS)) {
+      const d = getDistanceKm(lat, lng, coords.lat, coords.lng);
+      if (d < minDist) {
+        minDist = d;
+        closest = jajahan;
+      }
+    }
+    return closest;
+  }
+  return 'Kota Bharu';
+}
+
 // Calculate dynamic spatial grid size in degrees based on floating zoom level
 function getGridSizeForZoom(zoom: number): number {
   if (zoom <= 10.5) return 0.28;    // Statewide view: 1-2 huge circles
@@ -349,8 +383,14 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     vendor: true,
   });
   const [radiusFilter, setRadiusFilter] = useState<'all' | 2 | 5 | 10>('all');
+  const [selectedJajahan, setSelectedJajahan] = useState<string | null>(null);
   const [points, setPoints] = useState<HeatPoint[]>([]);
-  const [floodZones, setFloodZones] = useState<{ name: string; center: [number, number]; radius: number }[]>(FALLBACK_FLOOD_ZONES);
+  const [floodZones, setFloodZones] = useState<{ name: string; center: [number, number]; radius: number; jajahan?: string }[]>(() =>
+    FALLBACK_FLOOD_ZONES.map((z) => ({
+      ...z,
+      jajahan: matchJajahan(z.name, z.center[0], z.center[1]),
+    }))
+  );
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [liveSensorData, setLiveSensorData] = useState<any>({ water_level: 1.74, is_online: true });
   const [zoomLevel, setZoomLevel] = useState<number>(13);
@@ -401,6 +441,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             name: z.zone_name || z.name || 'Zon Risiko Banjir',
             center: [z.latitude || 6.1200, z.longitude || 102.2250] as [number, number],
             radius: z.radius_meters || 3200,
+            jajahan: matchJajahan(z.zone_name || z.name, z.latitude, z.longitude),
           }));
           setFloodZones(mapped);
         }
@@ -433,6 +474,71 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     return () => clearInterval(interval);
   }, [supabase]);
 
+  // Category filter state helpers: check if all categories are active
+  const isAllCategoriesActive = useMemo(() => {
+    return (Object.keys(TYPE_CONFIG) as HeatType[]).every((t) => filters[t]);
+  }, [filters]);
+
+  // Handle category chip click: if all active, isolate to this category; otherwise toggle
+  const handleCategoryClick = (type: HeatType) => {
+    if (isAllCategoriesActive) {
+      setFilters({
+        pothole: false,
+        flood: false,
+        volunteer: false,
+        pps: false,
+        sensor: false,
+        vendor: false,
+        [type]: true,
+      });
+    } else {
+      setFilters((prev) => {
+        const next = { ...prev, [type]: !prev[type] };
+        const anyActive = (Object.keys(TYPE_CONFIG) as HeatType[]).some((t) => next[t]);
+        if (!anyActive) {
+          return {
+            pothole: true,
+            flood: true,
+            volunteer: true,
+            pps: true,
+            sensor: true,
+            vendor: true,
+          };
+        }
+        return next;
+      });
+    }
+  };
+
+  // Reset all category layers to active
+  const handleResetCategories = () => {
+    setFilters({
+      pothole: true,
+      flood: true,
+      volunteer: true,
+      pps: true,
+      sensor: true,
+      vendor: true,
+    });
+  };
+
+  // 2D Filter Jajahan Selector: sets selected Jajahan and flies to coordinates
+  const handleSelectJajahan = (jajahan: string | null, coords?: { lat: number; lng: number }) => {
+    setSelectedJajahan(jajahan);
+    if (activeMap) {
+      try {
+        if (jajahan && coords) {
+          const zoom = jajahan === 'Gua Musang' ? 11 : 13.5;
+          activeMap.flyTo([coords.lat, coords.lng], zoom, { duration: 1.2 });
+        } else {
+          activeMap.flyTo([5.85, 102.15], 9.5, { duration: 1.2 });
+        }
+      } catch {}
+    }
+    setSearchQuery('');
+    setSearchSuggestions([]);
+  };
+
   // Search Location Handler (Town / Subdistrict / Jajahan)
   const handleSearchInput = (query: string) => {
     setSearchQuery(query);
@@ -460,7 +566,11 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     setSearchSuggestions(matches.slice(0, 5));
   };
 
-  const handleSelectLocation = (lat: number, lng: number) => {
+  const handleSelectLocation = (lat: number, lng: number, name?: string) => {
+    if (name?.startsWith('Jajahan ')) {
+      const jName = name.replace('Jajahan ', '').trim();
+      setSelectedJajahan(jName);
+    }
     if (activeMap) {
       try {
         activeMap.flyTo([lat, lng], 14, { duration: 1.2 });
@@ -487,6 +597,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             label: p.label || (isMs ? 'Jalan Berlubang Dikesan' : 'Detected Pothole'),
             sublabel: 'On-device AI Vision',
             severity: p.severity || 3,
+            jajahan: matchJajahan(p.district || p.jajahan, p.lat, p.lng),
           });
         });
       } catch {}
@@ -529,6 +640,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               sublabel: subLabel,
               severity,
               createdAt: r.created_at,
+              jajahan: matchJajahan(r.district || r.jajahan || r.location_name, Number(lat), Number(lng)),
             });
           }
         });
@@ -556,6 +668,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               label: j.title || j.name || (isMs ? 'Misi Sukarelawan' : 'Volunteer Task'),
               sublabel: j.district || j.dist || j.area || '',
               severity: 4,
+              jajahan: matchJajahan(j.district || j.dist || j.area, Number(lat), Number(lng)),
             });
           }
         });
@@ -577,6 +690,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               label: center.name,
               sublabel: `${center.district} · ${center.type}`,
               severity: center.capacity > 400 ? 3 : 2,
+              jajahan: matchJajahan(center.district || center.jajahan, center.latitude, center.longitude),
             });
           }
         });
@@ -591,6 +705,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
             isExact: center.isExact,
             snappedTo: center.snappedTo,
+            jajahan: matchJajahan(center.jajahan, center.lat, center.lng),
           });
         });
       }
@@ -605,48 +720,58 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
           severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
           isExact: center.isExact,
           snappedTo: center.snappedTo,
+          jajahan: matchJajahan(center.jajahan, center.lat, center.lng),
         });
       });
     }
 
-    // 5. River Water Sensor Hardware Nodes (Loaded from DB or User GPS Position)
+    // 5. River Water Sensor Hardware Nodes (Jambatan Sultan Yahya Petra LoRaWAN Node)
     try {
       const { data: sensorNodes } = await supabase.from('nadi_bencana_sensors').select('*');
       if (sensorNodes && sensorNodes.length > 0) {
         sensorNodes.forEach((node) => {
-          const sLat = node.latitude || (userLat ? userLat + 0.002 : DEFAULT_LOCATION.lat);
-          const sLng = node.longitude || (userLng ? userLng + 0.002 : DEFAULT_LOCATION.lng);
+          const sLat = node.latitude || DEFAULT_SENSOR_LOCATION.lat;
+          const sLng = node.longitude || DEFAULT_SENSOR_LOCATION.lng;
           heatPoints.push({
             lat: sLat,
             lng: sLng,
             type: 'sensor',
             label: node.name || DEFAULT_SENSOR_NODE,
-            sublabel: `Ultrasonic Sonar Telemetry · ${node.status || 'Active'}`,
+            sublabel: `Ultrasonic Sonar Telemetry · ${node.location_name || DEFAULT_SENSOR_LOCATION.locationName}`,
             severity: 5,
+            jajahan: matchJajahan(node.district || DEFAULT_SENSOR_LOCATION.district, sLat, sLng),
+            loraRadius: node.lora_radius_meters || DEFAULT_SENSOR_LOCATION.loraRadiusMeters,
+            loraMaxRadius: node.lora_max_radius_meters || DEFAULT_SENSOR_LOCATION.loraMaxRadiusMeters,
           });
         });
       } else {
-        const sLat = userLat ? userLat + 0.002 : DEFAULT_LOCATION.lat;
-        const sLng = userLng ? userLng + 0.002 : DEFAULT_LOCATION.lng;
+        const sLat = DEFAULT_SENSOR_LOCATION.lat;
+        const sLng = DEFAULT_SENSOR_LOCATION.lng;
         heatPoints.push({
           lat: sLat,
           lng: sLng,
           type: 'sensor',
           label: DEFAULT_SENSOR_NODE,
-          sublabel: `Ultrasonic Sonar Telemetry · ${DEFAULT_LOCATION.label}`,
+          sublabel: `Ultrasonic Sonar Telemetry · ${DEFAULT_SENSOR_LOCATION.locationName}`,
           severity: 5,
+          jajahan: matchJajahan(DEFAULT_SENSOR_LOCATION.district, sLat, sLng),
+          loraRadius: DEFAULT_SENSOR_LOCATION.loraRadiusMeters,
+          loraMaxRadius: DEFAULT_SENSOR_LOCATION.loraMaxRadiusMeters,
         });
       }
     } catch {
-      const sLat = userLat ? userLat + 0.002 : DEFAULT_LOCATION.lat;
-      const sLng = userLng ? userLng + 0.002 : DEFAULT_LOCATION.lng;
+      const sLat = DEFAULT_SENSOR_LOCATION.lat;
+      const sLng = DEFAULT_SENSOR_LOCATION.lng;
       heatPoints.push({
         lat: sLat,
         lng: sLng,
         type: 'sensor',
         label: DEFAULT_SENSOR_NODE,
-        sublabel: `Ultrasonic Sonar Telemetry · ${DEFAULT_LOCATION.label}`,
+        sublabel: `Ultrasonic Sonar Telemetry · ${DEFAULT_SENSOR_LOCATION.locationName}`,
         severity: 5,
+        jajahan: matchJajahan(DEFAULT_SENSOR_LOCATION.district, sLat, sLng),
+        loraRadius: DEFAULT_SENSOR_LOCATION.loraRadiusMeters,
+        loraMaxRadius: DEFAULT_SENSOR_LOCATION.loraMaxRadiusMeters,
       });
     }
 
@@ -663,6 +788,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               label: v.name,
               sublabel: v.category || (isMs ? 'Perniagaan Komuniti' : 'Local Business'),
               severity: 1,
+              jajahan: matchJajahan(v.district, v.latitude, v.longitude),
             });
           }
         });
@@ -675,6 +801,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             label: v.name,
             sublabel: v.category,
             severity: 1,
+            jajahan: matchJajahan(v.district, v.lat, v.lng),
           });
         });
       }
@@ -687,6 +814,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
           label: v.name,
           sublabel: v.category,
           severity: 1,
+          jajahan: matchJajahan(v.district, v.lat, v.lng),
         });
       });
     }
@@ -727,14 +855,22 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
   // Real Dynamic Spatial Grid Clustering + Bounding-Circle Union Merge Engine
   const clusterPoints = useMemo<ClusterPoint[]>(() => {
-    // 1. Filter base points by layer chip filter & radius filter & viewport bounds
+    // 1. Filter base points by 2D filter: Category (Dimension 1) & Jajahan (Dimension 2) & radius & viewport
     const basePoints = points.filter((p) => {
+      // Dimension 1: Category filter
       if (!filters[p.type]) return false;
+
+      // Dimension 2: Jajahan filter
+      if (selectedJajahan && p.jajahan !== selectedJajahan) return false;
+
+      // Proximity radius filter
       if (radiusFilter !== 'all' && userLocation) {
         const dist = getDistanceKm(userLocation[0], userLocation[1], p.lat, p.lng);
         if (dist > radiusFilter) return false;
       }
-      if (mapBounds) {
+
+      // Viewport bounds (applied in statewide view to optimize performance)
+      if (mapBounds && !selectedJajahan) {
         try {
           if (!mapBounds.contains([p.lat, p.lng])) return false;
         } catch {}
@@ -807,9 +943,15 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
     // 4. Bounding-Circle Union Merge Pass: Merges any overlapping circles tip-to-tip across ALL zooms!
     return runUnionMergePass(initialItems, zoomLevel);
-  }, [points, filters, radiusFilter, userLocation, zoomLevel, mapBounds]);
+  }, [points, filters, radiusFilter, userLocation, zoomLevel, mapBounds, selectedJajahan]);
 
-  const countByType = (type: HeatType) => points.filter((p) => p.type === type).length;
+  // Dynamic counts reflecting current Jajahan selection
+  const countByType = (type: HeatType) =>
+    points.filter((p) => p.type === type && (!selectedJajahan || p.jajahan === selectedJajahan)).length;
+
+  const totalPointsCount = useMemo(() => {
+    return points.filter((p) => !selectedJajahan || p.jajahan === selectedJajahan).length;
+  }, [points, selectedJajahan]);
 
   const handleMapChange = useCallback((z: number, b: any) => {
     setZoomLevel(z);
@@ -878,7 +1020,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                 {searchSuggestions.map((item, idx) => (
                   <button
                     key={idx}
-                    onClick={() => handleSelectLocation(item.lat, item.lng)}
+                    onClick={() => handleSelectLocation(item.lat, item.lng, item.name)}
                     className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-200 hover:bg-blue-600/30 hover:text-white transition-colors border-b border-zinc-800/60 last:border-none flex items-center justify-between"
                   >
                     <span className="flex items-center gap-2">
@@ -913,27 +1055,57 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* Fast District Jump Pills Toolbar */}
+      {/* 2D Filter Bar - Dimension 1: Jajahan */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-3 bg-zinc-900/90 border-b border-zinc-800/80 shrink-0">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 shrink-0 mr-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 shrink-0 mr-1 flex items-center gap-1">
+          <MapPin className="w-3 h-3 text-blue-400" />
           {isMs ? 'Jajahan:' : 'District:'}
         </span>
-        {Object.entries(JAJAHAN_CENTER_COORDS).map(([jajahan, coords]) => (
-          <button
-            key={jajahan}
-            onClick={() => handleSelectLocation(coords.lat, coords.lng)}
-            className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-zinc-300 bg-zinc-800/80 hover:bg-blue-600/30 hover:text-blue-300 border border-zinc-700/80 transition-all whitespace-nowrap active:scale-95 shrink-0 shadow-sm"
-          >
-            {jajahan}
-          </button>
-        ))}
+        <button
+          onClick={() => handleSelectJajahan(null)}
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap active:scale-95 shrink-0 shadow-sm border ${
+            selectedJajahan === null
+              ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/20 ring-1 ring-blue-400'
+              : 'text-zinc-400 bg-zinc-800/80 hover:bg-zinc-700 hover:text-white border-zinc-700/80'
+          }`}
+        >
+          {isMs ? 'Semua Jajahan' : 'All Districts'}
+        </button>
+        {Object.entries(JAJAHAN_CENTER_COORDS).map(([jajahan, coords]) => {
+          const isSelected = selectedJajahan === jajahan;
+          return (
+            <button
+              key={jajahan}
+              onClick={() => handleSelectJajahan(isSelected ? null : jajahan, coords)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap active:scale-95 shrink-0 shadow-sm border ${
+                isSelected
+                  ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/20 ring-1 ring-blue-400'
+                  : 'text-zinc-300 bg-zinc-800/80 hover:bg-blue-600/30 hover:text-blue-300 border-zinc-700/80'
+              }`}
+            >
+              {jajahan}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Desktop Filter Toolbar / Mobile Expandable Drawer */}
+      {/* 2D Filter Bar - Dimension 2: Kategori / Layer Filters */}
       <div className={`${mobileFiltersOpen ? 'block' : 'hidden sm:block'} px-3 py-2 sm:px-6 sm:py-2.5 bg-zinc-900/95 border-b border-zinc-800/80 transition-all shrink-0`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           {/* Layer Filters (Horizontal Scroll on Mobile, Flex Wrap on Desktop) */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1">
+            <button
+              onClick={handleResetCategories}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all shadow-sm active:scale-95 shrink-0 ${
+                isAllCategoriesActive
+                  ? 'bg-white/15 text-white border-white/40 shadow-sm'
+                  : 'bg-transparent text-zinc-400 border-white/10 hover:text-white opacity-60'
+              }`}
+            >
+              {isMs ? 'Semua Kategori' : 'All Layers'}
+              <span className="ml-1 px-1.5 py-0.5 rounded-md bg-white/10 text-[9px]">{totalPointsCount}</span>
+            </button>
+
             {(Object.keys(TYPE_CONFIG) as HeatType[]).map((type) => {
               const cfg = TYPE_CONFIG[type];
               const Icon = cfg.icon;
@@ -943,7 +1115,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
               return (
                 <button
                   key={type}
-                  onClick={() => toggleFilter(type)}
+                  onClick={() => handleCategoryClick(type)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all shadow-sm active:scale-95 shrink-0"
                   style={
                     active
@@ -981,6 +1153,39 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
       {/* Map Canvas Container */}
       <div className="flex-1 relative w-full h-full min-h-0">
+        {/* Active 2D Filter Floating Status Pill */}
+        {(selectedJajahan || !isAllCategoriesActive) && (
+          <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2 bg-zinc-900/90 backdrop-blur-md border border-zinc-700/80 px-3 py-1.5 rounded-xl shadow-2xl text-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-zinc-300 font-medium">
+              {selectedJajahan ? (
+                <>
+                  <span className="font-bold text-white">{selectedJajahan}</span>
+                  {!isAllCategoriesActive && ' • '}
+                </>
+              ) : null}
+              {!isAllCategoriesActive && (
+                <span className="text-blue-400 font-bold">
+                  {(Object.keys(TYPE_CONFIG) as HeatType[])
+                    .filter((t) => filters[t])
+                    .map((t) => (isMs ? TYPE_CONFIG[t].labelMs : TYPE_CONFIG[t].labelEn))
+                    .join(', ')}
+                </span>
+              )}
+            </span>
+            <button
+              onClick={() => {
+                setSelectedJajahan(null);
+                handleResetCategories();
+              }}
+              className="ml-1 p-0.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-800"
+              title={isMs ? 'Kosongkan Tapisan' : 'Clear Filters'}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {mapReady && mapInstanceKey ? (
           <MapContainer
             key={mapInstanceKey}
@@ -1001,8 +1206,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
             {/* Flood risk zones */}
             {filters.flood &&
-              floodZones.map((zone, i) => (
-                <Circle
+              floodZones
+                .filter((zone) => !selectedJajahan || (zone as any).jajahan === selectedJajahan)
+                .map((zone, i) => (
+                  <Circle
                   key={`flood-zone-${i}`}
                   center={zone.center}
                   radius={zone.radius}
@@ -1016,6 +1223,45 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                   }}
                 />
               ))}
+
+            {/* LoRaWAN Sensor Coverage Radius Circles (3km Reliable / 5km River Corridor LOS) */}
+            {filters.sensor &&
+              points
+                .filter((p: HeatPoint) => p.type === 'sensor' && (!selectedJajahan || p.jajahan === selectedJajahan))
+                .map((sensor: HeatPoint, i: number) => {
+                  const reliableRadius = sensor.loraRadius || 3000;
+                  const extendedRadius = sensor.loraMaxRadius || 5000;
+                  return (
+                    <Fragment key={`sensor-coverage-${i}`}>
+                      {/* Outer Extended Line-of-Sight River Corridor (~5km) */}
+                      <Circle
+                        center={[sensor.lat, sensor.lng]}
+                        radius={extendedRadius}
+                        interactive={false}
+                        pathOptions={{
+                          color: '#8B5CF6',
+                          fillColor: '#8B5CF6',
+                          fillOpacity: 0.04,
+                          weight: 1,
+                          dashArray: '4, 10',
+                        }}
+                      />
+                      {/* Inner Reliable Urban/Suburban Coverage Radius (~3km) */}
+                      <Circle
+                        center={[sensor.lat, sensor.lng]}
+                        radius={reliableRadius}
+                        interactive={false}
+                        pathOptions={{
+                          color: '#A855F7',
+                          fillColor: '#8B5CF6',
+                          fillOpacity: 0.09,
+                          weight: 2,
+                          dashArray: '8, 8',
+                        }}
+                      />
+                    </Fragment>
+                  );
+                })}
 
             {clusterPoints.map((cluster) => {
               const cfg = TYPE_CONFIG[cluster.type || 'pps'];
@@ -1108,46 +1354,82 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
 
                         {/* Live IoT Sensor Telemetry Card */}
                         {point.type === 'sensor' && (
-                          <div className="my-1 p-2.5 rounded-xl bg-zinc-900/80 text-white font-sans border border-purple-500/30">
-                            <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold mb-1">
-                              <span>📡 IoT TELEMETRY</span>
+                          <div className="my-1 p-2.5 rounded-xl bg-zinc-900/90 text-white font-sans border border-purple-500/40 flex flex-col gap-2 shadow-lg">
+                            <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold">
+                              <span className="flex items-center gap-1.5 text-purple-300">
+                                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                                LORAWAN AS923 · 923 MHz
+                              </span>
                               <span className="text-emerald-400 font-bold flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> LIVE NODE
                               </span>
                             </div>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-base font-black text-purple-400">
-                                {(liveSensorData?.water_level ?? 1.74).toFixed(2)}m
-                              </span>
-                              <span className="text-[10px] text-zinc-400">
-                                ({Math.round((liveSensorData?.water_level ?? 1.74) * 100)} cm)
+
+                            {/* Water level display */}
+                            <div className="flex items-baseline justify-between">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-xl font-black text-purple-300">
+                                  {(liveSensorData?.water_level ?? 0.39).toFixed(2)}m
+                                </span>
+                                <span className="text-[10px] text-zinc-400">
+                                  ({Math.round((liveSensorData?.water_level ?? 0.39) * 100)} cm)
+                                </span>
+                              </div>
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wide">
+                                {liveSensorData?.status ? liveSensorData.status : 'SELAMAT'}
                               </span>
                             </div>
-                            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden my-1 border border-zinc-700">
+
+                            {/* Water level progress bar */}
+                            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden border border-zinc-700">
                               <div
                                 className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                                style={{ width: `${Math.min(100, Math.max(10, ((liveSensorData?.water_level ?? 1.74) / 3.0) * 100))}%` }}
+                                style={{ width: `${Math.min(100, Math.max(10, ((liveSensorData?.water_level ?? 0.39) / 3.0) * 100))}%` }}
                               />
                             </div>
                             <div className="flex justify-between text-[8px] text-zinc-400 font-medium">
-                              <span>Biasa &lt;1.8m</span>
-                              <span className="text-amber-400">Amaran 1.8m</span>
-                              <span className="text-red-400 font-bold">Bahaya 3.0m</span>
+                              <span>Biasa &lt;1.0m</span>
+                              <span className="text-amber-400">Amaran 3.0m</span>
+                              <span className="text-red-400 font-bold">Bahaya 5.0m</span>
+                            </div>
+
+                            {/* RF & Coverage Info */}
+                            <div className="pt-2 border-t border-zinc-800/80 grid grid-cols-2 gap-1.5 text-[9px]">
+                              <div className="bg-zinc-800/70 p-1.5 rounded-lg border border-purple-500/20">
+                                <span className="text-zinc-400 block text-[8px] font-semibold">RADIUS LIPUTAN</span>
+                                <span className="font-bold text-purple-300">~3.0 km (Bandar)</span>
+                                <span className="text-[8px] text-zinc-400 block">~5.0 km (Sg. LOS)</span>
+                              </div>
+                              <div className="bg-zinc-800/70 p-1.5 rounded-lg border border-purple-500/20">
+                                <span className="text-zinc-400 block text-[8px] font-semibold">TELEMETRI RF</span>
+                                <span className="font-bold text-zinc-200">RSSI: -68 dBm</span>
+                                <span className="text-[8px] text-emerald-400 block">Bateri: 100% 🔋</span>
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {/* e) ACTION ROW (Hidden for sensor type) */}
-                      {point.type !== 'sensor' && (
+                      {/* e) ACTION ROW */}
+                      {point.type === 'sensor' ? (
+                        <div className="h-[34px] mt-0.5">
+                          <a
+                            href="/bencana?tab=sensors"
+                            className="w-full h-full bg-purple-900/50 hover:bg-purple-800/60 border border-purple-500/40 hover:border-purple-400/70 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-purple-200 no-underline active:scale-95 transition-all shadow-md"
+                          >
+                            <Radio className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Lihat Telemetri &amp; Graf Paras Air</span>
+                          </a>
+                        </div>
+                      ) : (
                         <div className="grid grid-cols-2 gap-2 h-[34px] mt-0.5">
                           <a
                             href={`https://www.waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-blue-600 hover:bg-blue-500 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
+                            className="bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/80 hover:border-zinc-500/80 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
                           >
-                            <Car className="w-3.5 h-3.5 text-white shrink-0" />
+                            <img src="/icons/waze.png" alt="Waze" className="w-4 h-4 object-contain shrink-0" />
                             <span className="text-white">Waze</span>
                           </a>
                           <a
@@ -1156,10 +1438,10 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                               : `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-emerald-600 hover:bg-emerald-500 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
+                            className="bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/80 hover:border-zinc-500/80 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
                           >
-                            <Map className="w-3.5 h-3.5 text-white shrink-0" />
-                            <span className="text-white">{point.type === 'pps' && !point.isExact ? 'Cari Maps' : 'Maps'}</span>
+                            <img src="/icons/google-maps.svg" alt="Google Maps" className="w-4 h-4 object-contain shrink-0" />
+                            <span className="text-white">{point.type === 'pps' && !point.isExact ? 'Cari Maps' : 'Google Maps'}</span>
                           </a>
                         </div>
                       )}
@@ -1222,11 +1504,31 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
             )}
           </MapContainer>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-            <p className="text-xs font-bold text-zinc-400">
-              {isMs ? 'Memuatkan Peta Haba...' : 'Loading Heatmap Canvas...'}
-            </p>
+          <div className="w-full h-full relative overflow-hidden bg-zinc-950 flex flex-col items-center justify-center">
+            {/* Fullscreen Shimmer Map Skeleton */}
+            <div className="absolute inset-0 skeleton opacity-30 pointer-events-none" />
+            <div
+              className="absolute inset-0 opacity-15 pointer-events-none"
+              style={{
+                backgroundImage: 'radial-gradient(#10B981 1px, transparent 1px)',
+                backgroundSize: '32px 32px',
+              }}
+            />
+            {/* Center Radar Scanner */}
+            <div className="relative z-10 flex flex-col items-center justify-center gap-3 p-4 text-center">
+              <div className="relative flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full border border-emerald-500/20 animate-ping absolute" />
+                <div className="w-12 h-12 rounded-full border border-emerald-500/50 flex items-center justify-center bg-emerald-500/10 shadow-lg">
+                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                </div>
+              </div>
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                {isMs ? 'Memuatkan Peta Haba & Isyarat GIS...' : 'Loading Heatmap & GIS Signals...'}
+              </p>
+              <p className="text-[10px] text-zinc-500 font-medium">
+                {isMs ? 'Menyegerakkan data PPS, Banjir & Sensor' : 'Syncing PPS, Flood Zones & Sensors'}
+              </p>
+            </div>
           </div>
         )}
 

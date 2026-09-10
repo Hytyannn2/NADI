@@ -37,6 +37,11 @@ const inMemorySensors: Record<string, any> = {
         jps_station_id: "0730671WL",
         jps_station_name: "Sg. Kelantan di Tambatan D'Raja (F1)",
         district: "Kota Bharu",
+        location_name: "Jambatan Sultan Yahya Petra",
+        latitude: 6.116459809420322,
+        longitude: 102.22825008905949,
+        lora_radius_meters: 3000,
+        lora_max_radius_meters: 5000,
         // Official JPS thresholds in meters
         threshold_normal: 1.00,
         threshold_alert: 3.00,

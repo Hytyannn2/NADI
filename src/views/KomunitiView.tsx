@@ -16,6 +16,7 @@ import {
     Loader2, Plus, Send, X, ExternalLink, Compass,
     Building2, ShieldCheck, Navigation
 } from 'lucide-react';
+import { CardSkeleton, StatsBannerSkeleton } from '@/src/components/ui/Skeleton';
 
 // Type Definitions
 export interface Job {
@@ -393,9 +394,11 @@ export default function KomunitiView() {
             {/* Content */}
             <AnimatePresence mode="wait">
                 {isLoading ? (
-                    <div className="p-12 text-center flex flex-col items-center justify-center">
-                        <Loader2 className="w-6 h-6 animate-spin mb-2" style={{ color: 'var(--accent)' }} />
-                        <span className="text-xs font-medium text-zinc-400">Mencari maklumat berdekatan...</span>
+                    <div className="space-y-4">
+                        <StatsBannerSkeleton />
+                        <CardSkeleton />
+                        <CardSkeleton />
+                        <CardSkeleton />
                     </div>
                 ) : subTab === 'kerja' ? (
                     <motion.div key="kerja" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">

@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CardSkeleton, AidCardSkeleton } from '@/src/components/ui/Skeleton';
 import VolunteerChat from '@/src/components/VolunteerChat';
 import { useTheme } from '@/src/context/ThemeContext';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -561,8 +562,10 @@ export default function BantuanView() {
                             </div>
 
                             {programsLoading ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'var(--text-muted)' }} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <AidCardSkeleton />
+                                    <AidCardSkeleton />
+                                    <AidCardSkeleton />
                                 </div>
                             ) : filteredPrograms.length === 0 ? (
                                 <div className="text-center py-12 rounded-2xl" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
@@ -825,8 +828,10 @@ export default function BantuanView() {
                                 </div>
 
                                 {localJobsLoading ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <CardSkeleton />
+                                        <CardSkeleton />
+                                        <CardSkeleton />
                                     </div>
                                 ) : localJobs.length === 0 ? (
                                     <div className="text-center py-8 rounded-3xl text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border-default)' }}>
@@ -940,9 +945,10 @@ export default function BantuanView() {
                                 </div>
 
                                 {volLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
-                                        <p className="text-xs font-medium animate-pulse" style={{ color: 'var(--text-muted)' }}>{t('vol.finding')}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <CardSkeleton />
+                                        <CardSkeleton />
+                                        <CardSkeleton />
                                     </div>
                                 ) : filteredVolunteers.length === 0 ? (
                                     <div className="text-center py-12 rounded-2xl" style={{ border: '1px dashed var(--border-default)' }}>

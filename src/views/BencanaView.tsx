@@ -11,24 +11,16 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
 import dynamic from 'next/dynamic';
+import { MapSkeleton, ChartSkeleton } from '@/src/components/ui/Skeleton';
 
 const GPSMap = dynamic(() => import('@/src/components/GPSMap'), {
     ssr: false,
-    loading: () => (
-        <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Memuatkan Peta...</p>
-        </div>
-    )
+    loading: () => <MapSkeleton height="h-full" label="Memuatkan Peta Bencana..." />
 });
 
 const SensorTrendChart = dynamic(() => import('@/src/components/SensorTrendChart'), {
     ssr: false,
-    loading: () => (
-        <div className="h-44 rounded-2xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-            <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--accent)' }} />
-        </div>
-    )
+    loading: () => <ChartSkeleton height="h-44" />
 });
 
 import { useWeather } from '@/src/hooks/useWeather';
@@ -590,7 +582,7 @@ export default function BencanaView() {
                             <span className="font-bold text-xs text-white">Paras Air Sungai</span>
                         </div>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                            {DEFAULT_SENSOR_NODE}
+                            {DEFAULT_SENSOR_NODE} · Jambatan Sultan Yahya Petra
                         </p>
                     </div>
                 </div>
@@ -688,12 +680,10 @@ export default function BencanaView() {
                         >
                             <div className="w-full h-72 rounded-3xl relative overflow-hidden border-2 shadow-2xl flex items-center justify-center" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', boxShadow: 'var(--shadow-lg)' }}>
                                 {userLat === null || userLng === null ? (
-                                    <div className="flex flex-col items-center gap-3">
-                                        {locationLabel !== 'Location Access Denied' && <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />}
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-center" style={{ color: 'var(--text-muted)' }}>
-                                            {locationLabel === 'Location Access Denied' ? 'Please enable GPS/Location Services in your browser' : 'Acquiring GPS Signal...'}
-                                        </p>
-                                    </div>
+                                    <MapSkeleton
+                                        height="h-full"
+                                        label={locationLabel === 'Location Access Denied' ? 'Sila Benarkan Akses GPS' : 'Mengesan Isyarat GPS...'}
+                                    />
                                 ) : (
                                     <>
                                         <GPSMap lat={userLat} lng={userLng} />
@@ -1004,7 +994,7 @@ export default function BencanaView() {
                                         </div>
                                         <div>
                                             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{DEFAULT_SENSOR_NODE}</h3>
-                                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Tambatan D&apos;Raja · Ultrasonic · LoRaWAN</p>
+                                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Jambatan Sultan Yahya Petra · Ultrasonic · LoRaWAN (AS923)</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">

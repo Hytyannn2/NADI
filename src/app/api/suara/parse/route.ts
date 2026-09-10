@@ -9,7 +9,7 @@ import Groq from 'groq-sdk';
 import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 import { exportSafeDictionary } from '@/src/lib/dialect/engine';
-import { DEFAULT_LOCATION } from '@/src/config/constants';
+import { DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
 
 // Fetches dialect dictionary mappings safely as a bounded key-value object
 async function getDialectSafeDict(): Promise<Record<string, string>> {
@@ -69,7 +69,7 @@ Extract the intent and location from the citizen report. Also provide a translat
 
 CRITICAL RULES:
 - PHYSICAL DEFECTS: If the report specifies a real physical infrastructure issue (e.g. pothole, broken streetlight, blocked drain, water leak, trash dump, landslide, flood), set "intent" to a clean 2-4 word Malay title (e.g. "Jalan Berlubang", "Lampu Jalan Rosak", "Longkang Tersumbat", "Banjir Kilat"). Set "urgency" to "High" or "Medium".
-- EMOTIONAL / GENERAL: If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga", set "location" to "${DEFAULT_LOCATION.label}", and set "urgency" to "Low". DO NOT invent or hallucinate unmentioned physical damage.
+- EMOTIONAL / GENERAL: If the report is a general expression of frustration, emotion, or general comment without mentioning a specific defect, set "intent" to "Aduan & Ulasan Warga", set "location" to "${DEFAULT_SENSOR_LOCATION.district}", and set "urgency" to "Low". DO NOT invent or hallucinate unmentioned physical damage.
 - In "simplifiedTranslation", provide an accurate standard Malay translation of what the user actually said.
 - In "userIntendedMeaning", explain the EXACT intent or metaphorical meaning of the user's dialect expression (e.g. "Ungkapan kelesuan/stres (Kiasan Kelantan: 'sakit kepala') — Tiada kerosakan fizikal" or "Aduan kerosakan fizikal jalan raya").
 - In "confidenceScore", provide an integer between 70 and 98 representing NLP parsing confidence.
@@ -77,8 +77,8 @@ CRITICAL RULES:
 Respond strictly with a JSON object in this format:
 {
   "intent": "Short title in Malay (e.g. Jalan Berlubang, Lampu Jalan Rosak, Aduan Warga)",
-  "location": "Extracted location name or '${DEFAULT_LOCATION.label}'",
-  "coordinates": {"lat": ${DEFAULT_LOCATION.lat}, "lng": ${DEFAULT_LOCATION.lng}},
+  "location": "Extracted location name or '${DEFAULT_SENSOR_LOCATION.district}'",
+  "coordinates": {"lat": ${DEFAULT_SENSOR_LOCATION.lat}, "lng": ${DEFAULT_SENSOR_LOCATION.lng}},
   "urgency": "Low, Medium, or High",
   "simplifiedTranslation": "Standard Malay translation of user input",
   "userIntendedMeaning": "Detailed explanation of what the user actually intended by their speech",
@@ -136,13 +136,13 @@ Respond strictly with a JSON object in this format:
     }
 
       data.intent = typeof data.intent === 'string' ? data.intent.slice(0, 60).trim() : 'Aduan & Ulasan Warga';
-      data.location = typeof data.location === 'string' ? data.location.slice(0, 80).trim() : DEFAULT_LOCATION.label;
+      data.location = typeof data.location === 'string' ? data.location.slice(0, 80).trim() : DEFAULT_SENSOR_LOCATION.district;
       data.simplifiedTranslation = typeof data.simplifiedTranslation === 'string' ? data.simplifiedTranslation.slice(0, 500).trim() : '';
       data.userIntendedMeaning = typeof data.userIntendedMeaning === 'string' ? data.userIntendedMeaning.slice(0, 500).trim() : '';
       data.detectedDialect = typeof data.detectedDialect === 'string' ? data.detectedDialect.slice(0, 30).trim() : 'unknown';
 
       if (!data.coordinates || typeof data.coordinates.lat !== 'number' || typeof data.coordinates.lng !== 'number') {
-        data.coordinates = { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng };
+        data.coordinates = { lat: DEFAULT_SENSOR_LOCATION.lat, lng: DEFAULT_SENSOR_LOCATION.lng };
       }
 
       // Anti-Prompt-Poisoning Heuristic Guard: Prevent injection from dismissing genuine physical hazards

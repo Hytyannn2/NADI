@@ -19,6 +19,7 @@ import {
     Sun, Moon, CloudSun, CloudMoon, CloudLightning,
     CloudDrizzle, Cloud
 } from 'lucide-react';
+import { WeatherSkeleton } from '@/src/components/ui/Skeleton';
 
 export default function DashboardView() {
     const { user } = useAuth();
@@ -128,51 +129,53 @@ export default function DashboardView() {
             >
                 <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Keadaan Semasa</h3>
 
-                <div className="rounded-2xl p-4 relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{locationLabel}</span>
-                        {isWeatherLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-muted)' }} />
-                        ) : weather ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Terkini</span>
-                        ) : null}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
-                                {renderWeatherIcon()}
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                                    {weather ? Math.round(weather.temp) : '--'}°C
-                                </div>
-                                <div className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
-                                    {weather ? `Rasa seperti ${Math.round(weather.feelsLike)}°C` : 'Memuatkan...'}
-                                </div>
-                            </div>
+                {isWeatherLoading ? (
+                    <WeatherSkeleton />
+                ) : (
+                    <div className="rounded-2xl p-4 relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{locationLabel}</span>
+                            {weather && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Terkini</span>
+                            )}
                         </div>
 
-                        {weather && (
-                            <div className="flex flex-col gap-2 border-l pl-4 shrink-0" style={{ borderColor: 'var(--border-default)' }}>
-                                <div className="flex items-center gap-2" title="Kelembapan Udara">
-                                    <Droplets className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
-                                    <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.humidity}% <span className="text-[9px] font-normal opacity-70">Lembap</span></span>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
+                                    {renderWeatherIcon()}
                                 </div>
-                                <div className="flex items-center gap-2" title="Kelajuan Angin">
-                                    <Wind className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                                    <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.windSpeed} km/h</span>
-                                </div>
-                                {weather.rainMm >= 0.5 && (
-                                    <div className="flex items-center gap-2" title="Kadar Hujan">
-                                        <CloudRain className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
-                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.rainMm} mm</span>
+                                <div>
+                                    <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                                        {weather ? Math.round(weather.temp) : '--'}°C
                                     </div>
-                                )}
+                                    <div className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                                        {weather ? `Rasa seperti ${Math.round(weather.feelsLike)}°C` : ''}
+                                    </div>
+                                </div>
                             </div>
-                        )}
+
+                            {weather && (
+                                <div className="flex flex-col gap-2 border-l pl-4 shrink-0" style={{ borderColor: 'var(--border-default)' }}>
+                                    <div className="flex items-center gap-2" title="Kelembapan Udara">
+                                        <Droplets className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
+                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.humidity}% <span className="text-[9px] font-normal opacity-70">Lembap</span></span>
+                                    </div>
+                                    <div className="flex items-center gap-2" title="Kelajuan Angin">
+                                        <Wind className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.windSpeed} km/h</span>
+                                    </div>
+                                    {weather.rainMm >= 0.5 && (
+                                        <div className="flex items-center gap-2" title="Kadar Hujan">
+                                            <CloudRain className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
+                                            <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.rainMm} mm</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Flood alert */}
                 {Boolean(weather?.floodRisk === 'High' || (weather?.rainMm && weather.rainMm >= 10.0)) && (

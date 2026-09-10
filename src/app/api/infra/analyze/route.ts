@@ -8,7 +8,6 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkInfraAnalyzeLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
-import { DEFAULT_LOCATION } from '@/src/config/constants';
 import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 export async function POST(request: Request) {
@@ -42,7 +41,7 @@ Analyze this citizen report:
 - Title / Issue: ${title || 'Aduan Infrastruktur'}
 - Original Citizen Input: "${originalText || '—'}"
 - Translated / Normalized Text: "${translatedText || originalText || '—'}"
-- Location: ${locationName || DEFAULT_LOCATION.label} (${lat}°N, ${lng}°E)
+- Location: ${locationName || 'Kelantan'} (${lat}°N, ${lng}°E)
 - Country context: Malaysia (Kelantan / PBT local council governance)
 
 Provide your analysis strictly in this JSON format:

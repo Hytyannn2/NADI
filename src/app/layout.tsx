@@ -130,15 +130,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                if (${process.env.NODE_ENV === 'production'}) {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js').catch(function() {});
-                  });
-                } else {
-                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for (let r of registrations) { r.unregister(); }
-                  });
-                }
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function() {});
+                });
               }
             `,
           }}

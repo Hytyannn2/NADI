@@ -60,22 +60,17 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.30340650916733,
     "exact": false
   },
-  "Bachok:SEK. ARAB Kg. CHAP": {
-    "lat": 6.086419,
-    "lng": 102.381852,
-    "exact": false
-  },
-  "Bachok:SK BAKONG": {
+  "Bachok:SK Bakong": {
     "lat": 5.929167180140334,
     "lng": 102.37383485301797,
     "exact": true
   },
-  "Bachok:SK BEKELAM": {
+  "Bachok:SK Bekelam": {
     "lat": 6.04470674685794,
     "lng": 102.36173800884211,
     "exact": true
   },
-  "Bachok:SK JELAWAT": {
+  "Bachok:SK Jelawat": {
     "lat": 6.01108392107682,
     "lng": 102.37285939719477,
     "exact": true
@@ -85,17 +80,17 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.36086939165415,
     "exact": true
   },
-  "Bachok:SK KETING": {
+  "Bachok:SK Keting": {
     "lat": 5.959491921891289,
     "lng": 102.34662319222184,
     "exact": true
   },
-  "Bachok:SK KUBANG TELAGA": {
+  "Bachok:SK Kubang Telaga": {
     "lat": 6.055853,
     "lng": 102.405247,
     "exact": false
   },
-  "Bachok:SK KUCHELONG": {
+  "Bachok:SK Kuchelong": {
     "lat": 6.022834918267819,
     "lng": 102.33881246368276,
     "exact": true
@@ -105,47 +100,52 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.30444491281865,
     "exact": true
   },
-  "Bachok:SK PANTAI SENOK": {
+  "Bachok:SK Pantai Senok": {
     "lat": 6.155435328909888,
     "lng": 102.33998097665409,
     "exact": true
   },
-  "Bachok:SK SENENG": {
+  "Bachok:SK Seneng": {
     "lat": 5.979837425945011,
     "lng": 102.3879785376772,
     "exact": true
   },
-  "Bachok:SK SRI KEMUNTING BEOH": {
+  "Bachok:SK Sri Kemunting Beoh": {
     "lat": 5.919445510367867,
     "lng": 102.39645308185331,
     "exact": true
   },
-  "Bachok:SK TANGOK": {
+  "Bachok:SK Tangok": {
     "lat": 6.012548518742903,
     "lng": 102.39588742233622,
     "exact": true
   },
-  "Bachok:SMK AGAMA TANGOK": {
-    "lat": 6.079994,
-    "lng": 102.4087,
+  "Bachok:SMA Kg. Chap": {
+    "lat": 6.086419,
+    "lng": 102.381852,
     "exact": false
   },
-  "Bachok:SMK ARAB B/ KUBOR BESAR": {
+  "Bachok:SMA Kubor Besar": {
     "lat": 6.055884,
     "lng": 102.377618,
     "exact": false
   },
-  "Bachok:SMK DATO": {
+  "Bachok:SMA Tangok": {
+    "lat": 6.079994,
+    "lng": 102.4087,
+    "exact": false
+  },
+  "Bachok:SMK Dato": {
     "lat": 6.0124793,
     "lng": 102.392569,
     "exact": true
   },
-  "Bachok:SMK JELAWAT": {
+  "Bachok:SMK Jelawat": {
     "lat": 6.010133795809602,
     "lng": 102.36949863112382,
     "exact": true
   },
-  "Bachok:SMK LONG YUNUS": {
+  "Bachok:SMK Long Yunus": {
     "lat": 6.077467696142494,
     "lng": 102.3684130241834,
     "exact": true
@@ -155,12 +155,12 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.30474715301813,
     "exact": true
   },
-  "Bachok:SMK SRI GUNONG": {
+  "Bachok:SMK Sri Gunong": {
     "lat": 5.9926355352498435,
     "lng": 102.35198589466793,
     "exact": true
   },
-  "Bachok:SMK TERATAK PULAI": {
+  "Bachok:SMK Teratak Pulai": {
     "lat": 6.009178651902163,
     "lng": 102.3434927530184,
     "exact": true
@@ -340,6 +340,21 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.975657,
     "exact": false
   },
+  "Gua Musang:SJK(C) Gua Musang": {
+    "lat": 4.8816856,
+    "lng": 101.9617023,
+    "exact": true
+  },
+  "Gua Musang:SJK(C) Gua Musang Pulai": {
+    "lat": 4.8816856,
+    "lng": 101.9617023,
+    "exact": true
+  },
+  "Gua Musang:SJK(C) Pulai Kg. Pulai": {
+    "lat": 4.867816,
+    "lng": 101.950216,
+    "exact": false
+  },
   "Gua Musang:SK Aring 1": {
     "lat": 4.891685,
     "lng": 101.955717,
@@ -415,35 +430,20 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.9697435,
     "exact": true
   },
-  "Gua Musang:SMArab Mahad Muhammadi": {
+  "Gua Musang:SMA Maahad Muhammadi": {
     "lat": 4.884032,
     "lng": 101.949827,
     "exact": false
   },
-  "Gua Musang:SMK Tg. Indra Petra 1": {
+  "Gua Musang:SMK Tengku Indra Petra 1": {
     "lat": 4.869384,
     "lng": 101.97517,
     "exact": false
   },
-  "Gua Musang:SMK Tg. Indra Petra 2": {
+  "Gua Musang:SMK Tengku Indra Petra 2": {
     "lat": 4.900482,
     "lng": 101.965303,
     "exact": false
-  },
-  "Gua Musang:SRJK(C) PULAI Kg. PULAI": {
-    "lat": 4.867816,
-    "lng": 101.950216,
-    "exact": false
-  },
-  "Gua Musang:SRJKC Gua Musang": {
-    "lat": 4.8816856,
-    "lng": 101.9617023,
-    "exact": true
-  },
-  "Gua Musang:SRJKC Gua Musang Pulai": {
-    "lat": 4.8816856,
-    "lng": 101.9617023,
-    "exact": true
   },
   "Gua Musang:Stesen KTMB Bertam Lama": {
     "lat": 4.856719,
@@ -600,12 +600,12 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.7715271,
     "exact": true
   },
-  "Jeli:SMARAB Batu Melintang": {
+  "Jeli:SMA Batu Melintang": {
     "lat": 5.711483,
     "lng": 101.869501,
     "exact": false
   },
-  "Jeli:SMARAB Jerimbong": {
+  "Jeli:SMA Jerimbong": {
     "lat": 5.699035,
     "lng": 101.839736,
     "exact": false
@@ -676,8 +676,8 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": false
   },
   "Kota Bharu:Madrasah Kg. Sungai Limbat": {
-    "lat": 6.13313,
-    "lng": 102.219438,
+    "lat": 6.037444328915194,
+    "lng": 102.28258782770372,
     "exact": false
   },
   "Kota Bharu:Madrasah Pak Chik Saad Kg. Demit": {
@@ -691,11 +691,6 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": false
   },
   "Kota Bharu:Madrasah Tok Dokang": {
-    "lat": 6.154743857873648,
-    "lng": 102.25810517127941,
-    "exact": true
-  },
-  "Kota Bharu:Madrasah Tok Lebai Mat": {
     "lat": 6.154743857873648,
     "lng": 102.25810517127941,
     "exact": true
@@ -751,9 +746,9 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Kota Bharu:Masjid Mukhlisin, Kg. Tempoyak": {
-    "lat": 6.096241331284462,
-    "lng": 102.16070120141514,
-    "exact": true
+    "lat": 6.041474852511431, 
+    "lng": 102.35323941086412,
+    "exact": false
   },
   "Kota Bharu:Masjid Mukim Badang": {
     "lat": 6.184848865951755,
@@ -816,8 +811,8 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Kota Bharu:Masjid Mukim Terap": {
-    "lat": 6.040002277668315,
-    "lng": 102.1320297077896,
+    "lat": 6.058011487132549, 
+    "lng": 102.33677790122209,
     "exact": true
   },
   "Kota Bharu:Masjid Sultan Ismail Banggol": {
@@ -1336,8 +1331,8 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Kota Bharu:Surau Kg. Pak Rahmat": {
-    "lat": 6.127657,
-    "lng": 102.225297,
+    "lat": 6.035074107164483,
+    "lng": 102.29875277993808,
     "exact": false
   },
   "Kota Bharu:Tadika Tengku Anis": {
@@ -1400,9 +1395,19 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.206798,
     "exact": false
   },
+  "Kuala Krai:Bukit Berhampiran / Madrasah": {
+    "lat": 5.5312,
+    "lng": 102.2005,
+    "exact": false
+  },
   "Kuala Krai:Bukit Chempaka": {
     "lat": 5.557398,
     "lng": 102.204657,
+    "exact": false
+  },
+  "Kuala Krai:Bukit Chempaka (Khemah)": {
+    "lat": 5.533092,
+    "lng": 102.200564,
     "exact": false
   },
   "Kuala Krai:Bukit Kg. Gajah": {
@@ -1413,6 +1418,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Kuala Krai:Bukit Kuala Nal Estate": {
     "lat": 5.52877,
     "lng": 102.224251,
+    "exact": false
+  },
+  "Kuala Krai:Bukit Pak Tok Dekar (Khemah)": {
+    "lat": 5.527614,
+    "lng": 102.198814,
     "exact": false
   },
   "Kuala Krai:Dewan Belia 4B Batu Jong": {
@@ -1475,6 +1485,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.176518,
     "exact": false
   },
+  "Kuala Krai:Dewan Orang Ramai Kg. Stong / Madrasah": {
+    "lat": 5.351991,
+    "lng": 101.971179,
+    "exact": false
+  },
   "Kuala Krai:Dewan Pejabat Veterinar Kuala Krai": {
     "lat": 5.5522823,
     "lng": 102.2004189,
@@ -1493,6 +1508,16 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Kuala Krai:Dewan Sri Guchil": {
     "lat": 5.548183,
     "lng": 102.223401,
+    "exact": false
+  },
+  "Kuala Krai:Kg. Slow Mengkuang": {
+    "lat": 5.530297,
+    "lng": 102.203621,
+    "exact": false
+  },
+  "Kuala Krai:Kg. Slow Temiang": {
+    "lat": 5.527976,
+    "lng": 102.20356,
     "exact": false
   },
   "Kuala Krai:Kilang Herba KESEDAR": {
@@ -1515,9 +1540,19 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.190042,
     "exact": false
   },
+  "Kuala Krai:Madrasah Berhampiran": {
+    "lat": 5.537768,
+    "lng": 102.20026,
+    "exact": false
+  },
   "Kuala Krai:Madrasah Bukit Arang": {
     "lat": 5.533724,
     "lng": 102.208657,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Bukit Bacang": {
+    "lat": 5.524459,
+    "lng": 102.202009,
     "exact": false
   },
   "Kuala Krai:Madrasah Bukit Sireh": {
@@ -1525,9 +1560,34 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.18802482430767,
     "exact": true
   },
+  "Kuala Krai:Madrasah Bunga Raya": {
+    "lat": 5.531884,
+    "lng": 102.200379,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Bunut Saih": {
+    "lat": 5.532272,
+    "lng": 102.201087,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Che Si": {
+    "lat": 5.527937,
+    "lng": 102.200021,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Chegal Lapan": {
+    "lat": 5.535396,
+    "lng": 102.199823,
+    "exact": false
+  },
   "Kuala Krai:Madrasah Chuchuh Puteri A": {
     "lat": 5.5199,
     "lng": 102.1975,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Dusun Durian": {
+    "lat": 5.5286,
+    "lng": 102.203003,
     "exact": false
   },
   "Kuala Krai:Madrasah Gua Chatak": {
@@ -1535,9 +1595,29 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.208715,
     "exact": false
   },
+  "Kuala Krai:Madrasah Hadapan Balai Polis": {
+    "lat": 5.529901,
+    "lng": 102.204358,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Imam Che Wil": {
+    "lat": 5.53677,
+    "lng": 102.2024,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kebun Pisang": {
+    "lat": 5.52378,
+    "lng": 102.200145,
+    "exact": false
+  },
   "Kuala Krai:Madrasah Kg. Belut": {
     "lat": 5.533096,
     "lng": 102.17917,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kg. Budi": {
+    "lat": 5.523665,
+    "lng": 102.199492,
     "exact": false
   },
   "Kuala Krai:Madrasah Kg. Gajah": {
@@ -1545,9 +1625,29 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.213526,
     "exact": false
   },
+  "Kuala Krai:Madrasah Kg. Hamzah": {
+    "lat": 5.532486,
+    "lng": 102.200032,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kg. Jenal": {
+    "lat": 5.531322,
+    "lng": 102.201297,
+    "exact": false
+  },
   "Kuala Krai:Madrasah Kg. Laloh": {
     "lat": 5.514627,
     "lng": 102.184712,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kg. Ragu": {
+    "lat": 5.528654,
+    "lng": 102.201046,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kg. Sepuluh": {
+    "lat": 5.535596,
+    "lng": 102.198692,
     "exact": false
   },
   "Kuala Krai:Madrasah Kg. Serasa": {
@@ -1555,14 +1655,94 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.19368,
     "exact": false
   },
+  "Kuala Krai:Madrasah Kg. Sg. Embak": {
+    "lat": 5.527217,
+    "lng": 102.201842,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kg. Sg. Garam": {
+    "lat": 5.531983,
+    "lng": 102.204449,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kg. Temiang": {
+    "lat": 5.5351,
+    "lng": 102.20407,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kuala Mahligai": {
+    "lat": 5.532932,
+    "lng": 102.1995,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Kuala Temiang": {
+    "lat": 5.530358,
+    "lng": 102.20117,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Lancang": {
+    "lat": 5.529679,
+    "lng": 102.201763,
+    "exact": false
+  },
   "Kuala Krai:Madrasah Lata Rek": {
     "lat": 5.311008,
     "lng": 102.2994143,
     "exact": true
   },
+  "Kuala Krai:Madrasah Lepan Anjung": {
+    "lat": 5.535265,
+    "lng": 102.200184,
+    "exact": false
+  },
   "Kuala Krai:Madrasah Manek Urai Lama": {
     "lat": 5.547352,
     "lng": 102.173196,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Mesek": {
+    "lat": 5.526314,
+    "lng": 102.200279,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Orang Ramai Ingin Maju": {
+    "lat": 5.53397,
+    "lng": 102.203822,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Pok Su Amid": {
+    "lat": 5.53296,
+    "lng": 102.205068,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Seberang Kemubu": {
+    "lat": 5.27209,
+    "lng": 102.022583,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Slow Pak Long": {
+    "lat": 5.53317,
+    "lng": 102.198847,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Sri Bintang / Dewan Orang Ramai": {
+    "lat": 5.529495,
+    "lng": 102.200721,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Sri Jaya / Dewan Orang Ramai": {
+    "lat": 5.530886,
+    "lng": 102.202086,
+    "exact": false
+  },
+  "Kuala Krai:Madrasah Sungai Teku": {
+    "lat": 5.534444,
+    "lng": 102.201473,
+    "exact": false
+  },
+  "Kuala Krai:Masjid / Bukit Berhampiran": {
+    "lat": 5.526,
+    "lng": 102.1985,
     "exact": false
   },
   "Kuala Krai:Masjid Abu Bakar Tanjong Kala": {
@@ -1585,9 +1765,29 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.1928,
     "exact": false
   },
+  "Kuala Krai:Masjid Kg. Bahagia": {
+    "lat": 5.530607,
+    "lng": 102.205274,
+    "exact": false
+  },
+  "Kuala Krai:Masjid Kg. Biak A": {
+    "lat": 5.535624,
+    "lng": 102.202554,
+    "exact": false
+  },
   "Kuala Krai:Masjid Kg. Kemubu": {
     "lat": 5.532415,
     "lng": 102.204748,
+    "exact": false
+  },
+  "Kuala Krai:Masjid Lama Kg. Keroh": {
+    "lat": 5.526573,
+    "lng": 102.204529,
+    "exact": false
+  },
+  "Kuala Krai:Masjid Mambong": {
+    "lat": 5.53317,
+    "lng": 102.198847,
     "exact": false
   },
   "Kuala Krai:Masjid Manek Urai Baru": {
@@ -1595,9 +1795,24 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.195076,
     "exact": false
   },
+  "Kuala Krai:Masjid Sri Mahligai": {
+    "lat": 5.528839,
+    "lng": 102.200004,
+    "exact": false
+  },
   "Kuala Krai:Pondok Kg. Tualang": {
     "lat": 5.542156,
     "lng": 102.208149,
+    "exact": false
+  },
+  "Kuala Krai:Pusat Komuniti Chuchoh Puteri A": {
+    "lat": 5.532132,
+    "lng": 102.201977,
+    "exact": false
+  },
+  "Kuala Krai:SJK(C) Yuk Chai": {
+    "lat": 5.5448,
+    "lng": 102.214994,
     "exact": false
   },
   "Kuala Krai:SK Banggol Guchil": {
@@ -1650,6 +1865,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.200964,
     "exact": false
   },
+  "Kuala Krai:SK Ladang Pasir Gajah": {
+    "lat": 5.528466,
+    "lng": 102.199106,
+    "exact": false
+  },
   "Kuala Krai:SK Laloh": {
     "lat": 5.540232,
     "lng": 102.195756,
@@ -1690,6 +1910,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.21562,
     "exact": false
   },
+  "Kuala Krai:SK Pemberian Lama": {
+    "lat": 5.533232,
+    "lng": 102.202403,
+    "exact": false
+  },
   "Kuala Krai:SK Peria": {
     "lat": 5.550726,
     "lng": 102.185203,
@@ -1710,6 +1935,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.1719,
     "exact": false
   },
+  "Kuala Krai:SK Sungai Mengkuang": {
+    "lat": 5.526314,
+    "lng": 102.200279,
+    "exact": false
+  },
   "Kuala Krai:SK Sungai Pas": {
     "lat": 5.516189,
     "lng": 102.217701,
@@ -1728,6 +1958,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Kuala Krai:SK Sungai Sok": {
     "lat": 5.535707,
     "lng": 102.203212,
+    "exact": false
+  },
+  "Kuala Krai:SK SYP II": {
+    "lat": 5.536743,
+    "lng": 102.200796,
     "exact": false
   },
   "Kuala Krai:SK Telekong": {
@@ -1765,14 +2000,69 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.191967,
     "exact": false
   },
-  "Kuala Krai:SRJK (C) Yuk Chai": {
-    "lat": 5.5448,
-    "lng": 102.214994,
+  "Kuala Krai:Smkmempelam": {
+    "lat": 5.528326,
+    "lng": 102.204663,
+    "exact": false
+  },
+  "Kuala Krai:Smksyp 1": {
+    "lat": 5.532932,
+    "lng": 102.1995,
+    "exact": false
+  },
+  "Kuala Krai:Smksyp II": {
+    "lat": 5.528915,
+    "lng": 102.205748,
+    "exact": false
+  },
+  "Kuala Krai:Srjk Tamil Pasir Gajah": {
+    "lat": 5.533265,
+    "lng": 102.201449,
+    "exact": false
+  },
+  "Kuala Krai:Sungai Batu": {
+    "lat": 5.531774,
+    "lng": 102.202862,
+    "exact": false
+  },
+  "Kuala Krai:Surau Biak B": {
+    "lat": 5.527217,
+    "lng": 102.201842,
+    "exact": false
+  },
+  "Kuala Krai:Surau Bukit Mengkebang": {
+    "lat": 5.537194,
+    "lng": 102.198762,
+    "exact": false
+  },
+  "Kuala Krai:Surau Taman Sri Nal": {
+    "lat": 5.526392,
+    "lng": 102.203308,
+    "exact": false
+  },
+  "Kuala Krai:Tadika KEMAS Kuala Pertang": {
+    "lat": 5.532486,
+    "lng": 102.200032,
+    "exact": false
+  },
+  "Kuala Krai:Tadika KEMAS Sg Sam": {
+    "lat": 5.528424,
+    "lng": 102.198865,
+    "exact": false
+  },
+  "Kuala Krai:Tadika Kg. Bukit Abu": {
+    "lat": 5.531532,
+    "lng": 102.206093,
     "exact": false
   },
   "Machang:Asrama Bakti Machang": {
     "lat": 5.7644,
     "lng": 102.2176,
+    "exact": false
+  },
+  "Machang:Atas Bukit Kg. Maka - Rumah Zulkifli B. Abdullah": {
+    "lat": 5.7652,
+    "lng": 102.2172,
     "exact": false
   },
   "Machang:Balai Raya Bakti Kemuning": {
@@ -1835,6 +2125,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.19143,
     "exact": false
   },
+  "Machang:Madrasah Cikgu Seman": {
+    "lat": 5.767092,
+    "lng": 102.217264,
+    "exact": false
+  },
   "Machang:Madrasah Desa Taqwa": {
     "lat": 5.75847,
     "lng": 102.240351,
@@ -1845,15 +2140,60 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.196852,
     "exact": false
   },
+  "Machang:Madrasah Gelong Gajah": {
+    "lat": 5.761614,
+    "lng": 102.215514,
+    "exact": false
+  },
+  "Machang:Madrasah Hj Mat Tahil": {
+    "lat": 5.768691,
+    "lng": 102.217879,
+    "exact": false
+  },
+  "Machang:Madrasah Kg. Awah": {
+    "lat": 5.771768,
+    "lng": 102.21696,
+    "exact": false
+  },
+  "Machang:Madrasah Kg. Belukar Panjang": {
+    "lat": 5.764297,
+    "lng": 102.220321,
+    "exact": false
+  },
   "Machang:Madrasah Kg. Bukit": {
     "lat": 5.7586068,
     "lng": 102.3066348,
     "exact": true
   },
+  "Machang:Madrasah Kg. Buncit": {
+    "lat": 5.758459,
+    "lng": 102.218709,
+    "exact": false
+  },
+  "Machang:Madrasah Kg. Hau": {
+    "lat": 5.765884,
+    "lng": 102.217079,
+    "exact": false
+  },
   "Machang:Madrasah Kg. Kelaweh": {
     "lat": 5.777475,
     "lng": 102.1618338,
     "exact": true
+  },
+  "Machang:Madrasah Kg. Kuala Merabang": {
+    "lat": 5.766272,
+    "lng": 102.217787,
+    "exact": false
+  },
+  "Machang:Madrasah Kg. Maka": {
+    "lat": 5.761976,
+    "lng": 102.22026,
+    "exact": false
+  },
+  "Machang:Madrasah Kg. Pertok Baru": {
+    "lat": 5.761937,
+    "lng": 102.216721,
+    "exact": false
   },
   "Machang:Madrasah Kg. Rengas": {
     "lat": 5.764732,
@@ -1863,6 +2203,76 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Machang:Madrasah Kuala Abal": {
     "lat": 5.757753,
     "lng": 102.220247,
+    "exact": false
+  },
+  "Machang:Madrasah Kweng Hitam": {
+    "lat": 5.769396,
+    "lng": 102.216523,
+    "exact": false
+  },
+  "Machang:Madrasah Ladang Kuala Hau": {
+    "lat": 5.7626,
+    "lng": 102.219703,
+    "exact": false
+  },
+  "Machang:Madrasah Lebai Husain": {
+    "lat": 5.763901,
+    "lng": 102.221058,
+    "exact": false
+  },
+  "Machang:Madrasah Lepan Kandis": {
+    "lat": 5.77077,
+    "lng": 102.2191,
+    "exact": false
+  },
+  "Machang:Madrasah Lubok Mak Udang Hilir": {
+    "lat": 5.757665,
+    "lng": 102.216192,
+    "exact": false
+  },
+  "Machang:Madrasah Lubuk Mak Udang Hulu": {
+    "lat": 5.766486,
+    "lng": 102.216732,
+    "exact": false
+  },
+  "Machang:Madrasah Padang Tala": {
+    "lat": 5.765322,
+    "lng": 102.217997,
+    "exact": false
+  },
+  "Machang:Madrasah Pak Nik Deraman": {
+    "lat": 5.762654,
+    "lng": 102.217746,
+    "exact": false
+  },
+  "Machang:Madrasah Pangkal Berangan": {
+    "lat": 5.769596,
+    "lng": 102.215392,
+    "exact": false
+  },
+  "Machang:Madrasah Pangkal Perahu": {
+    "lat": 5.761217,
+    "lng": 102.218542,
+    "exact": false
+  },
+  "Machang:Madrasah Seri Al-Falah": {
+    "lat": 5.765983,
+    "lng": 102.221149,
+    "exact": false
+  },
+  "Machang:Madrasah Simpol Berlubang": {
+    "lat": 5.7691,
+    "lng": 102.22077,
+    "exact": false
+  },
+  "Machang:Madrasah Sungai Hala": {
+    "lat": 5.75778,
+    "lng": 102.216845,
+    "exact": false
+  },
+  "Machang:Madrasah Sungai Mas": {
+    "lat": 5.766932,
+    "lng": 102.2162,
     "exact": false
   },
   "Machang:Madrasah Wakaf Bata": {
@@ -1895,14 +2305,54 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.2237,
     "exact": false
   },
+  "Machang:Masjid Kaabah": {
+    "lat": 5.764358,
+    "lng": 102.21787,
+    "exact": false
+  },
   "Machang:Masjid Kerawang": {
     "lat": 5.757784,
     "lng": 102.192618,
     "exact": false
   },
+  "Machang:Masjid Laha": {
+    "lat": 5.763679,
+    "lng": 102.218463,
+    "exact": false
+  },
+  "Machang:Masjid Mukim Bagan": {
+    "lat": 5.769265,
+    "lng": 102.216884,
+    "exact": false
+  },
+  "Machang:Masjid Mukim Belukar": {
+    "lat": 5.760314,
+    "lng": 102.216979,
+    "exact": false
+  },
+  "Machang:Masjid Mukim Hutan Putih": {
+    "lat": 5.76797,
+    "lng": 102.220522,
+    "exact": false
+  },
+  "Machang:Masjid Mukim Kuala Kerak": {
+    "lat": 5.76696,
+    "lng": 102.221768,
+    "exact": false
+  },
   "Machang:Masjid Mukim Temangan Lama": {
     "lat": 5.754342,
     "lng": 102.23517,
+    "exact": false
+  },
+  "Machang:Masjid Penakah": {
+    "lat": 5.75879,
+    "lng": 102.219283,
+    "exact": false
+  },
+  "Machang:Masjid Pusat Pemulihan Akhlak": {
+    "lat": 5.76717,
+    "lng": 102.215547,
     "exact": false
   },
   "Machang:Masjid Tahfiz Pulai Chondong": {
@@ -1985,9 +2435,39 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.223587,
     "exact": false
   },
+  "Machang:SK Pangkal Jenereh": {
+    "lat": 5.764886,
+    "lng": 102.218786,
+    "exact": false
+  },
   "Machang:SK Pangkal Jenerih": {
     "lat": 5.771885,
     "lng": 102.21492,
+    "exact": false
+  },
+  "Machang:SK Pangkal Mak Wan": {
+    "lat": 5.763495,
+    "lng": 102.217421,
+    "exact": false
+  },
+  "Machang:SK Pangkal Meleret": {
+    "lat": 5.768444,
+    "lng": 102.218173,
+    "exact": false
+  },
+  "Machang:SK Pangkal Nering": {
+    "lat": 5.76,
+    "lng": 102.2152,
+    "exact": false
+  },
+  "Machang:SK Pek Machang": {
+    "lat": 5.769624,
+    "lng": 102.219254,
+    "exact": false
+  },
+  "Machang:SK Pulau Chondong": {
+    "lat": 5.768096,
+    "lng": 102.215131,
     "exact": false
   },
   "Machang:SK Sungai Bagan": {
@@ -2005,14 +2485,19 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.2380822,
     "exact": true
   },
-  "Machang:SKPulau Chondong": {
-    "lat": 5.768096,
-    "lng": 102.215131,
-    "exact": false
-  },
   "Machang:SMK Temangan": {
     "lat": 5.772541,
     "lng": 102.2089,
+    "exact": false
+  },
+  "Machang:Tadika Nurul Ehsan": {
+    "lat": 5.764607,
+    "lng": 102.221974,
+    "exact": false
+  },
+  "Machang:Tbk Perpaduan Kg. Pauh": {
+    "lat": 5.760573,
+    "lng": 102.221229,
     "exact": false
   },
   "Machang:Tokong Cina Temangan": {
@@ -2026,11 +2511,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Pasir Mas:Dewan KRT Gual Sitok": {
-    "lat": 6.014112758855114,
-    "lng": 101.99702111284263,
+    "lat": 6.0134,
+    "lng": 101.9961,
     "exact": false
   },
-  "Pasir Mas:DEWAN SEBAGUNA Kg. SERONGGA": {
+  "Pasir Mas:Dewan Serbaguna Kg. Serongga": {
     "lat": 6.025049999028176,
     "lng": 102.09156785366014,
     "exact": false
@@ -2040,15 +2525,20 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.98301166392623,
     "exact": false
   },
+  "Pasir Mas:Kelas KEMAS Kg. Atas Pinggir": {
+    "lat": 6.05698382041526,
+    "lng": 102.19791677038607,
+    "exact": true
+  },
+  "Pasir Mas:Ketik Teresek": {
+    "lat": 6.02241961170937,
+    "lng": 102.08725082517687,
+    "exact": true
+  },
   "Pasir Mas:Kolej Kemahiran Tinggi MARA, Pasir Mas": {
     "lat": 6.004695901132651,
     "lng": 102.09612744206896,
     "exact": true
-  },
-  "Pasir Mas:KRT Gual Sitok Rantau Panjang": {
-    "lat": 6.035515,
-    "lng": 102.152164,
-    "exact": false
   },
   "Pasir Mas:KRT Lubok Setol": {
     "lat": 5.9540444003507025,
@@ -2060,14 +2550,64 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.09100461463113,
     "exact": false
   },
+  "Pasir Mas:Madrasah Baru Limau Purut": {
+    "lat": 5.905073232505886,
+    "lng": 101.94079915739448,
+    "exact": true
+  },
+  "Pasir Mas:Madrasah Bechah Kaki": {
+    "lat": 6.011608933643994,
+    "lng": 101.97839212516723,
+    "exact": false
+  },
   "Pasir Mas:Madrasah Bukit Tandak": {
     "lat": 5.9456486849305215,
     "lng": 101.99252826787247,
     "exact": false
   },
+  "Pasir Mas:Madrasah Chabang 3 Kg. Paloh": {
+    "lat": 6.076264236719794,
+    "lng": 102.08389311168354,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Cherang Hangus": {
+    "lat": 5.987012412742592,
+    "lng": 102.09969193867022,
+    "exact": true
+  },
+  "Pasir Mas:Madrasah Gertak Tiga": {
+    "lat": 6.016740250406157,
+    "lng": 101.98249269858447,
+    "exact": true
+  },
   "Pasir Mas:Madrasah Gual Mekong": {
     "lat": 5.9983814717724195,
     "lng": 102.00089394813112,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Gual Tualang": {
+    "lat": 6.012170,
+    "lng": 102.016390,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Haji Daud": {
+    "lat": 6.042784,
+    "lng": 102.132510,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Haji Ghafar": {
+    "lat": 6.043620,
+    "lng": 102.131120,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Haji Yusoff": {
+    "lat": 6.039237,
+    "lng": 102.129600,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Hj. Salleh Kg. Senor": {
+    "lat": 6.101257,
+    "lng": 102.099673,
     "exact": false
   },
   "Pasir Mas:Madrasah Kbg. Hakim": {
@@ -2080,9 +2620,34 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.0011134,
     "exact": true
   },
-  "Pasir Mas:Madrasah Kg. Tersang": {
-    "lat": 6.044196243372922,
-    "lng": 102.01121485163968,
+  "Pasir Mas:Madrasah Kg. Kusar": {
+    "lat": 6.0081,
+    "lng": 102.0205,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kg. Rahmat Hilir": {
+    "lat": 5.91652,
+    "lng": 101.93381,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kg. Rahmat Hulu": {
+    "lat": 5.91241,
+    "lng": 101.93122,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kg. Tersang (Baru)": {
+    "lat": 6.04851,
+    "lng": 102.01245,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kg. Tersang (Lama)": {
+    "lat": 6.04748,
+    "lng": 102.01132,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kolam Tengah": {
+    "lat": 6.0825,
+    "lng": 102.1742,
     "exact": false
   },
   "Pasir Mas:Madrasah Kompleks Penggawa Rantau Panjang": {
@@ -2090,9 +2655,69 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.97538951734025,
     "exact": true
   },
+  "Pasir Mas:Madrasah Kuala Itek": {
+    "lat": 6.0612,
+    "lng": 102.2135,
+    "exact": false
+  },
   "Pasir Mas:Madrasah Kubang Kual": {
     "lat": 5.96180213569292,
     "lng": 102.00949841466891,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kubang Rambutan": {
+    "lat": 6.0285,
+    "lng": 101.9921,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Kubor Sena": {
+    "lat": 6.0885,
+    "lng": 102.1284,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Lama Jeram Perdah": {
+    "lat": 6.077044,
+    "lng": 102.055836,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Mdpm": {
+    "lat": 6.0415,
+    "lng": 102.1425,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Nasrullah Pohon Buloh (Pusat Tarbiah)": {
+    "lat": 6.0521,
+    "lng": 102.0834,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Padang Bukit": {
+    "lat": 5.9685,
+    "lng": 102.0842,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Pak Adik Yamin": {
+    "lat": 5.9842,
+    "lng": 102.1625,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Pak Kelong": {
+    "lat": 6.0245,
+    "lng": 102.0612,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Pak Teh Mat Hassan": {
+    "lat": 5.9724,
+    "lng": 102.1385,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Pasir Padang": {
+    "lat": 6.0612,
+    "lng": 102.1584,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah PASTI Telaga Mas": {
+    "lat": 6.0315,
+    "lng": 101.9842,
     "exact": false
   },
   "Pasir Mas:Madrasah Pekan Rantau Panjang": {
@@ -2111,8 +2736,33 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "exact": true
   },
   "Pasir Mas:Madrasah Rong Chenok": {
-    "lat": 6.035853,
-    "lng": 102.147847,
+    "lat": 5.9612,
+    "lng": 102.1485,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Sungai Keladi": {
+    "lat": 6.0485,
+    "lng": 102.1462,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Tanjung Baru": {
+    "lat": 6.0682,
+    "lng": 102.0745,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Tasek Bakong": {
+    "lat": 6.0145,
+    "lng": 102.0385,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Tasek Tandak": {
+    "lat": 5.9525,
+    "lng": 101.9885,
+    "exact": false
+  },
+  "Pasir Mas:Madrasah Wan Salleh Kg. Senor": {
+    "lat": 6.10185,
+    "lng": 102.1002,
     "exact": false
   },
   "Pasir Mas:Masjid At-Taqwa Rantau Mas": {
@@ -2125,15 +2775,60 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.0815018910192,
     "exact": true
   },
+  "Pasir Mas:Masjid Binjal": {
+    "lat": 5.98888382524189,
+    "lng": 102.17319795683787,
+    "exact": true
+  },
   "Pasir Mas:Masjid Bukit Tuku": {
     "lat": 5.912677014842989,
     "lng": 102.08324550416519,
     "exact": true
   },
+  "Pasir Mas:Masjid Chasi": {
+    "lat": 5.938611107697783,
+    "lng": 102.1194971154337,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Gabus": {
+    "lat": 5.976542851845392,
+    "lng": 102.12357205401226,
+    "exact": true
+  },
   "Pasir Mas:Masjid Gual Sitok": {
-    "lat": 6.015674768829759,
-    "lng": 102.00087846431792,
-    "exact": false
+    "lat": 6.017798972673381,
+    "lng": 102.00069648843407,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Jejawi": {
+    "lat": 6.041109958363632,
+    "lng": 102.05451028358112,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Kbg. Gendang": {
+    "lat": 5.913541680826948,
+    "lng": 102.18389368229207,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Kedepil": {
+    "lat": 5.999246754615329,
+    "lng": 102.18557428099916,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Kerasak": {
+    "lat": 6.093621860271464,
+    "lng": 102.1419843138265,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Kubang Pak Hitam": {
+    "lat": 6.117501413885192,
+    "lng": 102.07802095456144,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Lubok Gong": {
+    "lat": 6.035017610505496,
+    "lng": 101.98869229500387,
+    "exact": true
   },
   "Pasir Mas:Masjid Lubok Kawah": {
     "lat": 6.062397435103828,
@@ -2150,52 +2845,87 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.02299516750581,
     "exact": true
   },
+  "Pasir Mas:Masjid Mukim Kubang Tembesu": {
+    "lat": 5.931685578743904,
+    "lng": 102.16782610296698,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Mukim Padang Lichin": {
+    "lat": 6.001936778495544,
+    "lng": 102.03814711831149,
+    "exact": true
+  },
   "Pasir Mas:Masjid Mukim Paloh": {
-    "lat": 6.032442,
-    "lng": 102.16277,
-    "exact": false
+    "lat": 6.075789845357815,
+    "lng": 102.21365755925072,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Perol": {
+    "lat": 6.016710030806955,
+    "lng": 102.26471958284796,
+    "exact": true
+  },
+  "Pasir Mas:Masjid Pondok Jelor": {
+    "lat": 5.909845465895321,
+    "lng": 102.15278906750554,
+    "exact": true
   },
   "Pasir Mas:Masjid Pondok Lati": {
     "lat": 6.018816012137577,
     "lng": 102.13113886750571,
     "exact": true
   },
-  "Pasir Mas:SEK ARAB LUBOK GONG": {
-    "lat": 6.034046902141486,
-    "lng": 102.0332371675055,
+  "Pasir Mas:Masjid Rong Chenok": {
+    "lat": 5.925470894066199,
+    "lng": 102.13623232702537,
     "exact": true
   },
-  "Pasir Mas:SK BAKONG": {
-    "lat": 6.028216,
-    "lng": 102.126916,
+  "Pasir Mas:Masjid Yb Adun Meranti": {
+    "lat": 6.098259212521637,
+    "lng": 102.10485778745176,
+    "exact": true
+  },
+  "Pasir Mas:Rumah Azmi Bin Yusoff": {
+    "lat": 6.105496974648494,
+    "lng": 102.07868882122705,
     "exact": false
+  },
+  "Pasir Mas:SK Bakong": {
+    "lat": 6.09206249859921,
+    "lng": 102.08365977621567,
+    "exact": true
   },
   "Pasir Mas:SK Banggol Petai": {
-    "lat": 6.039305,
-    "lng": 102.15932,
-    "exact": false
+    "lat": 5.902004338019122,
+    "lng": 102.07325039634101,
+    "exact": true
   },
-  "Pasir Mas:SK BAROH PIAL": {
+  "Pasir Mas:SK Baroh Pial": {
     "lat": 5.92002166568888,
     "lng": 102.0332371675055,
     "exact": true
   },
-  "Pasir Mas:SK BAYU LALANG": {
+  "Pasir Mas:SK Bayu Lalang": {
     "lat": 6.07031085827372,
     "lng": 102.10889611847666,
     "exact": true
   },
-  "Pasir Mas:SK BENDANG PAUH": {
-    "lat": 6.04346,
-    "lng": 102.163179,
-    "exact": false
+  "Pasir Mas:SK Bechah Kelubi": {
+    "lat": 5.912872194078614,
+    "lng": 102.16585259634104,
+    "exact": true
   },
-  "Pasir Mas:SK BGL. CHICHA": {
+  "Pasir Mas:SK Bendang Pauh": {
+    "lat": 5.954976081217518,
+    "lng": 102.19588029634113,
+    "exact": true
+  },
+  "Pasir Mas:SK Bgl. Chicha": {
     "lat": 6.0513273993903915,
     "lng": 102.11201447087596,
     "exact": true
   },
-  "Pasir Mas:SK BUKIT JARUM": {
+  "Pasir Mas:SK Bukit Jarum": {
     "lat": 5.957443761757695,
     "lng": 102.12337821413239,
     "exact": true
@@ -2205,57 +2935,52 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.10003339109916,
     "exact": true
   },
-  "Pasir Mas:SK BUNUT SUSU": {
+  "Pasir Mas:SK Bunut Susu": {
     "lat": 6.099911898165901,
     "lng": 102.18263223867046,
     "exact": true
   },
-  "Pasir Mas:SK CHABANG 3 CHETOK": {
-    "lat": 6.040215,
-    "lng": 102.148448,
-    "exact": false
+  "Pasir Mas:SK Chabang 3 Chetok": {
+    "lat": 5.96925959402293,
+    "lng": 102.20172416935432,
+    "exact": true
   },
-  "Pasir Mas:SK CHETOK": {
+  "Pasir Mas:SK Chetok": {
     "lat": 5.992683050074218,
     "lng": 102.11917627425275,
     "exact": true
   },
-  "Pasir Mas:SK CHICHA TINGGI": {
+  "Pasir Mas:SK Chicha Tinggi": {
     "lat": 6.046894089063255,
     "lng": 102.13840788107936,
     "exact": true
   },
-  "Pasir Mas:SK CINA": {
+  "Pasir Mas:SK Cina": {
     "lat": 6.039713346036147,
     "lng": 102.1411834990993,
     "exact": true
   },
-  "Pasir Mas:SK GELANG MAS": {
+  "Pasir Mas:SK Gelang Mas": {
     "lat": 6.054362142270921,
     "lng": 102.16480373867041,
     "exact": true
   },
-  "Pasir Mas:SK GUAL PERIOK": {
+  "Pasir Mas:SK Gual Periok": {
     "lat": 6.025105254650782,
     "lng": 102.01693224850057,
     "exact": true
   },
-  "Pasir Mas:SK Gual Sitok": {
-    "lat": 6.046196,
-    "lng": 102.142731,
-    "exact": false
-  },
-  "Pasir Mas:SK GUAL TINGGI": {
+  "Pasir Mas:SK Gual Tinggi": {
     "lat": 6.00322257965202,
     "lng": 101.99775360780018,
     "exact": true
   },
-  "Pasir Mas:SK GUAL TOK DEH": {
+  "Pasir Mas:SK Gual Tok Deh": {
     "lat": 6.044746701498568,
     "lng": 102.01493179634134,
     "exact": true
   },
-  "Pasir Mas:SK KEDAI TANJONG": {
+  "Pasir Mas:SK Kedai Tanjong": {
     "lat": 6.069667799996698,
     "lng": 102.07728296750592,
     "exact": true
@@ -2265,59 +2990,109 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.16152725968392,
     "exact": true
   },
-  "Pasir Mas:SK KEPAS": {
+  "Pasir Mas:SK Kepas": {
     "lat": 5.946891765924495,
     "lng": 102.16742834919935,
     "exact": true
   },
-  "Pasir Mas:SK Kg. RAHMAT": {
+  "Pasir Mas:SK Kg. Baru": {
+    "lat": 5.99059082375575,
+    "lng": 102.10637363867023,
+    "exact": true
+  },
+  "Pasir Mas:SK Kg. Rahmat": {
     "lat": 5.9148345197922305,
     "lng": 101.93256253539894,
     "exact": true
   },
-  "Pasir Mas:SK KOK PAUH": {
+  "Pasir Mas:SK Kok Pauh": {
     "lat": 5.982885804322361,
     "lng": 101.96481583998066,
     "exact": true
   },
-  "Pasir Mas:SK KUBANG KUAL": {
+  "Pasir Mas:SK Kubang Chenok": {
+    "lat": 5.965408794026706,
+    "lng": 102.17431850983462,
+    "exact": true
+  },
+  "Pasir Mas:SK Kubang Kual": {
     "lat": 5.965400835501998,
     "lng": 102.0100520251766,
     "exact": true
   },
-  "Pasir Mas:SK LATI": {
+  "Pasir Mas:SK Lati": {
     "lat": 6.021784689778738,
     "lng": 102.13139050317307,
     "exact": true
   },
-  "Pasir Mas:SK LUBOK SETOL": {
+  "Pasir Mas:SK Lubok Setol": {
     "lat": 5.958289094033762,
     "lng": 101.95535726750569,
     "exact": true
   },
-  "Pasir Mas:SK SRI RANTAU PANJANG 2": {
-    "lat": 6.02497403311299,
-    "lng": 101.97870020983477,
+  "Pasir Mas:SK Othman Talib": {
+    "lat": 6.070131629157392,
+    "lng": 102.20306595470302,
     "exact": true
   },
-  "Pasir Mas:SK SRI KIAMBANG": {
+  "Pasir Mas:SK Pangkal Kala": {
+    "lat": 6.107750297689954,
+    "lng": 102.13767672517702,
+    "exact": true
+  },
+  "Pasir Mas:SK Sri Kiambang": {
     "lat": 6.024420493968401,
     "lng": 102.09209356750578,
     "exact": true
   },
-  "Pasir Mas:SK TANJONG CHENOK": {
+  "Pasir Mas:SK Sri Rantau Panjang 2": {
+    "lat": 6.02497403311299,
+    "lng": 101.97870020983477,
+    "exact": true
+  },
+  "Pasir Mas:SK Tanjong Chenok": {
     "lat": 6.076883268109125,
     "lng": 102.15997098284805,
     "exact": true
   },
-  "Pasir Mas:SK TOK SANGKUT": {
+  "Pasir Mas:SK Tok Sangkut": {
     "lat": 6.038492924648285,
     "lng": 102.06794944051889,
     "exact": true
   },
-  "Pasir Mas:SK TOK UBAN": {
+  "Pasir Mas:SK Tok Uban": {
     "lat": 5.969542894022592,
     "lng": 102.14465226750578,
+    "exact": true
+  },
+  "Pasir Mas:SMA (Qariah) Banggol Setol": {
+    "lat": 6.047809079213044,
+    "lng": 102.07964538284796,
+    "exact": true
+  },
+  "Pasir Mas:SMA Kg. Bonggor": {
+    "lat": 6.054094575533211,
+    "lng": 102.04806823036542,
+    "exact": true
+  },
+  "Pasir Mas:SMA Lati": {
+    "lat": 6.015613663733381,
+    "lng": 102.1199270675058,
+    "exact": true
+  },
+  "Pasir Mas:SMA Lubok Gong": {
+    "lat": 6.034046902141486,
+    "lng": 102.0332371675055,
+    "exact": true
+  },
+  "Pasir Mas:SMA Meranti": {
+    "lat": 6.101408719749281,
+    "lng": 102.10511212745395,
+    "exact": true
+  },
+  "Pasir Mas:SMA Pohon Buloh": {
+    "lat": 6.077477856844576, 
+    "lng": 102.13077322517694,
     "exact": true
   },
   "Pasir Mas:SMK Baroh Pial": {
@@ -2325,40 +3100,45 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.00568106750568,
     "exact": true
   },
-  "Pasir Mas:SMK CHETOK": {
+  "Pasir Mas:SMK Chetok": {
     "lat": 5.919520503437149,
     "lng": 102.18733283192331,
     "exact": true
   },
-  "Pasir Mas:SMK KANGKONG": {
+  "Pasir Mas:SMK Kangkong": {
     "lat": 5.994483920472015,
     "lng": 102.18313506011111,
     "exact": true
   },
-  "Pasir Mas:SMK PEREMPUAN PASIR MAS": {
-    "lat": 6.046097,
-    "lng": 102.149884,
-    "exact": false
+  "Pasir Mas:SMK SIS 11 Pasir Mas": {
+    "lat": 6.048306938384682,
+    "lng": 102.14272983596327,
+    "exact": true
   },
-  "Pasir Mas:SMK TO' UBAN": {
+  "Pasir Mas:SMK Tengku Panglima Raja": {
+    "lat": 6.023496508818066,
+    "lng": 102.14723777598346,
+    "exact": true
+  },
+  "Pasir Mas:SMK To' Uban": {
     "lat": 5.9708372352849794,
     "lng": 102.14474186750567,
     "exact": true
   },
-  "Pasir Mas:SMKAGAMA (ARAB) LATI": {
-    "lat": 6.015613663733381,
-    "lng": 102.1199270675058,
+  "Pasir Mas:Surau Rahmat Hilir": {
+    "lat": 5.978871694545282,
+    "lng": 102.04764141892558,
+    "exact": false
+  },
+  "Pasir Mas:Tokong Cina": {
+    "lat": 6.022718469065804,
+    "lng": 102.14908714375112,
     "exact": true
   },
-  "Pasir Mas:SMKAGAMA(ARAB) MERANTI": {
-    "lat": 6.101408719749281,
-    "lng": 102.10511212745395,
-    "exact": true
-  },
-  "Pasir Mas:SMKTENGKU PANGLIMA RAJA": {
-    "lat": 6.023496508818066,
-    "lng": 102.14723777598346,
-    "exact": true
+  "Pasir Puteh:Balaisah Kedai Pmtg. Rambai": {
+    "lat": 5.8361,
+    "lng": 102.4062,
+    "exact": false
   },
   "Pasir Puteh:Dewan Orang Ramai G. Pasir": {
     "lat": 5.9542831977192465,
@@ -2375,9 +3155,19 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.4641961,
     "exact": true
   },
+  "Pasir Puteh:Dewan Orang Ramai Ketek Buloh": {
+    "lat": 5.837992,
+    "lng": 102.406264,
+    "exact": false
+  },
   "Pasir Puteh:Dewan Orang Ramai Kg. Binjal": {
     "lat": 5.840758,
     "lng": 102.405722,
+    "exact": false
+  },
+  "Pasir Puteh:Dewan Orang Ramai Kg. Jebak": {
+    "lat": 5.832514,
+    "lng": 102.404514,
     "exact": false
   },
   "Pasir Puteh:Dewan Orang Ramai Kg. Kandis": {
@@ -2385,10 +3175,20 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.38897,
     "exact": false
   },
+  "Pasir Puteh:Dewan Orang Ramai Kg. Lembah": {
+    "lat": 5.839591,
+    "lng": 102.406879,
+    "exact": false
+  },
   "Pasir Puteh:Dewan Orang Ramai Sg. Petai": {
     "lat": 5.8141713,
     "lng": 102.4574139,
     "exact": true
+  },
+  "Pasir Puteh:Dewan Orang Ramai/ Pejabat Penggawa Semerak": {
+    "lat": 5.835197,
+    "lng": 102.409321,
+    "exact": false
   },
   "Pasir Puteh:Dewan PPK Bukit Awang": {
     "lat": 5.847596,
@@ -2403,6 +3203,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Pasir Puteh:Dewan SMK Kamil": {
     "lat": 5.818576,
     "lng": 102.392335,
+    "exact": false
+  },
+  "Pasir Puteh:Dewan Uthmaniah": {
+    "lat": 5.832876,
+    "lng": 102.40926,
     "exact": false
   },
   "Pasir Puteh:Dewan Wawasan Kg. Telipot": {
@@ -2425,9 +3230,44 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.4704453,
     "exact": true
   },
+  "Pasir Puteh:Madrasah Daram Buaya": {
+    "lat": 5.842668,
+    "lng": 102.40596,
+    "exact": false
+  },
   "Pasir Puteh:Madrasah Gong Ketereh": {
     "lat": 5.82737,
     "lng": 102.426751,
+    "exact": false
+  },
+  "Pasir Puteh:Madrasah Hj. Mat Nor": {
+    "lat": 5.829359,
+    "lng": 102.407709,
+    "exact": false
+  },
+  "Pasir Puteh:Madrasah Kg. Berendam": {
+    "lat": 5.836784,
+    "lng": 102.406079,
+    "exact": false
+  },
+  "Pasir Puteh:Madrasah Lebai Mat": {
+    "lat": 5.837172,
+    "lng": 102.406787,
+    "exact": false
+  },
+  "Pasir Puteh:Madrasah Pak Cu Harun": {
+    "lat": 5.832837,
+    "lng": 102.405721,
+    "exact": false
+  },
+  "Pasir Puteh:Madrasah Pak Kob, Tok Ajam": {
+    "lat": 5.840296,
+    "lng": 102.405523,
+    "exact": false
+  },
+  "Pasir Puteh:Madrasah Pengkalan Pauh": {
+    "lat": 5.8335,
+    "lng": 102.408703,
     "exact": false
   },
   "Pasir Puteh:Masjid Alor Pasir": {
@@ -2460,29 +3300,14 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.399511,
     "exact": false
   },
-  "Pasir Puteh:Sek. Banggol Pak Esah": {
+  "Pasir Puteh:SK Banggol Pak Esah": {
     "lat": 5.815336,
     "lng": 102.403982,
     "exact": false
   },
-  "Pasir Puteh:Sek. Ren. Keb. Kamil 3": {
-    "lat": 5.832324,
-    "lng": 102.411157,
-    "exact": false
-  },
-  "Pasir Puteh:Sek. Ren. Keb. Tasek": {
-    "lat": 5.842885,
-    "lng": 102.391217,
-    "exact": false
-  },
-  "Pasir Puteh:Sekolah Rendah Keb. Kamil I": {
-    "lat": 5.813227,
-    "lng": 102.387212,
-    "exact": false
-  },
-  "Pasir Puteh:Sekolah Rendah Keb. Kamil II": {
-    "lat": 5.839926,
-    "lng": 102.424728,
+  "Pasir Puteh:SK Bukit Abal": {
+    "lat": 5.8185,
+    "lng": 102.4,
     "exact": false
   },
   "Pasir Puteh:SK Bukit Awang": {
@@ -2505,6 +3330,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.42157,
     "exact": false
   },
+  "Pasir Puteh:SK Changgai": {
+    "lat": 5.845539,
+    "lng": 102.411215,
+    "exact": false
+  },
   "Pasir Puteh:SK Cherang Ruku": {
     "lat": 5.8629407,
     "lng": 102.4908882,
@@ -2515,14 +3345,44 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.390629,
     "exact": false
   },
+  "Pasir Puteh:SK Gong Garu": {
+    "lat": 5.831696,
+    "lng": 102.38167,
+    "exact": false
+  },
   "Pasir Puteh:SK Gong Kulim": {
     "lat": 5.846783,
     "lng": 102.425901,
     "exact": false
   },
+  "Pasir Puteh:SK Gong Manok": {
+    "lat": 5.834801,
+    "lng": 102.410058,
+    "exact": false
+  },
   "Pasir Puteh:SK Jelor": {
     "lat": 5.834335,
     "lng": 102.396136,
+    "exact": false
+  },
+  "Pasir Puteh:SK Kamil 3": {
+    "lat": 5.832324,
+    "lng": 102.411157,
+    "exact": false
+  },
+  "Pasir Puteh:SK Kamil I": {
+    "lat": 5.813227,
+    "lng": 102.387212,
+    "exact": false
+  },
+  "Pasir Puteh:SK Kamil II": {
+    "lat": 5.839926,
+    "lng": 102.424728,
+    "exact": false
+  },
+  "Pasir Puteh:SK Kg. Nara": {
+    "lat": 5.821003,
+    "lng": 102.416026,
     "exact": false
   },
   "Pasir Puteh:SK Sepulau": {
@@ -2535,6 +3395,21 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.4580863,
     "exact": true
   },
+  "Pasir Puteh:SK Tadika Kg. Taweh (KEMAS)": {
+    "lat": 5.828565,
+    "lng": 102.405192,
+    "exact": false
+  },
+  "Pasir Puteh:SK Tasek": {
+    "lat": 5.842885,
+    "lng": 102.391217,
+    "exact": false
+  },
+  "Pasir Puteh:SK Tasik Pauh": {
+    "lat": 5.854966,
+    "lng": 102.39618,
+    "exact": false
+  },
   "Pasir Puteh:SK Tualang Tinggi": {
     "lat": 5.850794,
     "lng": 102.4101,
@@ -2545,29 +3420,9 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.4288245,
     "exact": true
   },
-  "Pasir Puteh:SKBukit Abal": {
-    "lat": 5.8185,
-    "lng": 102.4,
-    "exact": false
-  },
-  "Pasir Puteh:SKChanggai": {
-    "lat": 5.845539,
-    "lng": 102.411215,
-    "exact": false
-  },
-  "Pasir Puteh:SKGong Garu": {
-    "lat": 5.831696,
-    "lng": 102.38167,
-    "exact": false
-  },
-  "Pasir Puteh:SKKg.Nara": {
-    "lat": 5.821003,
-    "lng": 102.416026,
-    "exact": false
-  },
-  "Pasir Puteh:SKTasik Pauh": {
-    "lat": 5.854966,
-    "lng": 102.39618,
+  "Pasir Puteh:SMK Dato": {
+    "lat": 5.84167,
+    "lng": 102.4081,
     "exact": false
   },
   "Pasir Puteh:SMK Kamil": {
@@ -2600,9 +3455,24 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.148762,
     "exact": false
   },
+  "Tanah Merah:Balai Raya Kg. Batu Jong": {
+    "lat": 5.4421,
+    "lng": 102.2032,
+    "exact": false
+  },
   "Tanah Merah:Balai Raya Kg. Berchang": {
     "lat": 5.815758,
     "lng": 102.153822,
+    "exact": false
+  },
+  "Tanah Merah:Balai Raya Kg. Padang Kijang": {
+    "lat": 5.810392,
+    "lng": 102.149264,
+    "exact": false
+  },
+  "Tanah Merah:Balai Raya Kg. Paku": {
+    "lat": 5.804914,
+    "lng": 102.147514,
     "exact": false
   },
   "Tanah Merah:Balai Raya Kg. Panjang": {
@@ -2610,9 +3480,34 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.143824,
     "exact": false
   },
+  "Tanah Merah:Balai Raya Kg. Rambai": {
+    "lat": 5.811991,
+    "lng": 102.149879,
+    "exact": false
+  },
+  "Tanah Merah:Balai Raya Kg. Renat": {
+    "lat": 5.807597,
+    "lng": 102.152321,
+    "exact": false
+  },
+  "Tanah Merah:Balai Raya Padang Kijang": {
+    "lat": 5.805276,
+    "lng": 102.15226,
+    "exact": false
+  },
+  "Tanah Merah:Bangunan MCA Kg. Jelatok": {
+    "lat": 5.815068,
+    "lng": 102.14896,
+    "exact": false
+  },
   "Tanah Merah:Bangunan MCA Tanah Merah": {
     "lat": 5.806355,
     "lng": 102.13707,
+    "exact": false
+  },
+  "Tanah Merah:Desa Taqwa Kg. Nibong": {
+    "lat": 5.801759,
+    "lng": 102.150709,
     "exact": false
   },
   "Tanah Merah:Dewan Bendang Keladi": {
@@ -2623,6 +3518,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Tanah Merah:Dewan Desa Taqwa Kg. Nibong": {
     "lat": 5.822596,
     "lng": 102.144269,
+    "exact": false
+  },
+  "Tanah Merah:Dewan Estate Tebing Tinggi": {
+    "lat": 5.816684,
+    "lng": 102.131279,
     "exact": false
   },
   "Tanah Merah:Dewan IPD Tanah Merah": {
@@ -2655,6 +3555,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.12593,
     "exact": false
   },
+  "Tanah Merah:Dewan Pemindahan Banjir Tebing Tinggi/Dewan Komuniti": {
+    "lat": 5.817072,
+    "lng": 102.131987,
+    "exact": false
+  },
   "Tanah Merah:Dewan Serbaguna MCA": {
     "lat": 5.80237,
     "lng": 102.174851,
@@ -2665,14 +3570,29 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.131352,
     "exact": false
   },
+  "Tanah Merah:Kg. Sokor (Rumah Zahid Bin Mohd Nor)": {
+    "lat": 5.805237,
+    "lng": 102.148721,
+    "exact": false
+  },
   "Tanah Merah:Kolej Vokasional Tanah Merah": {
     "lat": 5.7807404,
     "lng": 102.1459242,
     "exact": true
   },
+  "Tanah Merah:Kuaters Hospital Tanah Merah": {
+    "lat": 5.812696,
+    "lng": 102.148523,
+    "exact": false
+  },
   "Tanah Merah:Madrasah Air Chanal": {
     "lat": 5.812028,
     "lng": 102.152543,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Air Machang": {
+    "lat": 5.807201,
+    "lng": 102.153058,
     "exact": false
   },
   "Tanah Merah:Madrasah Air Merah": {
@@ -2685,9 +3605,39 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.154747,
     "exact": false
   },
+  "Tanah Merah:Madrasah Atas Banggol Kg. Sat": {
+    "lat": 5.81407,
+    "lng": 102.1511,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Becah Palas Lubuk Agor": {
+    "lat": 5.800965,
+    "lng": 102.148192,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Bechah Palas, Repoh Jagung": {
+    "lat": 5.809786,
+    "lng": 102.148732,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Bkg. Rahmat": {
+    "lat": 5.808622,
+    "lng": 102.149997,
+    "exact": false
+  },
   "Tanah Merah:Madrasah Bukit Kuing": {
     "lat": 5.819489,
     "lng": 102.147611,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Bukit Pauh": {
+    "lat": 5.805954,
+    "lng": 102.149746,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Chabang 3 Bukit Tebu": {
+    "lat": 5.812896,
+    "lng": 102.147392,
     "exact": false
   },
   "Tanah Merah:Madrasah Gual Jedok": {
@@ -2695,9 +3645,74 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.9543537,
     "exact": true
   },
+  "Tanah Merah:Madrasah Hj Ab. Rahman, Sat Hulu": {
+    "lat": 5.804517,
+    "lng": 102.150542,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Hj. Deraman (Kg. Hulu Sat)": {
+    "lat": 5.809283,
+    "lng": 102.153149,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Hj. Pak Man, Bechah Pelting": {
+    "lat": 5.8124,
+    "lng": 102.15277,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Hji. Yaakob Kg. Cherang Lali": {
+    "lat": 5.80108,
+    "lng": 102.148845,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Jerangau Tua": {
+    "lat": 5.810232,
+    "lng": 102.1482,
+    "exact": false
+  },
   "Tanah Merah:Madrasah Kenerek": {
     "lat": 5.810232,
     "lng": 102.162773,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Air Batu": {
+    "lat": 5.808186,
+    "lng": 102.150786,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Banggol Ketereh (Bendang Nyior)": {
+    "lat": 5.9556,
+    "lng": 102.253003,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Banggol Nering": {
+    "lat": 5.811744,
+    "lng": 102.150173,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Banggol Tok Ajar": {
+    "lat": 5.8033,
+    "lng": 102.1472,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Banggol Yek": {
+    "lat": 5.806979,
+    "lng": 102.150463,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Batu Garam": {
+    "lat": 5.812565,
+    "lng": 102.148884,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Bechah Pelting Hilir": {
+    "lat": 5.812924,
+    "lng": 102.151254,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Bedah": {
+    "lat": 5.807907,
+    "lng": 102.153974,
     "exact": false
   },
   "Tanah Merah:Madrasah Kg. Belimbing": {
@@ -2710,9 +3725,59 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.134502,
     "exact": false
   },
+  "Tanah Merah:Madrasah Kg. Bendang Besar": {
+    "lat": 5.803873,
+    "lng": 102.153229,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Bukit Kelupang": {
+    "lat": 5.803614,
+    "lng": 102.148979,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Cherang Lali": {
+    "lat": 5.81047,
+    "lng": 102.147547,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Gobek": {
+    "lat": 5.806139,
+    "lng": 102.148704,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Hutan Lanjut": {
+    "lat": 5.809432,
+    "lng": 102.150677,
+    "exact": false
+  },
   "Tanah Merah:Madrasah Kg. Kulim": {
     "lat": 5.825794,
     "lng": 102.1582,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Lepan Bola": {
+    "lat": 5.809786,
+    "lng": 102.148732,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Liku": {
+    "lat": 5.81127,
+    "lng": 102.152522,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Lubok Rotan Tawar": {
+    "lat": 5.810532,
+    "lng": 102.151103,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Lubuk Rotan Tawar": {
+    "lat": 5.81026,
+    "lng": 102.153768,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Mengat": {
+    "lat": 5.810232,
+    "lng": 102.1482,
     "exact": false
   },
   "Tanah Merah:Madrasah Kg. Nibong": {
@@ -2720,9 +3785,74 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 101.9162151,
     "exact": true
   },
+  "Tanah Merah:Madrasah Kg. Padang Guchil": {
+    "lat": 5.803614,
+    "lng": 102.148979,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Padang Kijang": {
+    "lat": 5.814043,
+    "lng": 102.149496,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Paku": {
+    "lat": 5.805626,
+    "lng": 102.153363,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Rambai": {
+    "lat": 5.80209,
+    "lng": 102.151283,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Renat": {
+    "lat": 5.806215,
+    "lng": 102.154448,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kg. Sokor, Gewang": {
+    "lat": 5.81047,
+    "lng": 102.147547,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Kuala Kepok": {
+    "lat": 5.805766,
+    "lng": 102.147806,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Ladang Sokor": {
+    "lat": 5.810565,
+    "lng": 102.150149,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Manal 1": {
+    "lat": 5.809074,
+    "lng": 102.151562,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Manal 3 (Dewan Manal 3)": {
+    "lat": 5.804517,
+    "lng": 102.150542,
+    "exact": false
+  },
   "Tanah Merah:Madrasah Manal Jaya": {
     "lat": 5.798242,
     "lng": 102.16967,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Pak Chu Hassan Kuala Paku": {
+    "lat": 5.814494,
+    "lng": 102.147462,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Seberang Kg. Kuala Paku": {
+    "lat": 5.803692,
+    "lng": 102.152008,
+    "exact": false
+  },
+  "Tanah Merah:Madrasah Wak Seman": {
+    "lat": 5.808832,
+    "lng": 102.154793,
     "exact": false
   },
   "Tanah Merah:Masjid Jerangau": {
@@ -2745,6 +3875,16 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.144236,
     "exact": false
   },
+  "Tanah Merah:Masjid Kuala Tiga": {
+    "lat": 5.805724,
+    "lng": 102.147565,
+    "exact": false
+  },
+  "Tanah Merah:Masjid Kusial Baru": {
+    "lat": 5.781449,
+    "lng": 102.130565,
+    "exact": false
+  },
   "Tanah Merah:Masjid Kusial Bharu": {
     "lat": 5.803408,
     "lng": 102.151216,
@@ -2765,17 +3905,72 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.159257,
     "exact": false
   },
+  "Tanah Merah:Masjid Mukim Kuala Kepok": {
+    "lat": 5.807548,
+    "lng": 102.151496,
+    "exact": false
+  },
+  "Tanah Merah:Masjid Mukim Pasir Sat": {
+    "lat": 5.8059,
+    "lng": 102.151703,
+    "exact": false
+  },
   "Tanah Merah:Masjid Mukim Tepi Sungai": {
     "lat": 5.817885,
     "lng": 102.139317,
     "exact": false
   },
-  "Tanah Merah:Sek. Arab Kg. Kuala Kajang": {
-    "lat": 5.814926,
-    "lng": 102.172828,
+  "Tanah Merah:Masjid Seberang Nas, Kuala Paku": {
+    "lat": 5.814222,
+    "lng": 102.149004,
     "exact": false
   },
-  "Tanah Merah:SK (C) Yuk Cheng": {
+  "Tanah Merah:Pusat Pemindahan Kongsi Lima (Kg. Rambai)": {
+    "lat": 5.802337,
+    "lng": 102.150074,
+    "exact": false
+  },
+  "Tanah Merah:Pusat Pemindahan Maskura": {
+    "lat": 5.811408,
+    "lng": 102.154221,
+    "exact": false
+  },
+  "Tanah Merah:Pusat Pemindahan Sutera Guest House": {
+    "lat": 5.809184,
+    "lng": 102.149079,
+    "exact": false
+  },
+  "Tanah Merah:Rumah Ahmad Ibrahim Setambun Tulang (Khemah)": {
+    "lat": 5.806016,
+    "lng": 102.148493,
+    "exact": false
+  },
+  "Tanah Merah:Rumah Che Ismail Alor Botol": {
+    "lat": 5.811977,
+    "lng": 102.148132,
+    "exact": false
+  },
+  "Tanah Merah:Rumah Cikgu Razali Bin Osman": {
+    "lat": 5.806136,
+    "lng": 102.150911,
+    "exact": false
+  },
+  "Tanah Merah:Rumah Hamat Bin Abdullah": {
+    "lat": 5.807597,
+    "lng": 102.152321,
+    "exact": false
+  },
+  "Tanah Merah:Rumah Mazlan Padang Kijang": {
+    "lat": 5.81326,
+    "lng": 102.150853,
+    "exact": false
+  },
+  "Tanah Merah:Rumah Penghulu Sokor": {
+    "lat": 5.801726,
+    "lng": 102.147793,
+    "exact": false
+  },
+  "Tanah Merah:SJK(C) Yuk Cheng": {
     "lat": 5.795584,
     "lng": 102.15877,
     "exact": false
@@ -2835,6 +4030,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.133816,
     "exact": false
   },
+  "Tanah Merah:SK Lawang": {
+    "lat": 5.8085,
+    "lng": 102.1492,
+    "exact": false
+  },
   "Tanah Merah:SK Nik Daud": {
     "lat": 5.80926,
     "lng": 102.170079,
@@ -2855,6 +4055,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.1446798,
     "exact": true
   },
+  "Tanah Merah:SK Sri Suria 3": {
+    "lat": 5.806608,
+    "lng": 102.149264,
+    "exact": false
+  },
   "Tanah Merah:SK Tanah Merah 1": {
     "lat": 5.8030731,
     "lng": 102.1476269,
@@ -2870,6 +4075,16 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.163816,
     "exact": false
   },
+  "Tanah Merah:SMA Kg. Kuala Kajang": {
+    "lat": 5.814926,
+    "lng": 102.172828,
+    "exact": false
+  },
+  "Tanah Merah:SMA Padang Siam": {
+    "lat": 5.812086,
+    "lng": 102.147514,
+    "exact": false
+  },
   "Tanah Merah:SMK Air Lanas": {
     "lat": 5.805849,
     "lng": 102.142843,
@@ -2878,6 +4093,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
   "Tanah Merah:SMK Belimbing": {
     "lat": 5.812131,
     "lng": 102.137575,
+    "exact": false
+  },
+  "Tanah Merah:SMK Bukit Bunga": {
+    "lat": 5.816441,
+    "lng": 102.1434,
     "exact": false
   },
   "Tanah Merah:SMK Tan Sri Md Yaacob": {
@@ -2895,19 +4115,44 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.1350635,
     "exact": true
   },
-  "Tanah Merah:SMKBukit Bunga": {
-    "lat": 5.816441,
-    "lng": 102.1434,
-    "exact": false
-  },
   "Tanah Merah:SMU(A) Diniah Bukit Kechik": {
     "lat": 5.822596,
     "lng": 102.151931,
     "exact": false
   },
+  "Tanah Merah:Tadika Bukit Kechik": {
+    "lat": 5.805009,
+    "lng": 102.149879,
+    "exact": false
+  },
+  "Tanah Merah:Tadika Kg. Nibong": {
+    "lat": 5.809403,
+    "lng": 102.152321,
+    "exact": false
+  },
   "Tanah Merah:Tokong Cina Pasir Panji": {
     "lat": 5.799381,
     "lng": 102.1341,
+    "exact": false
+  },
+  "Tumpat:Balai Raya Kg. Delima": {
+    "lat": 6.1978,
+    "lng": 102.1702,
+    "exact": false
+  },
+  "Tumpat:Balai Raya Kg. Laut 1": {
+    "lat": 6.200502,
+    "lng": 102.170149,
+    "exact": false
+  },
+  "Tumpat:Balai Raya Kok Keli": {
+    "lat": 6.192819,
+    "lng": 102.167636,
+    "exact": false
+  },
+  "Tumpat:Balai Raya Simpangan": {
+    "lat": 6.20256,
+    "lng": 102.170853,
     "exact": false
   },
   "Tumpat:Dewan Belia Kg. Laut": {
@@ -2930,6 +4175,21 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.2279466,
     "exact": true
   },
+  "Tumpat:Dewan SK Seri Wakaf Bharu": {
+    "lat": 6.201562,
+    "lng": 102.177537,
+    "exact": false
+  },
+  "Tumpat:Dewan SMK Chabang Empat": {
+    "lat": 6.202392,
+    "lng": 102.178287,
+    "exact": false
+  },
+  "Tumpat:Dewan Sri Neting": {
+    "lat": 6.195081,
+    "lng": 102.168468,
+    "exact": false
+  },
   "Tumpat:Dewan Tanjung Che Mas": {
     "lat": 6.198586,
     "lng": 102.1705585,
@@ -2950,24 +4210,59 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.159535,
     "exact": false
   },
-  "Tumpat:MAAHAD MUHAMMADI TUMPAT": {
-    "lat": 6.1791632,
-    "lng": 102.1760719,
-    "exact": true
+  "Tumpat:Klinik Kesihatan Wakaf Bharu": {
+    "lat": 6.189868,
+    "lng": 102.168244,
+    "exact": false
+  },
+  "Tumpat:Masjid Mukim Bunohan": {
+    "lat": 6.203585,
+    "lng": 102.174094,
+    "exact": false
+  },
+  "Tumpat:Masjid Mukim Geting": {
+    "lat": 6.198236,
+    "lng": 102.17719,
+    "exact": false
+  },
+  "Tumpat:Masjid Mukim Morak": {
+    "lat": 6.190022,
+    "lng": 102.174978,
+    "exact": false
+  },
+  "Tumpat:Masjid Mukim Pengkalan Kubor": {
+    "lat": 6.209789,
+    "lng": 102.167723,
+    "exact": false
+  },
+  "Tumpat:Masjid Mukim Sungai Pinang": {
+    "lat": 6.195502,
+    "lng": 102.169128,
+    "exact": false
   },
   "Tumpat:Masjid Paloh": {
     "lat": 6.1301502,
     "lng": 102.2162511,
     "exact": true
   },
-  "Tumpat:Sek. Arab. Bunut Sarang Burong": {
-    "lat": 6.185,
-    "lng": 102.14503,
+  "Tumpat:Sekolah Pondok Simpangan": {
+    "lat": 6.200668,
+    "lng": 102.171296,
     "exact": false
   },
-  "Tumpat:Sek. Teluk Jering": {
-    "lat": 6.183,
-    "lng": 102.1672,
+  "Tumpat:SJK(C) Kelaboran": {
+    "lat": 6.191942,
+    "lng": 102.168499,
+    "exact": false
+  },
+  "Tumpat:SJK(C) Yuk Tze": {
+    "lat": 6.203862,
+    "lng": 102.1707,
+    "exact": false
+  },
+  "Tumpat:SJK(T) Ladang Tumpat": {
+    "lat": 6.195394,
+    "lng": 102.17483,
     "exact": false
   },
   "Tumpat:SK Berangan": {
@@ -2990,10 +4285,20 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.1565428,
     "exact": true
   },
+  "Tumpat:SK Delima": {
+    "lat": 6.198576,
+    "lng": 102.170098,
+    "exact": false
+  },
   "Tumpat:SK Geting": {
     "lat": 6.2174641,
     "lng": 102.1176488,
     "exact": true
+  },
+  "Tumpat:SK Jal Besar": {
+    "lat": 6.202724,
+    "lng": 102.168068,
+    "exact": false
   },
   "Tumpat:SK Kebakat": {
     "lat": 6.1373211,
@@ -3005,6 +4310,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.1644393,
     "exact": true
   },
+  "Tumpat:SK Kg. Delima": {
+    "lat": 6.203698,
+    "lng": 102.172605,
+    "exact": false
+  },
   "Tumpat:SK Kg. Laut": {
     "lat": 6.1579783,
     "lng": 102.2279264,
@@ -3014,6 +4324,11 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lat": 6.1756789,
     "lng": 102.21688,
     "exact": true
+  },
+  "Tumpat:SK Kok Pasir": {
+    "lat": 6.196841,
+    "lng": 102.178158,
+    "exact": false
   },
   "Tumpat:SK Kubang Batang": {
     "lat": 6.1367177,
@@ -3060,19 +4375,34 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.193101,
     "exact": false
   },
-  "Tumpat:SK Pulau Beluru": {
-    "lat": 6.1764048,
-    "lng": 102.2310406,
-    "exact": true
-  },
-  "Tumpat:SK Sri Tumpat 1": {
-    "lat": 6.192908,
-    "lng": 102.170316,
+  "Tumpat:SK Seri Neting": {
+    "lat": 6.207326,
+    "lng": 102.1727,
     "exact": false
   },
-  "Tumpat:SK Sri Tumpat 2": {
-    "lat": 6.196196,
-    "lng": 102.14887,
+  "Tumpat:SK Seri Tumpat 1": {
+    "lat": 6.186084,
+    "lng": 102.169797,
+    "exact": false
+  },
+  "Tumpat:SK Seri Tumpat 2": {
+    "lat": 6.199521,
+    "lng": 102.169657,
+    "exact": false
+  },
+  "Tumpat:SK Seri Wakaf Bahru": {
+    "lat": 6.198322,
+    "lng": 102.171166,
+    "exact": false
+  },
+  "Tumpat:SK Simpangan": {
+    "lat": 6.19397,
+    "lng": 102.170414,
+    "exact": false
+  },
+  "Tumpat:SK Sungai Karang": {
+    "lat": 6.203794,
+    "lng": 102.167462,
     "exact": false
   },
   "Tumpat:SK Sungai Pinang": {
@@ -3080,19 +4410,59 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.2311613,
     "exact": true
   },
+  "Tumpat:SK Tanjong Che Mas": {
+    "lat": 6.198149,
+    "lng": 102.175192,
+    "exact": false
+  },
+  "Tumpat:SK Teluk Jering": {
+    "lat": 6.183,
+    "lng": 102.1672,
+    "exact": false
+  },
+  "Tumpat:SK Tujoh": {
+    "lat": 6.187886,
+    "lng": 102.168505,
+    "exact": false
+  },
   "Tumpat:SK Tumpat": {
     "lat": 6.1979617,
     "lng": 102.1644393,
     "exact": true
+  },
+  "Tumpat:SK Tumpat 1": {
+    "lat": 6.195203,
+    "lng": 102.178916,
+    "exact": false
+  },
+  "Tumpat:SK Tumpat 2": {
+    "lat": 6.1963,
+    "lng": 102.169798,
+    "exact": false
   },
   "Tumpat:SK Wakaf Bharu": {
     "lat": 6.1159731,
     "lng": 102.2164951,
     "exact": true
   },
+  "Tumpat:SMA Bunut Sarang Burong": {
+    "lat": 6.185,
+    "lng": 102.14503,
+    "exact": false
+  },
+  "Tumpat:SMA Maahad Muhammadi Tumpat": {
+    "lat": 6.1791632,
+    "lng": 102.1760719,
+    "exact": true
+  },
   "Tumpat:SMK Chabang Empat": {
     "lat": 6.196824,
     "lng": 102.178357,
+    "exact": false
+  },
+  "Tumpat:SMK Dato' Biji Wangsa": {
+    "lat": 6.190704,
+    "lng": 102.170894,
     "exact": false
   },
   "Tumpat:SMK Geting": {
@@ -3105,1269 +4475,44 @@ export const geocodedCache: Record<string, CachedCoordinate> = {
     "lng": 102.2278951,
     "exact": true
   },
-  "Kuala Krai:Bukit Berhampiran / Madrasah": {
-    "lat": 5.5312,
-    "lng": 102.2005,
+  "Tumpat:SMK Kutan": {
+    "lat": 6.19589,
+    "lng": 102.178033,
     "exact": false
   },
-  "Kuala Krai:Bukit Chempaka (Khemah)": {
-    "lat": 5.533092,
-    "lng": 102.200564,
+  "Tumpat:SMK Mahmud Mahyiddin": {
+    "lat": 6.20732,
+    "lng": 102.174505,
     "exact": false
   },
-  "Kuala Krai:Bukit Pak Tok Dekar (Khemah)": {
-    "lat": 5.527614,
-    "lng": 102.198814,
+  "Tumpat:SMK Sungai Pinang": {
+    "lat": 6.194811,
+    "lng": 102.167461,
     "exact": false
   },
-  "Kuala Krai:Dewan Orang Ramai Kg. Stong / Madrasah": {
-    "lat": 5.351991,
-    "lng": 101.971179,
+  "Tumpat:SMK Tumpat": {
+    "lat": 6.200502,
+    "lng": 102.170149,
     "exact": false
   },
-  "Kuala Krai:Kg. Slow Mengkuang": {
-    "lat": 5.530297,
-    "lng": 102.203621,
+  "Tumpat:SMK Wakaf Bharu": {
+    "lat": 6.1978,
+    "lng": 102.1722,
     "exact": false
   },
-  "Kuala Krai:Kg. Slow Temiang": {
-    "lat": 5.527976,
-    "lng": 102.20356,
+  "Tumpat:SMU(A) Bustanus Saadah": {
+    "lat": 6.193746,
+    "lng": 102.171624,
     "exact": false
   },
-  "Kuala Krai:Madrasah Berhampiran": {
-    "lat": 5.537768,
-    "lng": 102.20026,
+  "Tumpat:SMU(A) Meheliah Geting": {
+    "lat": 6.204773,
+    "lng": 102.16781,
     "exact": false
   },
-  "Kuala Krai:Madrasah Bukit Bacang": {
-    "lat": 5.524459,
-    "lng": 102.202009,
+  "Tumpat:SMU(A) Tarbiah Diniah Tahfiz": {
+    "lat": 6.191453,
+    "lng": 102.17207,
     "exact": false
-  },
-  "Kuala Krai:Madrasah Bunga Raya": {
-    "lat": 5.531884,
-    "lng": 102.200379,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Bunut Saih": {
-    "lat": 5.532272,
-    "lng": 102.201087,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Che Si": {
-    "lat": 5.527937,
-    "lng": 102.200021,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Chegal Lapan": {
-    "lat": 5.535396,
-    "lng": 102.199823,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Dusun Durian": {
-    "lat": 5.5286,
-    "lng": 102.203003,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Hadapan Balai Polis": {
-    "lat": 5.529901,
-    "lng": 102.204358,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Imam Che Wil": {
-    "lat": 5.53677,
-    "lng": 102.2024,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Budi": {
-    "lat": 5.523665,
-    "lng": 102.199492,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Hamzah": {
-    "lat": 5.532486,
-    "lng": 102.200032,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Jenal": {
-    "lat": 5.531322,
-    "lng": 102.201297,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Ragu": {
-    "lat": 5.528654,
-    "lng": 102.201046,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Sepuluh": {
-    "lat": 5.535596,
-    "lng": 102.198692,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Sg. Embak": {
-    "lat": 5.527217,
-    "lng": 102.201842,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Sg. Garam": {
-    "lat": 5.531983,
-    "lng": 102.204449,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kg. Temiang": {
-    "lat": 5.5351,
-    "lng": 102.20407,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kebun Pisang": {
-    "lat": 5.52378,
-    "lng": 102.200145,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kuala Mahligai": {
-    "lat": 5.532932,
-    "lng": 102.1995,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Kuala Temiang": {
-    "lat": 5.530358,
-    "lng": 102.20117,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Lancang": {
-    "lat": 5.529679,
-    "lng": 102.201763,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Lepan Anjung": {
-    "lat": 5.535265,
-    "lng": 102.200184,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Mesek": {
-    "lat": 5.526314,
-    "lng": 102.200279,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Orang Ramai Ingin Maju": {
-    "lat": 5.53397,
-    "lng": 102.203822,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Pok Su Amid": {
-    "lat": 5.53296,
-    "lng": 102.205068,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Seberang Kemubu": {
-    "lat": 5.27209,
-    "lng": 102.022583,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Slow Pak Long": {
-    "lat": 5.53317,
-    "lng": 102.198847,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Sri Bintang / Dewan Orang Ramai": {
-    "lat": 5.529495,
-    "lng": 102.200721,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Sri Jaya / Dewan Orang Ramai": {
-    "lat": 5.530886,
-    "lng": 102.202086,
-    "exact": false
-  },
-  "Kuala Krai:Madrasah Sungai Teku": {
-    "lat": 5.534444,
-    "lng": 102.201473,
-    "exact": false
-  },
-  "Kuala Krai:Masjid / Bukit Berhampiran": {
-    "lat": 5.526,
-    "lng": 102.1985,
-    "exact": false
-  },
-  "Kuala Krai:Masjid Kg. Biak A": {
-    "lat": 5.535624,
-    "lng": 102.202554,
-    "exact": false
-  },
-  "Kuala Krai:Masjid Kg. Bahagia": {
-    "lat": 5.530607,
-    "lng": 102.205274,
-    "exact": false
-  },
-  "Kuala Krai:Masjid Lama Kg. Keroh": {
-    "lat": 5.526573,
-    "lng": 102.204529,
-    "exact": false
-  },
-  "Kuala Krai:Masjid Mambong": {
-    "lat": 5.53317,
-    "lng": 102.198847,
-    "exact": false
-  },
-  "Kuala Krai:Masjid Sri Mahligai": {
-    "lat": 5.528839,
-    "lng": 102.200004,
-    "exact": false
-  },
-  "Kuala Krai:Pusat Komuniti Chuchoh Puteri A": {
-    "lat": 5.532132,
-    "lng": 102.201977,
-    "exact": false
-  },
-  "Kuala Krai:SK Pemberian Lama": {
-    "lat": 5.533232,
-    "lng": 102.202403,
-    "exact": false
-  },
-  "Kuala Krai:SK Sungai Mengkuang": {
-    "lat": 5.526314,
-    "lng": 102.200279,
-    "exact": false
-  },
-  "Kuala Krai:SK SYP II": {
-    "lat": 5.536743,
-    "lng": 102.200796,
-    "exact": false
-  },
-  "Kuala Krai:Smkmempelam": {
-    "lat": 5.528326,
-    "lng": 102.204663,
-    "exact": false
-  },
-  "Kuala Krai:Smksyp II": {
-    "lat": 5.528915,
-    "lng": 102.205748,
-    "exact": false
-  },
-  "Kuala Krai:Smksyp 1": {
-    "lat": 5.532932,
-    "lng": 102.1995,
-    "exact": false
-  },
-  "Kuala Krai:SK Ladang Pasir Gajah": {
-    "lat": 5.528466,
-    "lng": 102.199106,
-    "exact": false
-  },
-  "Kuala Krai:Srjk Tamil Pasir Gajah": {
-    "lat": 5.533265,
-    "lng": 102.201449,
-    "exact": false
-  },
-  "Kuala Krai:Sungai Batu": {
-    "lat": 5.531774,
-    "lng": 102.202862,
-    "exact": false
-  },
-  "Kuala Krai:Surau Biak B": {
-    "lat": 5.527217,
-    "lng": 102.201842,
-    "exact": false
-  },
-  "Kuala Krai:Surau Bukit Mengkebang": {
-    "lat": 5.537194,
-    "lng": 102.198762,
-    "exact": false
-  },
-  "Kuala Krai:Surau Taman Sri Nal": {
-    "lat": 5.526392,
-    "lng": 102.203308,
-    "exact": false
-  },
-  "Kuala Krai:Tadika Kg. Bukit Abu": {
-    "lat": 5.531532,
-    "lng": 102.206093,
-    "exact": false
-  },
-  "Kuala Krai:Tadika KEMAS Kuala Pertang": {
-    "lat": 5.532486,
-    "lng": 102.200032,
-    "exact": false
-  },
-  "Kuala Krai:Tadika KEMAS Sg Sam": {
-    "lat": 5.528424,
-    "lng": 102.198865,
-    "exact": false
-  },
-  "Machang:Atas Bukit Kg. Maka - Rumah Zulkifli B. Abdullah": {
-    "lat": 5.7652,
-    "lng": 102.2172,
-    "exact": false
-  },
-  "Machang:Madrasah Cikgu Seman": {
-    "lat": 5.767092,
-    "lng": 102.217264,
-    "exact": false
-  },
-  "Machang:Madrasah Gelong Gajah": {
-    "lat": 5.761614,
-    "lng": 102.215514,
-    "exact": false
-  },
-  "Machang:Madrasah Hj Mat Tahil": {
-    "lat": 5.768691,
-    "lng": 102.217879,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Belukar Panjang": {
-    "lat": 5.764297,
-    "lng": 102.220321,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Maka": {
-    "lat": 5.761976,
-    "lng": 102.22026,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Awah": {
-    "lat": 5.771768,
-    "lng": 102.21696,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Buncit": {
-    "lat": 5.758459,
-    "lng": 102.218709,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Hau": {
-    "lat": 5.765884,
-    "lng": 102.217079,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Kuala Merabang": {
-    "lat": 5.766272,
-    "lng": 102.217787,
-    "exact": false
-  },
-  "Machang:Madrasah Kg. Pertok Baru": {
-    "lat": 5.761937,
-    "lng": 102.216721,
-    "exact": false
-  },
-  "Machang:Madrasah Kweng Hitam": {
-    "lat": 5.769396,
-    "lng": 102.216523,
-    "exact": false
-  },
-  "Machang:Madrasah Ladang Kuala Hau": {
-    "lat": 5.7626,
-    "lng": 102.219703,
-    "exact": false
-  },
-  "Machang:Madrasah Lebai Husain": {
-    "lat": 5.763901,
-    "lng": 102.221058,
-    "exact": false
-  },
-  "Machang:Madrasah Lepan Kandis": {
-    "lat": 5.77077,
-    "lng": 102.2191,
-    "exact": false
-  },
-  "Machang:Madrasah Lubok Mak Udang Hilir": {
-    "lat": 5.757665,
-    "lng": 102.216192,
-    "exact": false
-  },
-  "Machang:Madrasah Lubuk Mak Udang Hulu": {
-    "lat": 5.766486,
-    "lng": 102.216732,
-    "exact": false
-  },
-  "Machang:Madrasah Padang Tala": {
-    "lat": 5.765322,
-    "lng": 102.217997,
-    "exact": false
-  },
-  "Machang:Madrasah Pak Nik Deraman": {
-    "lat": 5.762654,
-    "lng": 102.217746,
-    "exact": false
-  },
-  "Machang:Madrasah Pangkal Berangan": {
-    "lat": 5.769596,
-    "lng": 102.215392,
-    "exact": false
-  },
-  "Machang:Madrasah Pangkal Perahu": {
-    "lat": 5.761217,
-    "lng": 102.218542,
-    "exact": false
-  },
-  "Machang:Madrasah Seri Al-Falah": {
-    "lat": 5.765983,
-    "lng": 102.221149,
-    "exact": false
-  },
-  "Machang:Madrasah Simpol Berlubang": {
-    "lat": 5.7691,
-    "lng": 102.22077,
-    "exact": false
-  },
-  "Machang:Madrasah Sungai Hala": {
-    "lat": 5.75778,
-    "lng": 102.216845,
-    "exact": false
-  },
-  "Machang:Madrasah Sungai Mas": {
-    "lat": 5.766932,
-    "lng": 102.2162,
-    "exact": false
-  },
-  "Machang:Masjid Kaabah": {
-    "lat": 5.764358,
-    "lng": 102.21787,
-    "exact": false
-  },
-  "Machang:Masjid Laha": {
-    "lat": 5.763679,
-    "lng": 102.218463,
-    "exact": false
-  },
-  "Machang:Masjid Mukim Bagan": {
-    "lat": 5.769265,
-    "lng": 102.216884,
-    "exact": false
-  },
-  "Machang:Masjid Mukim Belukar": {
-    "lat": 5.760314,
-    "lng": 102.216979,
-    "exact": false
-  },
-  "Machang:Masjid Mukim Hutan Putih": {
-    "lat": 5.76797,
-    "lng": 102.220522,
-    "exact": false
-  },
-  "Machang:Masjid Mukim Kuala Kerak": {
-    "lat": 5.76696,
-    "lng": 102.221768,
-    "exact": false
-  },
-  "Machang:Masjid Penakah": {
-    "lat": 5.75879,
-    "lng": 102.219283,
-    "exact": false
-  },
-  "Machang:Masjid Pusat Pemulihan Akhlak": {
-    "lat": 5.76717,
-    "lng": 102.215547,
-    "exact": false
-  },
-  "Machang:SK Pangkal Mak Wan": {
-    "lat": 5.763495,
-    "lng": 102.217421,
-    "exact": false
-  },
-  "Machang:SK Pangkal Jenereh": {
-    "lat": 5.764886,
-    "lng": 102.218786,
-    "exact": false
-  },
-  "Machang:SK Pangkal Meleret": {
-    "lat": 5.768444,
-    "lng": 102.218173,
-    "exact": false
-  },
-  "Machang:SK Pangkal Nering": {
-    "lat": 5.76,
-    "lng": 102.2152,
-    "exact": false
-  },
-  "Machang:SK Pek Machang": {
-    "lat": 5.769624,
-    "lng": 102.219254,
-    "exact": false
-  },
-  "Machang:Tadika Nurul Ehsan": {
-    "lat": 5.764607,
-    "lng": 102.221974,
-    "exact": false
-  },
-  "Machang:Tbk Perpaduan Kg. Pauh": {
-    "lat": 5.760573,
-    "lng": 102.221229,
-    "exact": false
-  },
-  "Pasir Mas:Kelas KEMAS Kg. Atas Pinggir": {
-    "lat": 6.0425,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Ketik Teresek": {
-    "lat": 6.044392,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Baru Limau Purut": {
-    "lat": 6.038914,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Bechah Kaki": {
-    "lat": 6.045991,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Chabang 3 Kg. Paloh": {
-    "lat": 5.084197,
-    "lng": 102.150321,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Cherang Hangus": {
-    "lat": 6.039276,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Gertak Tiga": {
-    "lat": 6.049068,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Gual Tualang": {
-    "lat": 6.035759,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Haji Daud": {
-    "lat": 6.043184,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Haji Ghafar": {
-    "lat": 6.043572,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Haji Yusoff": {
-    "lat": 6.039237,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Hj. Salleh Kg. Senor": {
-    "lat": 6.046696,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kg. Kusar": {
-    "lat": 6.0399,
-    "lng": 102.1272,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kg. Rahmat Hilir": {
-    "lat": 6.041201,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kg. Rahmat Hulu": {
-    "lat": 6.04807,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kg. Tersang (Baru)": {
-    "lat": 6.034965,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kg. Tersang (Lama)": {
-    "lat": 6.043786,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kolam Tengah": {
-    "lat": 6.042622,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kuala Itek": {
-    "lat": 6.039954,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kubang Rambutan": {
-    "lat": 6.046896,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Kubor Sena": {
-    "lat": 6.038517,
-    "lng": 102.1272,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Lama Jeram Perdah": {
-    "lat": 6.043283,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Mdpm": {
-    "lat": 6.0464,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Nasrullah Pohon Buloh (Pusat Tarbiah)": {
-    "lat": 6.03508,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Padang Bukit": {
-    "lat": 6.044232,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Pak Adik Yamin": {
-    "lat": 6.041658,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Pak Kelong": {
-    "lat": 6.040979,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Pak Teh Mat Hassan": {
-    "lat": 6.046565,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Pasir Padang": {
-    "lat": 6.037614,
-    "lng": 102.1272,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah PASTI Telaga Mas": {
-    "lat": 6.04527,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Sungai Keladi": {
-    "lat": 6.04426,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Tanjung Baru": {
-    "lat": 6.03609,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Tasek Bakong": {
-    "lat": 6.04447,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Tasek Tandak": {
-    "lat": 6.040795,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Madrasah Wan Salleh Kg. Senor": {
-    "lat": 6.042186,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Mukim Padang Lichin": {
-    "lat": 6.045744,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Binjal": {
-    "lat": 6.0373,
-    "lng": 102.1272,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Chasi": {
-    "lat": 6.046924,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Gabus": {
-    "lat": 6.041907,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Jejawi": {
-    "lat": 6.037873,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Kbg. Gendang": {
-    "lat": 6.04447,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Kedepil": {
-    "lat": 6.040139,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Kerasak": {
-    "lat": 6.043432,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Kubang Pak Hitam": {
-    "lat": 6.044532,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Lubok Gong": {
-    "lat": 6.037614,
-    "lng": 102.1272,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Mukim Kubang Tembesu": {
-    "lat": 6.048043,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Perol": {
-    "lat": 6.039626,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Pondok Jelor": {
-    "lat": 6.040215,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Rong Chenok": {
-    "lat": 6.044232,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Masjid Yb Adun Meranti": {
-    "lat": 6.071466,
-    "lng": 102.113006,
-    "exact": false
-  },
-  "Pasir Mas:Rumah Azmi Bin Yusoff": {
-    "lat": 6.044565,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:SK Kubang Chenok": {
-    "lat": 6.043074,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:SK Bechah Kelubi": {
-    "lat": 6.038517,
-    "lng": 102.1272,
-    "exact": false
-  },
-  "Pasir Mas:Skkg.Baru": {
-    "lat": 6.048494,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Skothman Talib": {
-    "lat": 6.037692,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Mas:Skpangkal Kala": {
-    "lat": 6.042832,
-    "lng": 102.12360000000001,
-    "exact": false
-  },
-  "Pasir Mas:Smkagama(Arab) (Qariah) Banggol Setol": {
-    "lat": 6.043786,
-    "lng": 102.132,
-    "exact": false
-  },
-  "Pasir Mas:Smkagama(Arab)Kg. Bonggor": {
-    "lat": 6.039724,
-    "lng": 102.13080000000001,
-    "exact": false
-  },
-  "Pasir Mas:Smkagama(Arab)Pohon Buloh": {
-    "lat": 6.045449,
-    "lng": 102.12960000000001,
-    "exact": false
-  },
-  "Pasir Mas:Smksis 11 Pasir Mas": {
-    "lat": 6.041548,
-    "lng": 102.1284,
-    "exact": false
-  },
-  "Pasir Mas:Surau Rahmat Hilir": {
-    "lat": 6.048222,
-    "lng": 102.126,
-    "exact": false
-  },
-  "Pasir Mas:Tokong Cina": {
-    "lat": 6.036337,
-    "lng": 102.12480000000001,
-    "exact": false
-  },
-  "Pasir Puteh:Balaisah Kedai Pmtg. Rambai": {
-    "lat": 5.8361,
-    "lng": 102.4062,
-    "exact": false
-  },
-  "Pasir Puteh:Dewan Orang Ramai Ketek Buloh": {
-    "lat": 5.837992,
-    "lng": 102.406264,
-    "exact": false
-  },
-  "Pasir Puteh:Dewan Orang Ramai Kg. Jebak": {
-    "lat": 5.832514,
-    "lng": 102.404514,
-    "exact": false
-  },
-  "Pasir Puteh:Dewan Orang Ramai Kg. Lembah": {
-    "lat": 5.839591,
-    "lng": 102.406879,
-    "exact": false
-  },
-  "Pasir Puteh:Dewan Orang Ramai/ Pejabat Penggawa Semerak": {
-    "lat": 5.835197,
-    "lng": 102.409321,
-    "exact": false
-  },
-  "Pasir Puteh:Dewan Uthmaniah": {
-    "lat": 5.832876,
-    "lng": 102.40926,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Daram Buaya": {
-    "lat": 5.842668,
-    "lng": 102.40596,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Hj. Mat Nor": {
-    "lat": 5.829359,
-    "lng": 102.407709,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Kg. Berendam": {
-    "lat": 5.836784,
-    "lng": 102.406079,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Lebai Mat": {
-    "lat": 5.837172,
-    "lng": 102.406787,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Pak Cu Harun": {
-    "lat": 5.832837,
-    "lng": 102.405721,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Pak Kob, Tok Ajam": {
-    "lat": 5.840296,
-    "lng": 102.405523,
-    "exact": false
-  },
-  "Pasir Puteh:Madrasah Pengkalan Pauh": {
-    "lat": 5.8335,
-    "lng": 102.408703,
-    "exact": false
-  },
-  "Pasir Puteh:SK Gong Manok": {
-    "lat": 5.834801,
-    "lng": 102.410058,
-    "exact": false
-  },
-  "Pasir Puteh:Smkdato": {
-    "lat": 5.84167,
-    "lng": 102.4081,
-    "exact": false
-  },
-  "Pasir Puteh:SK Tadika Kg. Taweh (KEMAS)": {
-    "lat": 5.828565,
-    "lng": 102.405192,
-    "exact": false
-  },
-  "Tanah Merah:Balai Raya Kg. Batu Jong": {
-    "lat": 5.4421,
-    "lng": 102.2032,
-    "exact": false
-  },
-  "Tanah Merah:Balai Raya Kg. Padang Kijang": {
-    "lat": 5.810392,
-    "lng": 102.149264,
-    "exact": false
-  },
-  "Tanah Merah:Balai Raya Kg. Paku": {
-    "lat": 5.804914,
-    "lng": 102.147514,
-    "exact": false
-  },
-  "Tanah Merah:Balai Raya Kg. Rambai": {
-    "lat": 5.811991,
-    "lng": 102.149879,
-    "exact": false
-  },
-  "Tanah Merah:Balai Raya Kg. Renat": {
-    "lat": 5.807597,
-    "lng": 102.152321,
-    "exact": false
-  },
-  "Tanah Merah:Balai Raya Padang Kijang": {
-    "lat": 5.805276,
-    "lng": 102.15226,
-    "exact": false
-  },
-  "Tanah Merah:Bangunan MCA Kg. Jelatok": {
-    "lat": 5.815068,
-    "lng": 102.14896,
-    "exact": false
-  },
-  "Tanah Merah:Desa Taqwa Kg. Nibong": {
-    "lat": 5.801759,
-    "lng": 102.150709,
-    "exact": false
-  },
-  "Tanah Merah:Dewan Estate Tebing Tinggi": {
-    "lat": 5.816684,
-    "lng": 102.131279,
-    "exact": false
-  },
-  "Tanah Merah:Dewan Pemindahan Banjir Tebing Tinggi/Dewan Komuniti": {
-    "lat": 5.817072,
-    "lng": 102.131987,
-    "exact": false
-  },
-  "Tanah Merah:Kg. Sokor (Rumah Zahid Bin Mohd Nor)": {
-    "lat": 5.805237,
-    "lng": 102.148721,
-    "exact": false
-  },
-  "Tanah Merah:Kuaters Hospital Tanah Merah": {
-    "lat": 5.812696,
-    "lng": 102.148523,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Banggol Ketereh (Bendang Nyior)": {
-    "lat": 5.9556,
-    "lng": 102.253003,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Air Machang": {
-    "lat": 5.807201,
-    "lng": 102.153058,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Atas Banggol Kg. Sat": {
-    "lat": 5.81407,
-    "lng": 102.1511,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Becah Palas Lubuk Agor": {
-    "lat": 5.800965,
-    "lng": 102.148192,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Bechah Palas, Repoh Jagung": {
-    "lat": 5.809786,
-    "lng": 102.148732,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Bkg. Rahmat": {
-    "lat": 5.808622,
-    "lng": 102.149997,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Bukit Pauh": {
-    "lat": 5.805954,
-    "lng": 102.149746,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Chabang 3 Bukit Tebu": {
-    "lat": 5.812896,
-    "lng": 102.147392,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Hj Ab. Rahman, Sat Hulu": {
-    "lat": 5.804517,
-    "lng": 102.150542,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Hj. Deraman (Kg. Hulu Sat)": {
-    "lat": 5.809283,
-    "lng": 102.153149,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Hj. Pak Man, Bechah Pelting": {
-    "lat": 5.8124,
-    "lng": 102.15277,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Hji. Yaakob Kg. Cherang Lali": {
-    "lat": 5.80108,
-    "lng": 102.148845,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Jerangau Tua": {
-    "lat": 5.810232,
-    "lng": 102.1482,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Jerangau Tua & Masjid Jerangau": {
-    "lat": 5.807658,
-    "lng": 102.14987,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Banggol Yek": {
-    "lat": 5.806979,
-    "lng": 102.150463,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Batu Garam": {
-    "lat": 5.812565,
-    "lng": 102.148884,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Bukit Kelupang": {
-    "lat": 5.803614,
-    "lng": 102.148979,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Liku": {
-    "lat": 5.81127,
-    "lng": 102.152522,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Lubuk Rotan Tawar": {
-    "lat": 5.81026,
-    "lng": 102.153768,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Rambai": {
-    "lat": 5.80209,
-    "lng": 102.151283,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Sokor, Gewang": {
-    "lat": 5.81047,
-    "lng": 102.147547,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Tiruk(Penghulu Fauzi & Madrasah Kg Tirok": {
-    "lat": 5.806795,
-    "lng": 102.149421,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Air Batu": {
-    "lat": 5.808186,
-    "lng": 102.150786,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Banggol Nering": {
-    "lat": 5.811744,
-    "lng": 102.150173,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Banggol Tok Ajar": {
-    "lat": 5.8033,
-    "lng": 102.1472,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Bechah Pelting Hilir": {
-    "lat": 5.812924,
-    "lng": 102.151254,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Bedah": {
-    "lat": 5.807907,
-    "lng": 102.153974,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Bendang Besar": {
-    "lat": 5.803873,
-    "lng": 102.153229,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Cherang Lali": {
-    "lat": 5.81047,
-    "lng": 102.147547,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Gobek": {
-    "lat": 5.806139,
-    "lng": 102.148704,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Hutan Lanjut": {
-    "lat": 5.809432,
-    "lng": 102.150677,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Lubok Rotan Tawar": {
-    "lat": 5.810532,
-    "lng": 102.151103,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Padang Guchil": {
-    "lat": 5.803614,
-    "lng": 102.148979,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Padang Kijang": {
-    "lat": 5.814043,
-    "lng": 102.149496,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Paku": {
-    "lat": 5.805626,
-    "lng": 102.153363,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Renat": {
-    "lat": 5.806215,
-    "lng": 102.154448,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kg. Mengat": {
-    "lat": 5.810232,
-    "lng": 102.1482,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Kuala Kepok": {
-    "lat": 5.805766,
-    "lng": 102.147806,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Ladang Sokor": {
-    "lat": 5.810565,
-    "lng": 102.150149,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Manal 1": {
-    "lat": 5.809074,
-    "lng": 102.151562,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Manal 3 (Dewan Manal 3)": {
-    "lat": 5.804517,
-    "lng": 102.150542,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Pak Chu Hassan Kuala Paku": {
-    "lat": 5.814494,
-    "lng": 102.147462,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Seberang Kg. Kuala Paku": {
-    "lat": 5.803692,
-    "lng": 102.152008,
-    "exact": false
-  },
-  "Tanah Merah:Madrasah Wak Seman": {
-    "lat": 5.808832,
-    "lng": 102.154793,
-    "exact": false
-  },
-  "Tanah Merah:Madrasahkg. Lepan Bola": {
-    "lat": 5.809786,
-    "lng": 102.148732,
-    "exact": false
-  },
-  "Tanah Merah:Masjid Kuala Tiga": {
-    "lat": 5.805724,
-    "lng": 102.147565,
-    "exact": false
-  },
-  "Tanah Merah:Masjid Kusial Baru": {
-    "lat": 5.781449,
-    "lng": 102.130565,
-    "exact": false
-  },
-  "Tanah Merah:Masjid Mukim Kuala Kepok": {
-    "lat": 5.807548,
-    "lng": 102.151496,
-    "exact": false
-  },
-  "Tanah Merah:Masjid Mukim Pasir Sat": {
-    "lat": 5.8059,
-    "lng": 102.151703,
-    "exact": false
-  },
-  "Tanah Merah:Masjid Seberang Nas, Kuala Paku": {
-    "lat": 5.814222,
-    "lng": 102.149004,
-    "exact": false
-  },
-  "Tanah Merah:Pusat Pemindahan Kongsi Lima (Kg. Rambai)": {
-    "lat": 5.802337,
-    "lng": 102.150074,
-    "exact": false
-  },
-  "Tanah Merah:Pusat Pemindahan Maskura": {
-    "lat": 5.811408,
-    "lng": 102.154221,
-    "exact": false
-  },
-  "Tanah Merah:Pusat Pemindahan Sutera Guest House": {
-    "lat": 5.809184,
-    "lng": 102.149079,
-    "exact": false
-  },
-  "Tanah Merah:Rumah Ahmad Ibrahim Setambun Tulang (Khemah)": {
-    "lat": 5.806016,
-    "lng": 102.148493,
-    "exact": false
-  },
-  "Tanah Merah:Rumah Che Ismail Alor Botol": {
-    "lat": 5.811977,
-    "lng": 102.148132,
-    "exact": false
-  },
-  "Tanah Merah:Rumah Cikgu Razali Bin Osman": {
-    "lat": 5.806136,
-    "lng": 102.150911,
-    "exact": false
-  },
-  "Tanah Merah:Rumah Hamat Bin Abdullah": {
-    "lat": 5.807597,
-    "lng": 102.152321,
-    "exact": false
-  },
-  "Tanah Merah:Rumah Mazlan Padang Kijang": {
-    "lat": 5.81326,
-    "lng": 102.150853,
-    "exact": false
-  },
-  "Tanah Merah:Rumah Penghulu Sokor": {
-    "lat": 5.801726,
-    "lng": 102.147793,
-    "exact": false
-  },
-  "Tanah Merah:SK Kulim & Madrasah Kg. Kulim": {
-    "lat": 5.813634,
-    "lng": 102.152803,
-    "exact": false
-  },
-  "Tanah Merah:SK Lawang": {
-    "lat": 5.8085,
-    "lng": 102.1492,
-    "exact": false
-  },
-  "Tanah Merah:SK Sri Suria 3": {
-    "lat": 5.806608,
-    "lng": 102.149264,
-    "exact": false
-  },
-  "Tanah Merah:Sm (A) Padang Siam": {
-    "lat": 5.812086,
-    "lng": 102.147514,
-    "exact": false
-  },
-  "Tanah Merah:Tadika Bukit Kechik": {
-    "lat": 5.805009,
-    "lng": 102.149879,
-    "exact": false
-  },
-  "Tanah Merah:Tadika Kg. Nibong": {
-    "lat": 5.809403,
-    "lng": 102.152321,
-    "exact": false
-  },
+  }
 };

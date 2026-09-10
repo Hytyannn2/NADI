@@ -45,7 +45,7 @@ import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
-import { DEFAULT_LOCATION } from '@/src/config/constants';
+import { DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
 
 // Civic Complaint Categories & Local Agency Routing
 export type CivicCategory = 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain';
@@ -474,8 +474,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                     },
                     body: JSON.stringify({
                         imageBase64: cleanBase64,
-                        lat: userGpsLocation?.lat || resData?.coordinates?.lat || DEFAULT_LOCATION.lat,
-                        lng: userGpsLocation?.lng || resData?.coordinates?.lng || DEFAULT_LOCATION.lng,
+                        lat: userGpsLocation?.lat || resData?.coordinates?.lat || DEFAULT_SENSOR_LOCATION.lat,
+                        lng: userGpsLocation?.lng || resData?.coordinates?.lng || DEFAULT_SENSOR_LOCATION.lng,
                         zDropped: 0
                     })
                 });
