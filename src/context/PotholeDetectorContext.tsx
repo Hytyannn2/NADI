@@ -172,12 +172,10 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function usePotholeDetectorContext() {
+export function usePotholeContext() {
   const context = useContext(PotholeDetectorContext);
   if (!context) {
-    throw new Error('usePotholeDetectorContext must be used within a PotholeDetectorProvider');
+    throw new Error('usePotholeContext must be used within a PotholeDetectorProvider');
   }
   return context;
 }
-
-export const usePotholeContext = usePotholeDetectorContext;

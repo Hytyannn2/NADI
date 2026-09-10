@@ -5,7 +5,7 @@
  * zakat, and community aid programs without making external API calls.
  */
 
-export interface UserProfile {
+interface UserProfile {
     age?: number | string;
     income?: number | string;
     status?: string; // 'Bekerja' | 'Penganggur' | 'Pelajar' | 'Pesara' | 'Suri Rumah' | 'OKU' | string
@@ -26,7 +26,7 @@ export interface AidProgram {
     url?: string;
 }
 
-export interface EligibilityResult {
+interface EligibilityResult {
     id: string;
     isEligible: boolean | 'maybe';
     matchScore: number; // 0 to 100
@@ -43,7 +43,7 @@ const M40_MAX = 11819;
 /**
  * Evaluates a user profile against a specific aid program's eligibility rules.
  */
-export function evaluateEligibility(profile: UserProfile, program: AidProgram): EligibilityResult {
+function evaluateEligibility(profile: UserProfile, program: AidProgram): EligibilityResult {
     const income = typeof profile.income === 'number' ? profile.income : parseFloat(String(profile.income || '0')) || 0;
     const age = typeof profile.age === 'number' ? profile.age : parseInt(String(profile.age || '0'), 10) || 0;
     const dependents = typeof profile.dependents === 'number' ? profile.dependents : parseInt(String(profile.dependents || '0'), 10) || 0;

@@ -44,7 +44,3 @@ export interface FallbackVendor {
 }
 
 export const FALLBACK_VENDORS: FallbackVendor[] = [];
-export const SEED_JOBS: any[] = [];
-export const SEED_VENDORS: any[] = [];
-export const REAL_JOBS: any[] = [];
-export const REAL_VENDORS: any[] = [];
