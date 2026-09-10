@@ -5,29 +5,13 @@
  * and terminates auth session with GDPR/PDPA compliance.
  */
 import { NextResponse, type NextRequest } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-
-function getAdminSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dxexikpuezslryywhnnf.supabase.co';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4ZXhpa3B1ZXpzbHJ5eXdobm5mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM0NDQxOSwiZXhwIjoyMDkyOTIwNDE5fQ.kxdMDFBbVehjKCsIRfgyhebLeu-vUP2D2sAjNywMOQE';
-  return createSupabaseClient(supabaseUrl, serviceKey);
-}
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Token autentikasi diperlukan.' }, { status: 401 });
-    }
-
-    const adminSupabase = getAdminSupabase();
-
-    // 1. Verify user session from bearer token
-    const { data: { user }, error: userError } = await adminSupabase.auth.getUser(token);
-    if (userError || !user) {
-      return NextResponse.json({ success: false, error: 'Sesi tidak sah atau telah tamat tempoh.' }, { status: 401 });
+    const { user, adminSupa: adminSupabase, errorResponse } = await requireServerAuth(request);
+    if (errorResponse) {
+      return errorResponse;
     }
 
     const userId = user.id;

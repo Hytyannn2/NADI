@@ -38,15 +38,25 @@ export function generatePayloadHash(ticket: { id: string; status: string; confid
   return Math.abs(hash).toString(16).padStart(8, '0');
 }
 
+function escapeHtml(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  return String(val)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 export function generateAduanPdf(anomaly: PdfAnomalyData) {
-  const ticketId = `NADI-2026-${anomaly.id.slice(-6).toUpperCase()}`;
-  const payloadHash = generatePayloadHash(anomaly);
+  const rawTicketId = `NADI-2026-${anomaly.id.slice(-6).toUpperCase()}`;
+  const rawPayloadHash = generatePayloadHash(anomaly);
 
   // Resolves the current base URL for ticket verification links
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== 'undefined' ? window.location.origin : 'https://nadi-alpha.vercel.app');
 
-  const verificationUrl = `${baseUrl}/verify/${anomaly.id}?hash=${payloadHash}`;
+  const verificationUrl = `${baseUrl}/verify/${encodeURIComponent(anomaly.id)}?hash=${encodeURIComponent(rawPayloadHash)}`;
 
   const nowStr = new Date().toLocaleDateString('ms-MY', {
     weekday: 'long',
@@ -61,14 +71,36 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
     ? `${anomaly.locationName} (${anomaly.lat.toFixed(4)}° N, ${anomaly.lng.toFixed(4)}° E)`
     : `${anomaly.lat.toFixed(4)}° N, ${anomaly.lng.toFixed(4)}° E`;
 
-  const issueTitle = anomaly.title || anomaly.aiAnalysis?.damageType || 'Aduan Kerosakan Infrastruktur Sivik';
-  const urgencyLabel = anomaly.urgency === 'High' ? 'TINGGI (SEGERA)' : anomaly.urgency === 'Medium' ? 'SEDERHANA' : 'BIASA / RENDAH';
+  const rawIssueTitle = anomaly.title || anomaly.aiAnalysis?.damageType || 'Aduan Kerosakan Infrastruktur Sivik';
+  const rawUrgencyLabel = anomaly.urgency === 'High' ? 'TINGGI (SEGERA)' : anomaly.urgency === 'Medium' ? 'SEDERHANA' : 'BIASA / RENDAH';
+
+  // Sanitized & HTML-escaped tokens to guarantee zero XSS execution
+  const ticketId = escapeHtml(rawTicketId);
+  const payloadHash = escapeHtml(rawPayloadHash);
+  const safeBaseUrl = escapeHtml(baseUrl);
+  const safeVerificationUrl = encodeURI(verificationUrl);
+  const safeNowStr = escapeHtml(nowStr);
+  const safeLocationText = escapeHtml(locationText);
+  const issueTitle = escapeHtml(rawIssueTitle);
+  const urgencyLabel = escapeHtml(rawUrgencyLabel);
+  const safeOriginalText = escapeHtml(anomaly.originalText);
+  const safeUserIntendedMeaning = escapeHtml(anomaly.userIntendedMeaning);
+
+  const safeAi = anomaly.aiAnalysis ? {
+    severityLabel: escapeHtml(anomaly.aiAnalysis.severityLabel || 'Sederhana'),
+    severityScore: escapeHtml(String(anomaly.aiAnalysis.severityScore || 3)),
+    estimatedWidth: escapeHtml(anomaly.aiAnalysis.estimatedWidth || '1.2m'),
+    estimatedDepth: escapeHtml(anomaly.aiAnalysis.estimatedDepth || '0.15m'),
+    repairMethod: escapeHtml(anomaly.aiAnalysis.repairMethod || 'Tampalan Asfalt Panas (Hot-mix patch)'),
+    repairCostMYR: escapeHtml(anomaly.aiAnalysis.repairCostMYR || 'RM 450.00'),
+  } : null;
 
   const htmlContent = `
 <!DOCTYPE html>
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data: https:;">
     <title>BORANG ADUAN DIGITAL NADI - ${ticketId}</title>
     <style>
         @page { size: A4; margin: 15mm; }
@@ -236,11 +268,11 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
         </div>
         <div class="meta-item">
             <span class="meta-label">Tarikh Laporan</span>
-            <span class="meta-value">${nowStr}</span>
+            <span class="meta-value">${safeNowStr}</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Lokasi Koordinat GPS</span>
-            <span class="meta-value">${locationText}</span>
+            <span class="meta-value">${safeLocationText}</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Tahap Keutamaan Tindakan</span>
@@ -248,33 +280,33 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
         </div>
     </div>
 
-    ${anomaly.originalText ? `
+    ${safeOriginalText ? `
     <div class="section-box">
         <div class="section-header">💬 kenyataan asal warga & analisis dialek ai</div>
-        <div class="quote-box">"${anomaly.originalText}"</div>
-        ${anomaly.userIntendedMeaning ? `<div class="analysis-box"><strong>Maksud Sebenar (NLP Groq Llama 3.3):</strong> ${anomaly.userIntendedMeaning}</div>` : ''}
+        <div class="quote-box">"${safeOriginalText}"</div>
+        ${safeUserIntendedMeaning ? `<div class="analysis-box"><strong>Maksud Sebenar (NLP Groq Llama 3.3):</strong> ${safeUserIntendedMeaning}</div>` : ''}
     </div>
     ` : ''}
 
-    ${anomaly.aiAnalysis ? `
+    ${safeAi ? `
     <div class="section-box">
         <div class="section-header">🤖 penilaian kejuruteraan ai & anggaran kerosakan</div>
         <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <tr>
                 <td style="padding: 4px 0; font-weight: bold; width: 40%;">Tahap Kerosakan:</td>
-                <td style="padding: 4px 0;">${anomaly.aiAnalysis.severityLabel || 'Sederhana'} (${anomaly.aiAnalysis.severityScore || 3}/5)</td>
+                <td style="padding: 4px 0;">${safeAi.severityLabel} (${safeAi.severityScore}/5)</td>
             </tr>
             <tr>
                 <td style="padding: 4px 0; font-weight: bold;">Anggaran Saiz:</td>
-                <td style="padding: 4px 0;">Lebar: ${anomaly.aiAnalysis.estimatedWidth || '1.2m'} | Kedalaman: ${anomaly.aiAnalysis.estimatedDepth || '0.15m'}</td>
+                <td style="padding: 4px 0;">Lebar: ${safeAi.estimatedWidth} | Kedalaman: ${safeAi.estimatedDepth}</td>
             </tr>
             <tr>
                 <td style="padding: 4px 0; font-weight: bold;">Kaedah Pembaikan Disyorkan:</td>
-                <td style="padding: 4px 0;">${anomaly.aiAnalysis.repairMethod || 'Tampalan Asfalt Panas (Hot-mix patch)'}</td>
+                <td style="padding: 4px 0;">${safeAi.repairMethod}</td>
             </tr>
             <tr>
                 <td style="padding: 4px 0; font-weight: bold;">Anggaran Kos Pembaikan (MYR):</td>
-                <td style="padding: 4px 0; font-weight: bold; color: #059669;">${anomaly.aiAnalysis.repairCostMYR || 'RM 450.00'}</td>
+                <td style="padding: 4px 0; font-weight: bold; color: #059669;">${safeAi.repairCostMYR}</td>
             </tr>
         </table>
     </div>
@@ -286,7 +318,7 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
             <span style="font-size: 10px; color: #4B5563;">Imbas QR ini untuk menyemak ketepatan dokumen dengan pangkalan data rasmi NADI. Hash: ${payloadHash}</span>
         </div>
         <div style="font-family: monospace; font-size: 9px; background: #050507; color: #C5A367; padding: 8px 12px; border-radius: 6px; text-align: center;">
-            [ IMBAS PENGESAHAN ]<br>${ticketId}<br><a href="${verificationUrl}" target="_blank" style="color: #6EE7B7; text-decoration: none;">Semak Pangkalan Data</a>
+            [ IMBAS PENGESAHAN ]<br>${ticketId}<br><a href="${safeVerificationUrl}" target="_blank" style="color: #6EE7B7; text-decoration: none;">Semak Pangkalan Data</a>
         </div>
     </div>
 
@@ -300,14 +332,8 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
     </div>
 
     <div class="footer-note">
-        Dokumen Pengesahan Integriti NADI Malaysia • ${baseUrl}
+        Dokumen Pengesahan Integriti NADI Malaysia • ${safeBaseUrl}
     </div>
-
-    <script>
-        window.onload = function() {
-            window.print();
-        };
-    </script>
 </body>
 </html>
   `;
@@ -316,5 +342,13 @@ export function generateAduanPdf(anomaly: PdfAnomalyData) {
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      try {
+        printWindow.print();
+      } catch (err) {
+        console.warn('Auto-print dialog blocked or cancelled:', err);
+      }
+    }, 250);
   }
 }

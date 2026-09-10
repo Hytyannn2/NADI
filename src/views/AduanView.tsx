@@ -273,7 +273,7 @@ interface AduanViewProps {
 }
 
 export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) {
-    const { user } = useAuth();
+    const { user, session } = useAuth();
     const { t } = useLanguage();
     const { formatTime, applyLocationPrecision, locationPrecision, playAlertSound } = useTheme();
     const [filter, setFilter] = useState<'all' | 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain' | 'verified'>('all');
@@ -437,6 +437,11 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         const photoToProcess = attachedPhotoBase64;
         if ((!textToProcess && !photoToProcess) || isParsingVoice) return;
 
+        if (!user || !session?.access_token) {
+            alert('Sila log masuk terlebih dahulu untuk menghantar aduan.');
+            return;
+        }
+
         setIsParsingVoice(true);
         let resData: any = null;
         let visionAnalysis: any = null;
@@ -463,7 +468,10 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 const cleanBase64 = photoToProcess.split(',')[1] || photoToProcess;
                 const vRes = await fetch('/api/infra/vision', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                    },
                     body: JSON.stringify({
                         imageBase64: cleanBase64,
                         lat: userGpsLocation?.lat || resData?.coordinates?.lat || DEFAULT_LOCATION.lat,
@@ -796,7 +804,10 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         try {
             const res = await fetch('/api/infra/analyze', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                },
                 body: JSON.stringify({
                     lat: anomaly.lat,
                     lng: anomaly.lng,
@@ -841,7 +852,10 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             try {
                 const res = await fetch('/api/infra/vision', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                    },
                     body: JSON.stringify({ imageBase64: base64, lat: anomaly.lat, lng: anomaly.lng, zDropped: anomaly.zDropped }),
                 });
                 const data = await res.json();

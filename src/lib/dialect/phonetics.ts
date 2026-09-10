@@ -66,10 +66,3 @@ export function computeSimilarity(w1: string, w2: string): number {
   return Math.round((skel * 0.5 + lev * 0.5) * 1000) / 1000;
 }
 
-/**
- * Normalizes all words in a phrase.
- */
-export function normalizePhrase(text: string): string {
-  return text.toLowerCase().trim().split(/\s+/).map(normalizePhonetic).join(' ');
-}
-

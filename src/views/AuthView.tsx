@@ -492,22 +492,16 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  // Load remembered email and password on mount
+  // Load remembered email on mount & purge any legacy stored password
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedEmail = localStorage.getItem('nadi_remembered_email');
-      const savedPass = localStorage.getItem('nadi_remembered_pass');
       if (savedEmail) {
         setEmail(savedEmail);
         setRememberMe(true);
       }
-      if (savedPass) {
-        try {
-          setPassword(atob(savedPass));
-        } catch {
-          setPassword(savedPass);
-        }
-      }
+      // Security Hygiene: Always purge any plaintext/base64 passwords from web storage
+      localStorage.removeItem('nadi_remembered_pass');
     }
   }, []);
 
@@ -540,15 +534,14 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
     setMessage('');
     setLoading(true);
 
-    // Save or remove remembered email & password
+    // Secure Remember Me: Only persist email, never passwords
     if (typeof window !== 'undefined') {
-      if (rememberMe) {
-        if (email) localStorage.setItem('nadi_remembered_email', email);
-        if (password) localStorage.setItem('nadi_remembered_pass', btoa(password));
+      if (rememberMe && email) {
+        localStorage.setItem('nadi_remembered_email', email);
       } else {
         localStorage.removeItem('nadi_remembered_email');
-        localStorage.removeItem('nadi_remembered_pass');
       }
+      localStorage.removeItem('nadi_remembered_pass');
     }
 
     try {
