@@ -21,6 +21,8 @@ import {
     Shield,
     Share2,
     Send,
+    MoreHorizontal,
+    Copy,
     Sparkles,
     Mic,
     FileText,
@@ -399,8 +401,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const { formatTime, applyLocationPrecision, locationPrecision, playAlertSound } = useTheme();
     const [filter, setFilter] = useState<'all' | 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
+    const [activeMenuReportId, setActiveMenuReportId] = useState<string | null>(null);
 
     // Universal Composer States
     const [manualDescription, setManualDescription] = useState('');
@@ -411,7 +412,6 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const [isGettingGps, setIsGettingGps] = useState(false);
 
     // Modals
-    const [shareModalAnomaly, setShareModalAnomaly] = useState<Anomaly | null>(null);
     const [copiedToast, setCopiedToast] = useState(false);
     const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
@@ -426,7 +426,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const [isDragging, setIsDragging] = useState(false);
     const photoFileInputRef = useRef<HTMLInputElement>(null);
 
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const detector = usePotholeContext();
     const dashcam = useDashcam();
 
@@ -715,7 +715,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
         try {
             const deviceFp = getDeviceFingerprint();
-            await supabase.from('nadi_infra_reports').insert({
+            const { data: insertRes } = await supabase.from('nadi_infra_reports').insert({
                 user_id: user?.id || null,
                 lat: String(newA.lat),
                 lng: String(newA.lng),
@@ -724,10 +724,31 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 device_fingerprint: deviceFp,
                 status: newA.status,
                 title: newA.title,
-                ai_analysis: newA.aiAnalysis,
+                ai_analysis: {
+                    ...newA.aiAnalysis,
+                    originalText: newA.originalText,
+                    userIntendedMeaning: newA.userIntendedMeaning,
+                    translatedText: newA.translatedText,
+                    detectedDialect: newA.detectedDialect,
+                    urgency: newA.urgency,
+                    category: newA.category
+                },
                 photo_url: photoToProcess || null,
                 created_at: createdAtIso,
-            });
+            }).select('id').single();
+
+            if (insertRes?.id) {
+                const dbId = insertRes.id;
+                setAnomalies(prev => {
+                    const updated = prev.map(a => a.id === newA.id ? { ...a, id: dbId } : a);
+                    const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
+                    try {
+                        localStorage.setItem(cacheKey, JSON.stringify(updated.slice(0, 50)));
+                        localStorage.setItem('nadi_local_potholes', JSON.stringify(updated.slice(0, 50)));
+                    } catch {}
+                    return updated;
+                });
+            }
         } catch (dbErr) {
             console.warn('DB insert error:', dbErr);
         }
@@ -751,42 +772,141 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const totalVerified = anomalies.filter(a => a.status === 'verified').length;
     const estimatedResolved = Math.max(1, Math.floor(totalVerified * 0.38));
 
-    const handleSendFeedback = async (skipCorrection = false) => {
-        if (!feedbackModalAnomaly || isSubmittingFeedback) return;
-        setIsSubmittingFeedback(true);
-
-        const correction = skipCorrection ? '' : feedbackCorrectText.trim();
+    const persistAnomaliesAndFeedback = (
+        updatedList: Anomaly[],
+        reportId: string,
+        feedback: {
+            feedbackGiven: 'up' | 'down';
+            userIntendedMeaning?: string;
+            translatedText?: string;
+            originalText?: string;
+        }
+    ) => {
+        const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify(updatedList.slice(0, 50)));
+            localStorage.setItem('nadi_local_potholes', JSON.stringify(updatedList.slice(0, 50)));
+        } catch (e) {
+            console.warn('Failed to save anomalies to localStorage:', e);
+        }
 
         try {
-            const res = await fetch('/api/dialect/feedback', {
+            const rawMap = localStorage.getItem('nadi_aduan_feedback_map');
+            const map = rawMap ? JSON.parse(rawMap) : {};
+            const entry = {
+                feedbackGiven: feedback.feedbackGiven,
+                userIntendedMeaning: feedback.userIntendedMeaning,
+                translatedText: feedback.translatedText,
+                updatedAt: Date.now()
+            };
+            if (reportId) {
+                map[reportId] = entry;
+            }
+            if (feedback.originalText) {
+                map[feedback.originalText.trim()] = entry;
+            }
+            localStorage.setItem('nadi_aduan_feedback_map', JSON.stringify(map));
+        } catch (e) {
+            console.warn('Failed to save feedback map to localStorage:', e);
+        }
+
+        if (reportId && !reportId.startsWith('aduan-')) {
+            const item = updatedList.find(x => x.id === reportId);
+            if (item?.aiAnalysis) {
+                supabase.from('nadi_infra_reports')
+                    .update({
+                        ai_analysis: {
+                            ...item.aiAnalysis,
+                            riskAssessment: feedback.userIntendedMeaning || item.aiAnalysis.riskAssessment,
+                            userCorrection: feedback.translatedText || undefined,
+                            feedbackGiven: feedback.feedbackGiven
+                        }
+                    })
+                    .eq('id', reportId)
+                    .then(() => {});
+            }
+        }
+    };
+
+    const handleSendFeedback = async (skipCorrection = false) => {
+        if (!feedbackModalAnomaly || isSubmittingFeedback) return;
+
+        const anomalyId = feedbackModalAnomaly.id;
+        const correction = skipCorrection ? '' : feedbackCorrectText.trim();
+        const originalText = feedbackModalAnomaly.originalText || feedbackModalAnomaly.title || '';
+
+        // If skipping, dismiss immediately
+        if (skipCorrection) {
+            setAnomalies(prev => {
+                const updated = prev.map(item => item.id === anomalyId ? {
+                    ...item,
+                    feedbackGiven: 'down' as const
+                } : item);
+                persistAnomaliesAndFeedback(updated, anomalyId, {
+                    feedbackGiven: 'down',
+                    originalText
+                });
+                return updated;
+            });
+            setFeedbackModalAnomaly(null);
+            setFeedbackCorrectText('');
+            return;
+        }
+
+        setIsSubmittingFeedback(true);
+
+        const updatedMeaning = correction ? `Dikemaskini Warga: "${correction}"` : (feedbackModalAnomaly.userIntendedMeaning || '');
+
+        // Optimistic update immediately - apply corrected meaning to report and persist locally
+        setAnomalies(prev => {
+            const updated = prev.map(item => item.id === anomalyId ? {
+                ...item,
+                feedbackGiven: 'down' as const,
+                translatedText: correction || item.translatedText,
+                userIntendedMeaning: updatedMeaning,
+                aiAnalysis: item.aiAnalysis ? {
+                    ...item.aiAnalysis,
+                    riskAssessment: updatedMeaning
+                } : item.aiAnalysis
+            } : item);
+            persistAnomaliesAndFeedback(updated, anomalyId, {
+                feedbackGiven: 'down',
+                translatedText: correction || feedbackModalAnomaly.translatedText,
+                userIntendedMeaning: updatedMeaning,
+                originalText
+            });
+            return updated;
+        });
+
+        try {
+            await fetch('/api/dialect/feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    dialectText: feedbackModalAnomaly.originalText || feedbackModalAnomaly.title || '',
+                    dialectText: originalText,
                     correctMeaning: correction,
                     region: feedbackModalAnomaly.detectedDialect || 'kelantan',
                     rawVoice: feedbackModalAnomaly.originalText || '',
-                    reportId: feedbackModalAnomaly.id,
+                    reportId: anomalyId,
                     isPositive: false
                 })
             });
 
-            if (res.ok) {
-                setAnomalies(prev => prev.map(item => item.id === feedbackModalAnomaly.id ? {
-                    ...item,
-                    feedbackGiven: 'down',
-                    translatedText: correction || item.translatedText,
-                    userIntendedMeaning: correction ? `Dikemaskini Warga: "${correction}"` : item.userIntendedMeaning
-                } : item));
-
-                setFeedbackSuccessToast(true);
-                setTimeout(() => {
-                    setFeedbackSuccessToast(false);
-                    setFeedbackModalAnomaly(null);
-                }, 1500);
-            }
+            setFeedbackSuccessToast(true);
+            setTimeout(() => {
+                setFeedbackSuccessToast(false);
+                setFeedbackModalAnomaly(null);
+                setFeedbackCorrectText('');
+            }, 1200);
         } catch (err) {
             console.warn('Feedback submit error:', err);
+            // Even if network fails, client persistence is already saved
+            setFeedbackSuccessToast(true);
+            setTimeout(() => {
+                setFeedbackSuccessToast(false);
+                setFeedbackModalAnomaly(null);
+                setFeedbackCorrectText('');
+            }, 1200);
         } finally {
             setIsSubmittingFeedback(false);
         }
@@ -795,23 +915,41 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     useEffect(() => {
         const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
         const savedLocal = localStorage.getItem(cacheKey) || localStorage.getItem('nadi_local_potholes');
+
+        let feedbackMap: Record<string, any> = {};
+        try {
+            const rawMap = localStorage.getItem('nadi_aduan_feedback_map');
+            if (rawMap) feedbackMap = JSON.parse(rawMap);
+        } catch {}
+
         if (savedLocal) {
             try {
                 const parsed = JSON.parse(savedLocal);
-                // Sanitize any historic dengue reports that were mistakenly tagged Low/Biasa or JKR
+                // Sanitize any historic dengue reports and re-apply crowd feedback
                 const sanitized = parsed.map((item: Anomaly) => {
-                    const txt = `${item.title || ''} ${item.originalText || ''} ${item.translatedText || ''}`.toLowerCase();
+                    const fb = feedbackMap[item.id] || (item.originalText && feedbackMap[item.originalText.trim()]);
+                    let resItem = { ...item };
+                    if (fb) {
+                        resItem.feedbackGiven = fb.feedbackGiven || resItem.feedbackGiven;
+                        resItem.translatedText = fb.translatedText || resItem.translatedText;
+                        resItem.userIntendedMeaning = fb.userIntendedMeaning || resItem.userIntendedMeaning;
+                        if (resItem.aiAnalysis && fb.userIntendedMeaning) {
+                            resItem.aiAnalysis = { ...resItem.aiAnalysis, riskAssessment: fb.userIntendedMeaning };
+                        }
+                    }
+
+                    const txt = `${resItem.title || ''} ${resItem.originalText || ''} ${resItem.translatedText || ''}`.toLowerCase();
                     if (/(denggi|dengue|aedes|wabak|rabies)/i.test(txt)) {
                         return {
-                            ...item,
+                            ...resItem,
                             urgency: 'High' as const,
-                            suggestedAgency: (!item.suggestedAgency || item.suggestedAgency === 'JKR / PBT' || item.suggestedAgency === 'PBT')
+                            suggestedAgency: (!resItem.suggestedAgency || resItem.suggestedAgency === 'JKR / PBT' || resItem.suggestedAgency === 'PBT')
                                 ? 'Pejabat Kesihatan Daerah (PKD) / KKM'
-                                : item.suggestedAgency,
-                            category: (item.category === 'jalan' ? 'lain' : item.category) as CivicCategory
+                                : resItem.suggestedAgency,
+                            category: (resItem.category === 'jalan' ? 'lain' : resItem.category) as CivicCategory
                         };
                     }
-                    return item;
+                    return resItem;
                 });
                 setAnomalies(sanitized);
             } catch {}
@@ -837,16 +975,54 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                         speedKmh: d.speed_kmh || 0,
                         snapshotBase64: d.snapshot_base64,
                         suggestedAgency: d.ai_analysis?.routingAgency || 'JKR / PBT',
+                        category: d.ai_analysis?.category || 'lain',
+                        urgency: d.ai_analysis?.urgency || 'Medium',
+                        originalText: d.ai_analysis?.originalText,
+                        translatedText: d.ai_analysis?.userCorrection || d.ai_analysis?.translatedText,
+                        userIntendedMeaning: d.ai_analysis?.userCorrection
+                            ? `Dikemaskini Warga: "${d.ai_analysis.userCorrection}"`
+                            : (d.ai_analysis?.userIntendedMeaning || d.ai_analysis?.riskAssessment),
+                        feedbackGiven: d.ai_analysis?.feedbackGiven,
+                        detectedDialect: d.ai_analysis?.detectedDialect || 'kelantan',
                     }));
 
                     setAnomalies(prev => {
                         const merged = [...prev];
                         mapped.forEach(m => {
                             const existingIndex = merged.findIndex(item => item.id === m.id);
+                            const fb = feedbackMap[m.id] || (m.originalText && feedbackMap[m.originalText.trim()]);
                             if (existingIndex >= 0) {
-                                merged[existingIndex] = { ...merged[existingIndex], ...m };
+                                const existing = merged[existingIndex];
+                                const existingFb = existing.feedbackGiven ? existing : fb;
+                                merged[existingIndex] = {
+                                    ...existing,
+                                    ...m,
+                                    // PRESERVE local edits, feedback and citizen corrections
+                                    feedbackGiven: existing.feedbackGiven || existingFb?.feedbackGiven,
+                                    userIntendedMeaning: existing.userIntendedMeaning || existingFb?.userIntendedMeaning || m.userIntendedMeaning,
+                                    translatedText: existing.translatedText || existingFb?.translatedText || m.translatedText,
+                                    originalText: existing.originalText || m.originalText,
+                                    aiAnalysis: (existing.aiAnalysis || m.aiAnalysis) ? ({
+                                        ...(m.aiAnalysis || {}),
+                                        ...(existing.aiAnalysis || {}),
+                                        riskAssessment: existing.userIntendedMeaning || existingFb?.userIntendedMeaning || m.aiAnalysis?.riskAssessment || ''
+                                    } as AiAnalysis) : undefined
+                                };
                             } else {
-                                merged.push(m);
+                                if (fb) {
+                                    merged.push({
+                                        ...m,
+                                        feedbackGiven: fb.feedbackGiven,
+                                        userIntendedMeaning: fb.userIntendedMeaning,
+                                        translatedText: fb.translatedText,
+                                        aiAnalysis: m.aiAnalysis ? {
+                                            ...m.aiAnalysis,
+                                            riskAssessment: fb.userIntendedMeaning || m.aiAnalysis.riskAssessment
+                                        } : undefined
+                                    });
+                                } else {
+                                    merged.push(m);
+                                }
                             }
                         });
                         try {
@@ -863,7 +1039,31 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                     const d = payload.new as any;
                     setAnomalies(prev => {
                         if (prev.some(a => a.id === d.id)) return prev;
-                        const updated = [{
+
+                        // Check if this incoming insert corresponds to a locally created report (same coordinates within ~20m)
+                        const localIndex = prev.findIndex(a =>
+                            a.id.startsWith('aduan-') &&
+                            Math.abs((a.lat || 0) - (Number(d.lat) || 0)) < 0.0002 &&
+                            Math.abs((a.lng || 0) - (Number(d.lng) || 0)) < 0.0002
+                        );
+
+                        if (localIndex >= 0) {
+                            // Update temporary local ID to real DB ID while preserving all local fields & feedback
+                            const updated = [...prev];
+                            const localItem = updated[localIndex];
+                            updated[localIndex] = {
+                                ...localItem,
+                                id: d.id,
+                                status: d.status || localItem.status
+                            };
+                            try {
+                                localStorage.setItem(cacheKey, JSON.stringify(updated.slice(0, 50)));
+                            } catch {}
+                            return updated;
+                        }
+
+                        const fb = feedbackMap[d.id] || (d.ai_analysis?.originalText && feedbackMap[d.ai_analysis.originalText.trim()]);
+                        const newReport: Anomaly = {
                             id: d.id,
                             userId: d.user_id,
                             lat: typeof d.lat === 'string' ? parseFloat(d.lat) : (d.lat || d.latitude || 0),
@@ -880,7 +1080,16 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             speedKmh: d.speed_kmh || 0,
                             snapshotBase64: d.snapshot_base64,
                             suggestedAgency: d.ai_analysis?.routingAgency || 'JKR / PBT',
-                        }, ...prev];
+                            category: d.ai_analysis?.category || 'lain',
+                            urgency: d.ai_analysis?.urgency || 'Medium',
+                            originalText: d.ai_analysis?.originalText,
+                            translatedText: fb?.translatedText || d.ai_analysis?.userCorrection || d.ai_analysis?.translatedText,
+                            userIntendedMeaning: fb?.userIntendedMeaning || (d.ai_analysis?.userCorrection ? `Dikemaskini Warga: "${d.ai_analysis.userCorrection}"` : (d.ai_analysis?.userIntendedMeaning || d.ai_analysis?.riskAssessment)),
+                            feedbackGiven: fb?.feedbackGiven || d.ai_analysis?.feedbackGiven,
+                            detectedDialect: d.ai_analysis?.detectedDialect || 'kelantan',
+                        };
+
+                        const updated = [newReport, ...prev];
                         try {
                             localStorage.setItem(cacheKey, JSON.stringify(updated.slice(0, 50)));
                         } catch {}
@@ -956,85 +1165,43 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         }
     };
 
-    const analyzeAnomaly = async (id: string) => {
-        const anomaly = anomalies.find(a => a.id === id);
-        if (!anomaly || anomaly.isAnalyzing) return;
+    const handleShareReport = async (a: Anomaly) => {
+        const issueTitle = a.title || a.aiAnalysis?.damageType || 'Aduan Warga';
+        const loc = a.locationName ? `${a.locationName} (${a.lat}°, ${a.lng}°)` : `${a.lat}°, ${a.lng}°`;
+        const quote = a.originalText ? `"${a.originalText}"` : (a.translatedText ? `"${a.translatedText}"` : '');
+        const shareText = `🚨 Aduan NADI: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Keterangan: ${quote}\n⚠️ Status: ${a.status === 'verified' ? 'Disahkan' : 'Dalam Semakan'} (ID: #${a.id.slice(-6)})\n\nLayari NADI Civic OS untuk tindakan lanjut.`;
 
-        setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: true } : a));
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            try {
+                await navigator.share({
+                    title: `Aduan: ${issueTitle}`,
+                    text: shareText,
+                    url: typeof window !== 'undefined' ? window.location.href : undefined
+                });
+                return;
+            } catch {
+                // User cancelled or aborted native share sheet
+            }
+        }
 
         try {
-            const res = await fetch('/api/infra/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
-                },
-                body: JSON.stringify({
-                    lat: anomaly.lat,
-                    lng: anomaly.lng,
-                    zDropped: anomaly.zDropped,
-                    verifications: anomaly.verifications,
-                    confidenceScore: anomaly.confidenceScore,
-                    speedKmh: anomaly.speedKmh,
-                    clusterSize: anomaly.cluster?.uniqueDevices || 1,
-                    title: anomaly.title,
-                    originalText: anomaly.originalText,
-                    translatedText: anomaly.translatedText,
-                    locationName: anomaly.locationName,
-                    source: anomaly.source,
-                }),
-            });
-            const data = await res.json();
-            if (data.success) {
-                setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: data.analysis, isAnalyzing: false, expanded: true, status: 'verified' } : a));
-                await supabase.from('nadi_infra_reports').update({
-                    ai_analysis: data.analysis,
-                    status: 'verified'
-                }).eq('id', id);
-            } else {
-                setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
-            }
-        } catch {
-            setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
-        }
+            await navigator.clipboard.writeText(shareText);
+            setCopiedToast(true);
+            setTimeout(() => setCopiedToast(false), 2000);
+        } catch {}
     };
 
-    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !photoTargetId) return;
-        const id = photoTargetId;
-        const anomaly = anomalies.find(a => a.id === id);
-        if (!anomaly) return;
+    const handleCopyReport = async (a: Anomaly) => {
+        const issueTitle = a.title || a.aiAnalysis?.damageType || 'Aduan Warga';
+        const loc = a.locationName ? `${a.locationName} (${a.lat}°, ${a.lng}°)` : `${a.lat}°, ${a.lng}°`;
+        const quote = a.originalText ? `"${a.originalText}"` : (a.translatedText ? `"${a.translatedText}"` : '');
+        const shareText = `🚨 Aduan NADI: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Keterangan: ${quote}\n⚠️ Status: ${a.status === 'verified' ? 'Disahkan' : 'Dalam Semakan'}`;
 
-        const reader = new FileReader();
-        reader.onload = async () => {
-            const base64 = (reader.result as string).split(',')[1];
-            setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: true, photoBase64: reader.result as string } : a));
-            try {
-                const res = await fetch('/api/infra/vision', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
-                    },
-                    body: JSON.stringify({ imageBase64: base64, lat: anomaly.lat, lng: anomaly.lng, zDropped: anomaly.zDropped }),
-                });
-                const data = await res.json();
-                if (data.success) {
-                    setAnomalies(prev => prev.map(a => a.id === id ? { ...a, aiAnalysis: { ...a.aiAnalysis, ...data.analysis } as AiAnalysis, isAnalyzing: false, expanded: true, status: 'verified' } : a));
-                    await supabase.from('nadi_infra_reports').update({
-                        ai_analysis: { ...anomaly.aiAnalysis, ...data.analysis },
-                        status: 'verified'
-                    }).eq('id', id);
-                } else {
-                    setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
-                }
-            } catch {
-                setAnomalies(prev => prev.map(a => a.id === id ? { ...a, isAnalyzing: false } : a));
-            }
-        };
-        reader.readAsDataURL(file);
-        e.target.value = '';
+        try {
+            await navigator.clipboard.writeText(shareText);
+            setCopiedToast(true);
+            setTimeout(() => setCopiedToast(false), 2000);
+        } catch {}
     };
 
     const [mounted, setMounted] = useState(false);
@@ -1042,7 +1209,6 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
     return (
         <div className="p-5 min-h-full w-full flex flex-col relative z-0">
-            <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
 
             {/* Edge-to-edge Fullscreen Dashcam Portal */}
             {mounted && createPortal(
@@ -1361,7 +1527,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                         {/* Speech Mic */}
                         <GlobalVoiceMic
-                            onTranscript={(text) => handleDescriptionChange(manualDescription ? `${manualDescription} ${text}` : text)}
+                            currentText={manualDescription}
+                            onTranscript={(text) => handleDescriptionChange(text)}
                             size="md"
                         />
 
@@ -1673,7 +1840,14 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                         <>
                                                             <button
                                                                 onClick={async () => {
-                                                                    setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' } : x));
+                                                                    setAnomalies(prev => {
+                                                                        const updated = prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' as const } : x);
+                                                                        persistAnomaliesAndFeedback(updated, a.id, {
+                                                                            feedbackGiven: 'up',
+                                                                            originalText: a.originalText || a.title || ''
+                                                                        });
+                                                                        return updated;
+                                                                    });
                                                                     try {
                                                                         await fetch('/api/dialect/feedback', {
                                                                             method: 'POST',
@@ -1710,42 +1884,72 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                                     {/* Action Buttons Footer */}
                                     <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 flex-wrap gap-2">
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 relative">
+                                            {/* Direct Share Button */}
                                             <button
-                                                onClick={() => analyzeAnomaly(a.id)}
-                                                disabled={a.isAnalyzing}
-                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#C5A367]/20 transition-all active:scale-95 disabled:opacity-60"
-                                            >
-                                                {a.isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                                                Analisis AI
-                                            </button>
-                                            <button
-                                                onClick={() => { setPhotoTargetId(a.id); fileInputRef.current?.click(); }}
-                                                disabled={a.isAnalyzing}
-                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/20 transition-all active:scale-95 disabled:opacity-60"
-                                            >
-                                                <Camera className="w-3.5 h-3.5" /> Foto
-                                            </button>
-                                            <button
-                                                onClick={() => setShareModalAnomaly(a)}
+                                                onClick={() => handleShareReport(a)}
                                                 className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
-                                                title="Jana Kad Eskalasi Awam"
+                                                title="Kongsi Aduan Ini"
                                             >
-                                                <Share2 className="w-3.5 h-3.5" /> Eskalasi Awam
+                                                <Share2 className="w-3.5 h-3.5" /> Kongsi
                                             </button>
-                                            <button
-                                                onClick={() => generateAduanPdf(a)}
-                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20 transition-all active:scale-95"
-                                                title="Jana Borang Aduan Rasmi PBT (PDF)"
-                                            >
-                                                <FileText className="w-3.5 h-3.5 text-purple-400" /> Export PDF
-                                            </button>
+
+                                            {/* Action Menu (...) with Export PDF & Copy */}
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveMenuReportId(activeMenuReportId === a.id ? null : a.id);
+                                                    }}
+                                                    className="flex items-center justify-center w-8 h-8 rounded-xl bg-zinc-800/70 border border-zinc-700/60 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all active:scale-95"
+                                                    title="Tindakan Tambahan"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </button>
+
+                                                {activeMenuReportId === a.id && (
+                                                    <>
+                                                        <div
+                                                            className="fixed inset-0 z-40"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveMenuReportId(null);
+                                                            }}
+                                                        />
+                                                        <div className="absolute left-0 bottom-full mb-2 w-48 bg-[#121217] border border-zinc-800 rounded-2xl shadow-2xl p-1.5 z-50 text-left animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    generateAduanPdf(a);
+                                                                    setActiveMenuReportId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors"
+                                                            >
+                                                                <FileText className="w-3.5 h-3.5 text-purple-400" />
+                                                                <span>Export PDF (PBT)</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCopyReport(a);
+                                                                    setActiveMenuReportId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors"
+                                                            >
+                                                                <Copy className="w-3.5 h-3.5 text-emerald-400" />
+                                                                <span>Salin Butiran</span>
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {a.aiAnalysis && (
                                             <button
                                                 onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
                                                 className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                                title={a.expanded ? 'Tutup Perincian' : 'Buka Perincian'}
                                             >
                                                 {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             </button>
@@ -1830,253 +2034,211 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             </div>
 
             {/* ================================================================= */}
-            {/* 7. VIRAL SHARE CARD MODAL                                         */}
+            {/* 7. COPIED TOAST NOTIFICATION                                      */}
             {/* ================================================================= */}
-            <AnimatePresence>
-                {shareModalAnomaly && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            {mounted && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {copiedToast && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-[#0A0A0C] border-2 border-red-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-emerald-500 text-black px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-emerald-400/50 backdrop-blur-md"
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
-                                    🚨 KAD ESKALASI AWAM (SLA)
-                                </span>
-                                <button
-                                    onClick={() => setShareModalAnomaly(null)}
-                                    className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-red-950/40 via-zinc-900 to-black border border-red-500/30 rounded-2xl p-5 mb-4 relative overflow-hidden">
-                                <h3 className="text-sm font-black text-red-400 mb-1 uppercase">
-                                    {shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'ADUAN AWAM'}
-                                </h3>
-                                <p className="text-[10px] text-zinc-400 mb-3 font-mono">TICKET ID: #{shareModalAnomaly.id.slice(-6)}</p>
-
-                                <div className="space-y-2 text-xs mb-3">
-                                    <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
-                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Lokasi / Kawasan</span>
-                                        <span className="font-mono text-zinc-200 font-bold">
-                                            {shareModalAnomaly.locationName ? `${shareModalAnomaly.locationName} (${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°)` : `${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°`}
-                                        </span>
-                                    </div>
-                                    <div className="bg-black/60 p-2.5 rounded-xl border border-zinc-800">
-                                        <span className="text-[9px] text-zinc-500 font-bold block uppercase">Keterangan Aduan</span>
-                                        <span className="text-zinc-300">
-                                            {shareModalAnomaly.translatedText || shareModalAnomaly.aiAnalysis?.riskAssessment || shareModalAnomaly.originalText || 'Aduan komuniti memerlukan tindakan pihak berkuasa.'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest text-center border-t border-zinc-800 pt-2">
-                                    NADI CIVIC SYSTEM • DISAHKAN WARGA
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => {
-                                        const issueTitle = shareModalAnomaly.title || shareModalAnomaly.aiAnalysis?.damageType || 'Aduan Warga';
-                                        const loc = shareModalAnomaly.locationName ? `${shareModalAnomaly.locationName} (${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°)` : `${shareModalAnomaly.lat}°, ${shareModalAnomaly.lng}°`;
-                                        const quote = shareModalAnomaly.originalText ? `"${shareModalAnomaly.originalText}"` : `"${shareModalAnomaly.translatedText || ''}"`;
-                                        const caption = `🚨 ADUAN SIVIK — KELANTAN!\n\n📌 Isu: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Aduan Warga: ${quote}\n⚠️ Status: Belum Selesai (Ticket #${shareModalAnomaly.id.slice(-6)})\n\nSila ambil tindakan segera! #KelantanSivik #NADI #PBTKelantan #AduanWarga`;
-                                        navigator.clipboard.writeText(caption);
-                                        setCopiedToast(true);
-                                        setTimeout(() => setCopiedToast(false), 2000);
-                                    }}
-                                    className="w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all"
-                                >
-                                    <Share2 className="w-4 h-4" /> {copiedToast ? '✓ Kapsyen Disalin!' : 'Salin Kapsyen Media Sosial'}
-                                </button>
-                            </div>
+                            <Check className="w-4 h-4 text-black" /> Butiran aduan berjaya disalin ke papan keratan!
                         </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             {/* ================================================================= */}
             {/* 8. DIALECT AI FEEDBACK LOOP MODAL                                 */}
             {/* ================================================================= */}
-            <AnimatePresence>
-                {feedbackModalAnomaly && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-[#0A0A0C] border-2 border-purple-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
-                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> BANTU AI BELAJAR DIALEK
-                                </span>
-                                <button
-                                    onClick={() => setFeedbackModalAnomaly(null)}
-                                    className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400"
-                                >
-                                    ✕
-                                </button>
-                            </div>
+            {mounted && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {feedbackModalAnomaly && (
+                        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                className="bg-[#0A0A0C] border-2 border-purple-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+                                        <Sparkles className="w-3.5 h-3.5 text-purple-400" /> BANTU AI BELAJAR DIALEK
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            setFeedbackModalAnomaly(null);
+                                            setFeedbackCorrectText('');
+                                        }}
+                                        className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
 
-                            <p className="text-xs text-zinc-400 mb-3">
-                                Adakah terjemahan AI kurang tepat? Masukkan maksud sebenar untuk melatih enjin dialek NADI:
-                            </p>
+                                <p className="text-xs text-zinc-400 mb-3">
+                                    Adakah terjemahan AI kurang tepat? Masukkan maksud sebenar untuk melatih enjin dialek NADI:
+                                </p>
 
-                            <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
-                                <span className="text-[9px] text-zinc-500 font-bold uppercase block">Ayat Asal Warga ({feedbackModalAnomaly.detectedDialect || 'Kelantan'}):</span>
-                                <span className="text-xs text-emerald-400 font-medium">"{feedbackModalAnomaly.originalText || feedbackModalAnomaly.title}"</span>
-                            </div>
+                                <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
+                                    <span className="text-[9px] text-zinc-500 font-bold uppercase block">Ayat Asal Warga ({feedbackModalAnomaly.detectedDialect || 'Kelantan'}):</span>
+                                    <span className="text-xs text-emerald-400 font-medium">"{feedbackModalAnomaly.originalText || feedbackModalAnomaly.title}"</span>
+                                </div>
 
-                            <div className="space-y-1 mb-4">
-                                <label className="text-[9px] text-zinc-400 font-bold uppercase block">Maksud Sebenar:</label>
-                                <textarea
-                                    value={feedbackCorrectText}
-                                    onChange={(e) => setFeedbackCorrectText(e.target.value)}
-                                    rows={3}
-                                    placeholder="Taip maksud sebenar di sini..."
-                                    className="w-full text-xs rounded-xl p-3 bg-zinc-950 border border-zinc-800 text-zinc-200 outline-none focus:border-purple-500 transition-colors"
-                                />
-                            </div>
+                                <div className="space-y-1 mb-4">
+                                    <label className="text-[9px] text-zinc-400 font-bold uppercase block">Maksud Sebenar:</label>
+                                    <textarea
+                                        value={feedbackCorrectText}
+                                        onChange={(e) => setFeedbackCorrectText(e.target.value)}
+                                        rows={3}
+                                        placeholder="Taip maksud sebenar di sini..."
+                                        className="w-full text-xs rounded-xl p-3 bg-zinc-950 border border-zinc-800 text-zinc-200 outline-none focus:border-purple-500 transition-colors"
+                                    />
+                                </div>
 
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => handleSendFeedback(false)}
-                                    disabled={!feedbackCorrectText.trim() || isSubmittingFeedback}
-                                    className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-purple-500 transition-all disabled:opacity-50"
-                                >
-                                    {isSubmittingFeedback ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" /> Menghantar...
-                                        </>
-                                    ) : feedbackSuccessToast ? (
-                                        <>✓ AI Berjaya Dikemaskini!</>
-                                    ) : (
-                                        <>
-                                            <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => handleSendFeedback(true)}
-                                    disabled={isSubmittingFeedback}
-                                    className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all"
-                                >
-                                    Langkau
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={() => handleSendFeedback(false)}
+                                        disabled={!feedbackCorrectText.trim() || isSubmittingFeedback}
+                                        className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-purple-500 transition-all disabled:opacity-50"
+                                    >
+                                        {isSubmittingFeedback ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" /> Menghantar...
+                                            </>
+                                        ) : feedbackSuccessToast ? (
+                                            <>✓ AI Berjaya Dikemaskini!</>
+                                        ) : (
+                                            <>
+                                                <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => handleSendFeedback(true)}
+                                        disabled={isSubmittingFeedback}
+                                        className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all"
+                                    >
+                                        Langkau
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
+
             {/* ================================================================= */}
             {/* 9. EMERGENCY INTERCEPT MODAL: LIFE-SAFETY PHONE CALL GATEWAY      */}
             {/* ================================================================= */}
-            <AnimatePresence>
-                {interceptEmergency && (
-                    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="w-full max-w-lg rounded-3xl bg-[#111116] border border-red-500/50 p-6 shadow-[0_0_60px_rgba(239,68,68,0.3)] relative overflow-hidden text-white"
-                        >
-                            {/* Glow Background */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 blur-3xl pointer-events-none rounded-full" />
+            {mounted && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {interceptEmergency && (
+                        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                className="w-full max-w-lg rounded-3xl bg-[#111116] border border-red-500/50 p-6 shadow-[0_0_60px_rgba(239,68,68,0.3)] relative overflow-hidden text-white"
+                            >
+                                {/* Glow Background */}
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 blur-3xl pointer-events-none rounded-full" />
 
-                            {/* Header */}
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-14 h-14 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 shrink-0 shadow-inner">
-                                    <Phone className="w-7 h-7 animate-pulse" />
+                                {/* Header */}
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-14 h-14 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 shrink-0 shadow-inner">
+                                        <Phone className="w-7 h-7 animate-pulse" />
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-red-600 text-white shadow-sm">
+                                            {interceptEmergency.badgeText}
+                                        </span>
+                                        <h3 className="text-xl font-extrabold text-white mt-1 leading-snug">
+                                            {interceptEmergency.title}
+                                        </h3>
+                                        <p className="text-xs text-zinc-400">
+                                            {interceptEmergency.agencyName}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-red-600 text-white shadow-sm">
-                                        {interceptEmergency.badgeText}
-                                    </span>
-                                    <h3 className="text-xl font-extrabold text-white mt-1 leading-snug">
-                                        {interceptEmergency.title}
-                                    </h3>
-                                    <p className="text-xs text-zinc-400">
-                                        {interceptEmergency.agencyName}
+
+                                {/* Warning message */}
+                                <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 mb-5">
+                                    <p className="text-xs sm:text-sm text-red-200 leading-relaxed font-medium">
+                                        ⚠️ <strong>PENTING:</strong> Aduan awam melalui aplikasi NADI memerlukan masa pemprosesan pegawai bertugas dan <strong>BUKAN saluran respons kecemasan segera</strong>.
+                                    </p>
+                                    <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
+                                        Situasi ini memerlukan bantuan penyelamat atau tindakan teknikal serta-merta. Sila <strong>hubungi nombor kecemasan sekarang</strong> sebelum menunggu laporan diproses.
                                     </p>
                                 </div>
-                            </div>
 
-                            {/* Warning message */}
-                            <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 mb-5">
-                                <p className="text-xs sm:text-sm text-red-200 leading-relaxed font-medium">
-                                    ⚠️ <strong>PENTING:</strong> Aduan awam melalui aplikasi NADI memerlukan masa pemprosesan pegawai bertugas dan <strong>BUKAN saluran respons kecemasan segera</strong>.
-                                </p>
-                                <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
-                                    Situasi ini memerlukan bantuan penyelamat atau tindakan teknikal serta-merta. Sila <strong>hubungi nombor kecemasan sekarang</strong> sebelum menunggu laporan diproses.
-                                </p>
-                            </div>
-
-                            {/* Safety instructions */}
-                            <div className="mb-5 space-y-1.5 text-xs text-zinc-300 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
-                                <p className="font-bold text-white text-[11px] uppercase tracking-wider mb-1">
-                                    Langkah Keselamatan Segera:
-                                </p>
-                                {interceptEmergency.instructions.map((step, idx) => (
-                                    <p key={idx} className="flex items-start gap-2">
-                                        <span className="text-red-400 font-bold">✓</span>
-                                        <span>{step}</span>
+                                {/* Safety instructions */}
+                                <div className="mb-5 space-y-1.5 text-xs text-zinc-300 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
+                                    <p className="font-bold text-white text-[11px] uppercase tracking-wider mb-1">
+                                        Langkah Keselamatan Segera:
                                     </p>
-                                ))}
-                            </div>
+                                    {interceptEmergency.instructions.map((step, idx) => (
+                                        <p key={idx} className="flex items-start gap-2">
+                                            <span className="text-red-400 font-bold">✓</span>
+                                            <span>{step}</span>
+                                        </p>
+                                    ))}
+                                </div>
 
-                            {/* Direct Calling Buttons */}
-                            <div className="space-y-2.5 mb-4">
-                                <a
-                                    href={interceptEmergency.primaryTel}
-                                    onClick={() => setInterceptEmergency(null)}
-                                    className="w-full py-3.5 px-5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(239,68,68,0.35)] ring-2 ring-red-500/40 animate-pulse"
-                                >
-                                    <Phone className="w-5 h-5" />
-                                    <span>HUBUNGI SEGERA: {interceptEmergency.primaryPhone} ({interceptEmergency.primaryLabel})</span>
-                                </a>
-
-                                {interceptEmergency.secondaryTel && (
+                                {/* Direct Calling Buttons */}
+                                <div className="space-y-2.5 mb-4">
                                     <a
-                                        href={interceptEmergency.secondaryTel}
+                                        href={interceptEmergency.primaryTel}
                                         onClick={() => setInterceptEmergency(null)}
-                                        className="w-full py-3 px-5 rounded-2xl font-bold text-xs text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        className="w-full py-3.5 px-5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(239,68,68,0.35)] ring-2 ring-red-500/40 animate-pulse"
                                     >
-                                        <Phone className="w-4 h-4 text-amber-400" />
-                                        <span>HUBUNGI TALIAN KEDUA: {interceptEmergency.secondaryPhone} ({interceptEmergency.secondaryLabel})</span>
+                                        <Phone className="w-5 h-5" />
+                                        <span>HUBUNGI SEGERA: {interceptEmergency.primaryPhone} ({interceptEmergency.primaryLabel})</span>
                                     </a>
-                                )}
-                            </div>
 
-                            {/* Secondary Actions */}
-                            <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
-                                <button
-                                    type="button"
-                                    onClick={() => setInterceptEmergency(null)}
-                                    className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                >
-                                    Tutup & Buat Panggilan
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setInterceptEmergency(null);
-                                        handleSendAduan(true);
-                                    }}
-                                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#C5A367] bg-[#C5A367]/10 hover:bg-[#C5A367]/20 border border-[#C5A367]/30 transition-all active:scale-95"
-                                >
-                                    Simpan Rekod Aduan Sahaja ➔
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                                    {interceptEmergency.secondaryTel && (
+                                        <a
+                                            href={interceptEmergency.secondaryTel}
+                                            onClick={() => setInterceptEmergency(null)}
+                                            className="w-full py-3 px-5 rounded-2xl font-bold text-xs text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Phone className="w-4 h-4 text-amber-400" />
+                                            <span>HUBUNGI TALIAN KEDUA: {interceptEmergency.secondaryPhone} ({interceptEmergency.secondaryLabel})</span>
+                                        </a>
+                                    )}
+                                </div>
+
+                                {/* Secondary Actions */}
+                                <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
+                                    <button
+                                        type="button"
+                                        onClick={() => setInterceptEmergency(null)}
+                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                    >
+                                        Tutup & Buat Panggilan
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setInterceptEmergency(null);
+                                            handleSendAduan(true);
+                                        }}
+                                        className="px-4 py-2 rounded-xl text-xs font-bold text-[#C5A367] bg-[#C5A367]/10 hover:bg-[#C5A367]/20 border border-[#C5A367]/30 transition-all active:scale-95"
+                                    >
+                                        Simpan Rekod Aduan Sahaja ➔
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 }

@@ -5,7 +5,7 @@
  * centers (PPS), weather radars, and emergency SOS coordination.
  */
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check, Share2 } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check, Share2, CloudRain, Moon, RefreshCw, Zap, Compass } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -74,7 +74,31 @@ export default function BencanaView() {
 
     const supabase = useMemo(() => createClient(), []);
 
-    const { weather, isWeatherLoading, locationLabel, userLat, userLng } = useWeather();
+    const { weather, isWeatherLoading, locationLabel, userLat, userLng, refreshWeather, isManualOverride } = useWeather();
+    const [isRefreshingWeather, setIsRefreshingWeather] = useState(false);
+
+    // Resolves live contextual weather icon based on WMO code, rainfall, and time of day
+    const renderWeatherIcon = () => {
+        if (!weather) return <Cloud className="w-7 h-7 text-blue-400" />;
+        const code = weather.weatherCode ?? 0;
+        const rain = weather.rainMm ?? 0;
+        const hour = new Date().getHours();
+        const isNight = hour >= 19 || hour < 7;
+
+        if (code >= 95 || rain >= 25) {
+            return <Zap className="w-7 h-7 text-amber-400 animate-pulse" />;
+        }
+        if (code >= 51 || rain > 0) {
+            return <CloudRain className="w-7 h-7 text-blue-400 animate-bounce" />;
+        }
+        if (code >= 1 && code <= 3) {
+            return <Cloud className="w-7 h-7 text-sky-300" />;
+        }
+        if (isNight) {
+            return <Moon className="w-7 h-7 text-indigo-300" />;
+        }
+        return <SunMedium className="w-7 h-7 text-amber-400" />;
+    };
 
     // LoRaWAN sensor data — full telemetry from hardware + BME280
     interface SensorData {
@@ -466,19 +490,54 @@ export default function BencanaView() {
                         >
                             <div className="flex items-start justify-between relative z-10">
                                 <div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1 mb-1">
-                                        <Cloud className="w-3.5 h-3.5" /> CUACA
-                                    </span>
+                                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                                            <Cloud className="w-3.5 h-3.5" /> CUACA
+                                        </span>
+                                        {weather.condition && (
+                                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                                weather.rainMm > 0 || (weather.weatherCode && weather.weatherCode >= 51)
+                                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse'
+                                                    : 'bg-zinc-800/80 text-zinc-300 border-zinc-700'
+                                            }`}>
+                                                {weather.condition}
+                                            </span>
+                                        )}
+                                    </div>
                                     <h3 className="text-3xl font-bold text-white tracking-tight leading-none">
                                         {weather.temp}°<span className="text-xl font-normal text-zinc-400">C</span>
                                     </h3>
-                                    <p className="text-xs text-zinc-300 mt-1">
+                                    <p className="text-xs text-zinc-300 mt-1.5">
                                         Rasa seperti <strong className="text-white">{weather.feelsLike}°C</strong>
                                     </p>
                                 </div>
-                                <div className="p-3 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400">
-                                    <SunMedium className="w-7 h-7" />
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            setIsRefreshingWeather(true);
+                                            try { await refreshWeather(); } catch {}
+                                            setTimeout(() => setIsRefreshingWeather(false), 600);
+                                        }}
+                                        disabled={isRefreshingWeather || isWeatherLoading}
+                                        className="p-2.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all active:scale-90"
+                                        title="Muat Semula Cuaca Terkini"
+                                    >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingWeather || isWeatherLoading ? 'animate-spin text-blue-400' : ''}`} />
+                                    </button>
+                                    <div className="p-3 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400">
+                                        {renderWeatherIcon()}
+                                    </div>
                                 </div>
+                            </div>
+
+                            {/* Location indicator */}
+                            <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs relative z-10">
+                                <div className="flex items-center gap-1.5 text-zinc-300">
+                                    <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                    <span className="font-semibold truncate max-w-[200px]">{locationLabel || 'Lokasi Semasa'}</span>
+                                </div>
+                                <span className="text-[10px] text-emerald-400 font-medium">GPS Auto</span>
                             </div>
                         </div>
 
@@ -709,12 +768,14 @@ export default function BencanaView() {
                                                 <span className="text-[10px] font-semibold" style={{ color: 'var(--success)' }}>Live GPS</span>
                                             </div>
                                         </div>
-                                        <div className="absolute bottom-3 left-3 z-20 pointer-events-none">
-                                            <div className="backdrop-blur-md bg-black/60 px-4 py-3 rounded-2xl shadow-lg" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
-                                                <div className="flex items-center gap-3">
+                                        <div className="absolute bottom-3 left-3 z-20 pointer-events-auto">
+                                            <div className="backdrop-blur-md bg-black/75 px-4 py-2.5 rounded-2xl shadow-xl border border-white/20">
+                                                <div className="flex items-center gap-2.5">
                                                     <Navigation className="w-4 h-4 shrink-0 text-blue-400" />
                                                     <div>
-                                                        <p className="text-[11px] font-bold text-white">GPS active · {locationLabel || 'Lokasi Semasa'}</p>
+                                                        <p className="text-[11px] font-bold text-white">
+                                                            GPS · {locationLabel || 'Lokasi Semasa'}
+                                                        </p>
                                                         <p className="text-[9px] font-medium text-gray-300 mt-0.5 tracking-wider">
                                                             {userLat && userLng ? `${userLat.toFixed(4)}°N, ${userLng.toFixed(4)}°E` : 'Mengesan koordinat...'}
                                                         </p>

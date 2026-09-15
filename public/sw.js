@@ -165,6 +165,7 @@ self.addEventListener('fetch', (event) => {
   if (
     url.pathname.startsWith('/_next/') ||
     url.pathname.includes('webpack') ||
+    url.pathname.includes('turbopack') ||
     url.pathname.includes('hot-update') ||
     url.pathname.includes('react-refresh')
   ) {
@@ -224,7 +225,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // F. Static assets: Cache-first with stale-while-revalidate
+  // F. Page Navigation: Always network-first so new app chunks are never mismatched
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/');
+      })
+    );
+    return;
+  }
+
+  // G. Static assets: Cache-first with stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {

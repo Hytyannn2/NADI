@@ -15,6 +15,7 @@ export interface WeatherData {
     rainMm: number;
     floodRisk: string;
     weatherCode?: number;
+    condition?: string;
     aqi: number;
     pm25: number;
     pm10: number;
@@ -237,11 +238,11 @@ function updateGlobalWeather(data: Partial<{
     notifyListeners();
 }
 
-async function fetchWeatherAndGeocodeGlobal(lat: number, lng: number, manualLabel?: string) {
+async function fetchWeatherAndGeocodeGlobal(lat: number, lng: number, manualLabel?: string, force: boolean = false) {
     if (globalSimulatedWeather !== 'auto') return; // Don't overwrite simulated test state
     const now = Date.now();
     // Throttle duplicate fetches within 3 seconds unless forced
-    if (now - globalLastFetchTime < 3000 && globalLastLat === lat && globalLastLng === lng) {
+    if (!force && now - globalLastFetchTime < 3000 && globalLastLat === lat && globalLastLng === lng) {
         return;
     }
     globalLastFetchTime = now;
@@ -251,7 +252,8 @@ async function fetchWeatherAndGeocodeGlobal(lat: number, lng: number, manualLabe
     updateGlobalWeather({ isWeatherLoading: true, userLat: lat, userLng: lng });
 
     try {
-        const res = await fetch(`/api/weather?lat=${lat}&lng=${lng}`);
+        const cacheBust = force ? `&t=${now}` : '';
+        const res = await fetch(`/api/weather?lat=${lat}&lng=${lng}${cacheBust}`);
         const d = await res.json();
         
         let newLabel = globalLocationLabel;
@@ -437,8 +439,25 @@ export function useWeather() {
                 () => {},
                 { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
             );
+
+            // Auto-refresh weather every 2 minutes to keep conditions completely current
+            const pollInterval = setInterval(() => {
+                if (globalSimulatedWeather === 'auto') {
+                    const lat = globalUserLat || 6.1254;
+                    const lng = globalUserLng || 102.2381;
+                    fetchWeatherAndGeocodeGlobal(lat, lng, globalIsManualOverride ? globalLocationLabel : undefined, true);
+                }
+            }, 120000);
+
+            return () => clearInterval(pollInterval);
         }
     }, []);
+
+    const refreshWeather = async () => {
+        const lat = userLat || 6.1254;
+        const lng = userLng || 102.2381;
+        await fetchWeatherAndGeocodeGlobal(lat, lng, isManualOverride ? locationLabel : undefined, true);
+    };
 
     return {
         weather,
@@ -450,6 +469,7 @@ export function useWeather() {
         setSimulatedWeather,
         setManualLocation,
         isManualOverride,
-        resetToAutoGps
+        resetToAutoGps,
+        refreshWeather,
     };
 }

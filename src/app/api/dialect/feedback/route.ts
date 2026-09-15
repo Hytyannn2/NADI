@@ -32,19 +32,19 @@ export async function POST(request: Request) {
             );
         }
 
-        // Tier 1 Ingest Gate: Length bounds
-        if (rawDialect.length > 35 || rawMeaning.length > 40) {
+        // Tier 1 Ingest Gate: Realistic sentence length bounds (up to 300 chars)
+        if (rawDialect.length > 300 || rawMeaning.length > 300) {
             return NextResponse.json(
-                { success: false, error: 'Teks dialek atau maksud melebihi had panjang yang dibenarkan (maksimum 35-40 aksara).' },
+                { success: false, error: 'Teks dialek atau maksud melebihi had panjang yang dibenarkan (maksimum 300 aksara).' },
                 { status: 400 }
             );
         }
 
-        // Tier 1 Ingest Gate: Strict character whitelist (letters, spaces, hyphens, apostrophes)
-        const VALID_DIALECT_REGEX = /^[\p{L}\s'-]+$/u;
+        // Tier 1 Ingest Gate: Allow letters, numbers, spaces, and common sentence punctuation
+        const VALID_DIALECT_REGEX = /^[\p{L}\p{N}\s',.!?()"-]+$/u;
         if (!VALID_DIALECT_REGEX.test(rawDialect) || (rawMeaning && !VALID_DIALECT_REGEX.test(rawMeaning))) {
             return NextResponse.json(
-                { success: false, error: 'Hanya huruf, ruang, tanda sempang (-), dan apostrof (\') dibenarkan. Kod, simbol, atau baris baru ditolak.' },
+                { success: false, error: 'Hanya teks biasa dan tanda baca dibenarkan. Kod atau aksara khas ditolak.' },
                 { status: 400 }
             );
         }

@@ -141,7 +141,7 @@ export async function lookup(wordRaw: string): Promise<LookupResult | null> {
 }
 
 // Validation guards against prompt injection and untrusted crowd data
-const VALID_DIALECT_TOKEN = /^[\p{L}\s'-]+$/u;
+const VALID_DIALECT_TOKEN = /^[\p{L}\p{N}\s',.!?()"-]+$/u;
 const FORBIDDEN_KEYWORDS = /(\bignore\b|\bsystem\b|\binstruction\b|\bprompt\b|\bbypass\b|\bjailbreak\b|\bassistant\b|\buser\b|\brule\b|\boverride\b|\bjson\b|<script|<xml|```)/i;
 
 /**
@@ -155,7 +155,7 @@ export async function exportSafeDictionary(limit = 50): Promise<Record<string, s
 
   for (const [d, s] of Object.entries(m)) {
     if (d === s || !d || !s) continue;
-    if (d.length > 35 || s.length > 40) continue;
+    if (d.length > 80 || s.length > 100) continue;
     if (!VALID_DIALECT_TOKEN.test(d) || !VALID_DIALECT_TOKEN.test(s)) continue;
     if (FORBIDDEN_KEYWORDS.test(d) || FORBIDDEN_KEYWORDS.test(s)) continue;
 
@@ -187,8 +187,8 @@ export async function addCorrection(
   const standard = correctMeaning.toLowerCase().trim();
 
   // Tier 2 Ingest Validation
-  if (dialect.length > 35 || standard.length > 40) {
-    return { status: 'rejected', error: 'Exceeded length bounds (max 35-40 chars).' };
+  if (dialect.length > 300 || standard.length > 300) {
+    return { status: 'rejected', error: 'Exceeded length bounds (max 300 chars).' };
   }
   if (!VALID_DIALECT_TOKEN.test(dialect) || !VALID_DIALECT_TOKEN.test(standard)) {
     return { status: 'rejected', error: 'Contains forbidden characters.' };
@@ -212,9 +212,13 @@ export async function addCorrection(
     }
   }
 
-  const supabase = getSupabase();
-  if (supabase) {
-    await supabase.from('nadi_dialect_feedback').insert(new_mappings);
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from('nadi_dialect_feedback').insert(new_mappings);
+    }
+  } catch (err) {
+    console.warn('[engine/addCorrection] Database insert error:', err);
   }
 
   learnedCache = null; // Clear cache so subsequent lookups include the new correction

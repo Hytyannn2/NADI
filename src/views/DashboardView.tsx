@@ -17,8 +17,10 @@ import {
     ChevronRight, Loader2, Thermometer,
     Wind, Droplets, ClipboardList, ShoppingBag,
     Sun, Moon, CloudSun, CloudMoon, CloudLightning,
-    CloudDrizzle, Cloud
+    CloudDrizzle, Cloud, MapPin, Zap
 } from 'lucide-react';
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { WeatherSkeleton } from '@/src/components/ui/Skeleton';
 
 export default function DashboardView() {
@@ -136,10 +138,22 @@ export default function DashboardView() {
                 ) : (
                     <div className="rounded-2xl p-4 relative overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{locationLabel}</span>
-                            {weather && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Terkini</span>
-                            )}
+                            <div className="flex items-center gap-1.5 text-left">
+                                <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300 truncate max-w-[180px]">
+                                    {locationLabel}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                {weather?.condition && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                        {weather.condition}
+                                    </span>
+                                )}
+                                {weather && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Terkini</span>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -167,10 +181,10 @@ export default function DashboardView() {
                                         <Wind className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
                                         <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.windSpeed} km/h</span>
                                     </div>
-                                    {weather.rainMm >= 0.5 && (
+                                    {weather.rainMm > 0 && (
                                         <div className="flex items-center gap-2" title="Kadar Hujan">
                                             <CloudRain className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
-                                            <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.rainMm} mm</span>
+                                            <span className="text-[10px] font-semibold text-blue-400">{weather.rainMm} mm</span>
                                         </div>
                                     )}
                                 </div>
@@ -307,7 +321,6 @@ export default function DashboardView() {
                     <span>Pusat Khidmat Warga</span>
                 </div>
             </footer>
-
         </div>
     );
 }

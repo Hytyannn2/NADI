@@ -6,6 +6,7 @@
  */
 import "./globals.css";
 import { type Metadata, type Viewport } from "next";
+import Script from "next/script";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { LanguageProvider } from "@/src/context/LanguageContext";
 import { ThemeProvider } from "@/src/context/ThemeContext";
@@ -122,21 +123,50 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
           rel="stylesheet"
         />
-        <script
+        <Script
+          id="json-ld"
           type="application/ld+json"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function() {});
-                });
-              }
-            `,
-          }}
-        />
+        {process.env.NODE_ENV === 'production' ? (
+          <Script
+            id="sw-register"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function() {});
+                  });
+                }
+              `,
+            }}
+          />
+        ) : (
+          <Script
+            id="sw-dev-cleanup"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (var r of registrations) {
+                      r.unregister();
+                    }
+                  });
+                  if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                      for (var name of names) {
+                        caches.delete(name);
+                      }
+                    });
+                  }
+                }
+              `,
+            }}
+          />
+        )}
       </head>
       <body className="antialiased text-white h-full w-full overflow-hidden" style={{ background: 'var(--bg-base, #0F0F11)' }} suppressHydrationWarning>
         <AuthProvider>

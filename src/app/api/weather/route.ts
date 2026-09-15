@@ -111,6 +111,46 @@ function getNearestLocation(lat: number, lng: number): { name: string; state: st
 // GET: Fetches weather, air quality index, and calculates flood risk index (FRI)
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
+    const searchQuery = searchParams.get('q') || searchParams.get('search');
+
+    // Optional: Location search query for custom place picking
+    if (searchQuery && searchQuery.trim().length > 1) {
+        try {
+            const searchUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery.trim())}&countrycodes=my&format=json&limit=6&addressdetails=1`;
+            const sRes = await fetch(searchUrl, {
+                headers: { 'User-Agent': 'NADI-Civic-App/1.0 (https://nadi.my; contact@nadi.my)' },
+                signal: AbortSignal.timeout(3500),
+            });
+            if (sRes.ok) {
+                const results = await sRes.json();
+                const formatted = results.map((item: any) => {
+                    const a = item.address || {};
+                    const sub = a.suburb || a.quarter || a.neighbourhood || a.village || '';
+                    const main = a.city || a.town || a.municipality || a.district || a.state_district || '';
+                    const state = a.state || '';
+                    let label = '';
+                    if (sub && main && !sub.toLowerCase().includes(main.toLowerCase())) {
+                        label = `${sub}, ${main}`;
+                    } else {
+                        label = sub || main || item.name || '';
+                    }
+                    if (state && !label.includes(state)) {
+                        label = label ? `${label}, ${state}` : state;
+                    }
+                    return {
+                        label: label || item.display_name.split(',').slice(0, 3).join(','),
+                        lat: parseFloat(item.lat),
+                        lng: parseFloat(item.lon),
+                    };
+                });
+                return NextResponse.json({ success: true, results: formatted });
+            }
+        } catch (e) {
+            console.warn('Location search error:', e);
+        }
+        return NextResponse.json({ success: false, results: [] });
+    }
+
     const latParam = searchParams.get('lat');
     const lngParam = searchParams.get('lng');
 
@@ -126,16 +166,16 @@ export async function GET(request: Request) {
         // Parallel queries with explicit timeouts so slow external APIs don't freeze the request or fail the page
         const [weatherRes, aqiRes, geocodeRes] = await Promise.allSettled([
             fetch(weatherUrl, { 
-                next: { revalidate: 60 },
+                next: { revalidate: 30 },
                 signal: AbortSignal.timeout(5000) 
             }),
             fetch(aqiUrl, { 
-                next: { revalidate: 120 },
+                next: { revalidate: 60 },
                 signal: AbortSignal.timeout(4000) 
             }),
             fetch(geocodeUrl, { 
                 headers: { 'User-Agent': 'NADI-Civic-App/1.0 (https://nadi.my; contact@nadi.my)' },
-                signal: AbortSignal.timeout(2500)
+                signal: AbortSignal.timeout(3000)
             })
         ]);
 
@@ -146,14 +186,15 @@ export async function GET(request: Request) {
             try {
                 const geoData = await geocodeRes.value.json();
                 const addr = geoData.address || {};
-                // Resolves neighborhood / kampung and town names for display
-                const localArea = addr.neighbourhood || addr.quarter || addr.suburb || addr.village || addr.hamlet || addr.residential || '';
-                const mainTown = addr.city || addr.town || addr.municipality || addr.state_district || '';
+                
+                // Prioritize recognizable suburb/mukim and city/district names for display
+                const subArea = addr.suburb || addr.quarter || addr.neighbourhood || addr.village || addr.residential || '';
+                const mainTown = addr.city || addr.town || addr.municipality || addr.district || addr.state_district || addr.county || '';
 
-                if (localArea && mainTown && !localArea.toLowerCase().includes(mainTown.toLowerCase())) {
-                    resolvedLocationName = `${localArea}, ${mainTown}`;
+                if (subArea && mainTown && !subArea.toLowerCase().includes(mainTown.toLowerCase()) && !mainTown.toLowerCase().includes(subArea.toLowerCase())) {
+                    resolvedLocationName = `${subArea}, ${mainTown}`;
                 } else {
-                    resolvedLocationName = localArea || mainTown || addr.county || '';
+                    resolvedLocationName = subArea || mainTown || 'Lokasi Semasa';
                 }
 
                 resolvedStateName = addr.state || '';
@@ -189,8 +230,30 @@ export async function GET(request: Request) {
             recent15MinRain
         );
 
-        // Treats precipitation < 0.5 mm/h as dry/negligible trace condensation
-        const rainMm = actualRain >= 0.5 ? Number(actualRain.toFixed(1)) : 0;
+        // Check if WMO code represents active precipitation (drizzle, rain, showers, thunderstorms)
+        const isRainCode = (weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82) || (weatherCode >= 95 && weatherCode <= 99);
+
+        // Accurately capture rainfall: do not truncate real drizzle (0.1 - 0.4 mm)
+        const rainMm = actualRain > 0 ? Number(actualRain.toFixed(1)) : (isRainCode ? 0.2 : 0);
+
+        // Human-friendly Malay condition description
+        let condition = 'Cerah';
+        if (weatherCode >= 95) {
+            condition = 'Ribut Petir';
+        } else if (weatherCode >= 80 || weatherCode === 65) {
+            condition = 'Hujan Lebat';
+        } else if (weatherCode >= 61) {
+            condition = 'Hujan';
+        } else if (weatherCode >= 51 || rainMm > 0) {
+            condition = 'Hujan Renyai';
+        } else if (weatherCode === 3) {
+            condition = 'Mendung';
+        } else if (weatherCode === 1 || weatherCode === 2) {
+            condition = 'Sebahagian Berawan';
+        } else {
+            condition = 'Cerah';
+        }
+
         const humidity = currentW.relative_humidity_2m || 70;
         const pressure = currentW.surface_pressure || currentW.pressure_msl || 1013;
 
@@ -216,6 +279,7 @@ export async function GET(request: Request) {
                 humidity: currentW.relative_humidity_2m || 70,
                 windSpeed: Math.round(currentW.wind_speed_10m || 0),
                 rainMm: Number(rainMm.toFixed(1)),
+                condition,
                 floodRisk,
                 friScore: Number(fri.toFixed(1)),
                 weatherCode,
@@ -225,7 +289,7 @@ export async function GET(request: Request) {
             },
         }, {
             headers: {
-                'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+                'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
             },
         });
     } catch (error) {
