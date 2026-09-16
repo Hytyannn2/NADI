@@ -6,16 +6,9 @@
  */
 import { NextResponse } from 'next/server';
 import { randomUUID, timingSafeEqual } from 'crypto';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { checkBantuanRequestLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
-
-// Supabase admin client for anonymous aid operations
-function getAdminSupabase() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    return createSupabaseClient(supabaseUrl, serviceKey);
-}
+import { getAdminSupabase } from '@/src/lib/auth/serverAuth';
 
 // Constant-time string comparison to prevent timing attacks
 function safeCompare(a: string, b: string): boolean {
