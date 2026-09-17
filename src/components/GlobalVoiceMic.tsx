@@ -2,13 +2,15 @@
  * Global Voice Microphone Component
  * 
  * Provides high-fidelity dialect speech-to-text powered by Groq Whisper Large-v3
- * with authentic Kelantanese phonetic priming, coupled with real-time interim preview.
+ * with authentic Kelantanese phonetic priming, coupled with real-time interim preview,
+ * acoustic silence detection (VAD), and anti-hallucination protection.
  */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { isWhisperHallucination } from '@/src/lib/speech/whisperHallucinations';
 
 interface GlobalVoiceMicProps {
     /** Callback fired with the transcribed text */
@@ -27,17 +29,29 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [interimText, setInterimText] = useState('');
+    const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
     
     const recognitionRef = useRef<any>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const mediaStreamRef = useRef<MediaStream | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const volumeIntervalRef = useRef<any>(null);
+    const maxVolumeRef = useRef<number>(0);
+    const recordStartRef = useRef<number>(0);
     const finalWebSpeechRef = useRef('');
     const baseTextRef = useRef('');
 
+    const showTemporaryNotice = useCallback((msg: string) => {
+        setFeedbackNotice(msg);
+        setTimeout(() => {
+            setFeedbackNotice((current) => (current === msg ? null : current));
+        }, 2800);
+    }, []);
+
     const emitTranscript = useCallback((speechText: string) => {
         const trimmed = speechText.trim();
-        if (!trimmed) return;
+        if (!trimmed || isWhisperHallucination(trimmed)) return;
         const result = baseTextRef.current ? `${baseTextRef.current} ${trimmed}` : trimmed;
         onTranscript(result);
     }, [onTranscript]);
@@ -50,8 +64,16 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
 
     const s = sizeMap[size];
 
-    // Cleanly stops all active microphone streams and tracks
+    // Cleanly stops all active microphone streams, tracks, and audio analysis contexts
     const releaseMediaStream = useCallback(() => {
+        if (volumeIntervalRef.current) {
+            clearInterval(volumeIntervalRef.current);
+            volumeIntervalRef.current = null;
+        }
+        if (audioContextRef.current) {
+            try { audioContextRef.current.close(); } catch {}
+            audioContextRef.current = null;
+        }
         if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach(track => {
                 try { track.stop(); } catch {}
@@ -89,8 +111,11 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
         finalWebSpeechRef.current = '';
         audioChunksRef.current = [];
         setInterimText('');
+        setFeedbackNotice(null);
+        maxVolumeRef.current = 0;
+        recordStartRef.current = Date.now();
 
-        // 1. Initialize High-Fidelity Audio Recording (MediaRecorder)
+        // 1. Initialize High-Fidelity Audio Recording (MediaRecorder) with VAD energy metering
         let stream: MediaStream | null = null;
         try {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -102,6 +127,38 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                     }
                 });
                 mediaStreamRef.current = stream;
+
+                // Setup Web Audio VAD energy tracker to detect human speech vs pure silence
+                try {
+                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                    if (AudioContextClass) {
+                        const actx = new AudioContextClass();
+                        if (actx.state === 'suspended') {
+                            actx.resume().catch(() => {});
+                        }
+                        const analyser = actx.createAnalyser();
+                        analyser.fftSize = 256;
+                        const src = actx.createMediaStreamSource(stream);
+                        src.connect(analyser);
+
+                        audioContextRef.current = actx;
+                        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                        volumeIntervalRef.current = setInterval(() => {
+                            analyser.getByteFrequencyData(dataArray);
+                            let sum = 0;
+                            for (let i = 0; i < dataArray.length; i++) {
+                                sum += dataArray[i];
+                            }
+                            const avg = sum / dataArray.length;
+                            if (avg > maxVolumeRef.current) {
+                                maxVolumeRef.current = avg;
+                            }
+                        }, 100);
+                    }
+                } catch (audioErr) {
+                    console.warn('[GlobalVoiceMic] Audio energy analyzer warning:', audioErr);
+                }
 
                 // Pick optimal supported MIME type
                 let mimeType = 'audio/webm;codecs=opus';
@@ -126,14 +183,23 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                     };
 
                     recorder.onstop = async () => {
+                        const durationMs = Date.now() - recordStartRef.current;
+                        const maxVol = maxVolumeRef.current;
                         releaseMediaStream();
 
                         const chunks = audioChunksRef.current;
-                        if (chunks.length === 0) {
-                            if (finalWebSpeechRef.current.trim()) {
-                                emitTranscript(finalWebSpeechRef.current.trim());
-                            }
+                        const hasWebSpeech = Boolean(finalWebSpeechRef.current.trim() && !isWhisperHallucination(finalWebSpeechRef.current));
+                        
+                        // Guard against accidental taps (<500ms) or flatline silent audio (no voice detected)
+                        const isSilence = maxVol < 7 && !hasWebSpeech;
+
+                        if (chunks.length === 0 || durationMs < 450 || isSilence) {
                             setIsProcessing(false);
+                            if (hasWebSpeech) {
+                                emitTranscript(finalWebSpeechRef.current.trim());
+                            } else {
+                                showTemporaryNotice('Tiada suara dikesan');
+                            }
                             return;
                         }
 
@@ -152,16 +218,26 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                             });
 
                             const data = await res.json();
-                            if (data.success && data.text && data.text.trim()) {
-                                emitTranscript(data.text.trim());
-                            } else if (finalWebSpeechRef.current.trim()) {
-                                // Fallback to Web Speech if Whisper returns empty
+                            const transcriptText = data.text ? data.text.trim() : '';
+
+                            if (data.success && transcriptText && !isWhisperHallucination(transcriptText)) {
+                                emitTranscript(transcriptText);
+                            } else if (data.isSilence || !transcriptText || isWhisperHallucination(transcriptText)) {
+                                // Silent input or filtered hallucination -> do not emit, explain kindly to user
+                                if (hasWebSpeech) {
+                                    emitTranscript(finalWebSpeechRef.current.trim());
+                                } else {
+                                    showTemporaryNotice('Tiada suara dikesan');
+                                }
+                            } else if (hasWebSpeech) {
                                 emitTranscript(finalWebSpeechRef.current.trim());
                             }
                         } catch (err) {
                             console.warn('[GlobalVoiceMic] Whisper transcribe failed, using fallback:', err);
-                            if (finalWebSpeechRef.current.trim()) {
+                            if (hasWebSpeech) {
                                 emitTranscript(finalWebSpeechRef.current.trim());
+                            } else {
+                                showTemporaryNotice('Gagal memproses audio');
                             }
                         } finally {
                             setIsProcessing(false);
@@ -180,7 +256,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
             }
         }
 
-        // 2. Parallel Web Speech API for real-time live preview
+        // 2. Parallel Web Speech API for real-time live interim preview
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRecognition) {
             try {
@@ -206,7 +282,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                             interim += transcript;
                         }
                     }
-                    if (final) {
+                    if (final && !isWhisperHallucination(final)) {
                         finalWebSpeechRef.current += (finalWebSpeechRef.current ? ' ' : '') + final;
                         // Provide real-time live typing feedback
                         emitTranscript(finalWebSpeechRef.current);
@@ -232,7 +308,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
         }
 
         setIsListening(true);
-    }, [currentText, emitTranscript, releaseMediaStream]);
+    }, [currentText, emitTranscript, releaseMediaStream, showTemporaryNotice]);
 
     const toggleListening = useCallback(() => {
         if (isListening) {
@@ -278,10 +354,10 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                 disabled={isProcessing}
                 className={`${s.button} rounded-full flex items-center justify-center transition-all relative z-10 ${
                     isListening
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30 ring-2 ring-red-500/30'
                         : isProcessing
                         ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 cursor-wait'
-                        : 'hover:bg-[var(--bg-subtle)] border border-transparent'
+                        : 'hover:bg-[var(--bg-subtle)] border border-transparent hover:border-zinc-700/80 text-zinc-400 hover:text-zinc-200'
                 }`}
                 style={!isListening && !isProcessing ? { color: 'var(--text-muted)' } : {}}
                 title={isListening ? 'Ketik untuk berhenti merakam' : 'Rakam suara (Dialek Kelantan didorong AI)'}
@@ -289,38 +365,55 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                 {isProcessing ? (
                     <Loader2 className={`${s.icon} animate-spin text-amber-400`} />
                 ) : isListening ? (
-                    <MicOff className={`${s.icon} animate-pulse`} />
+                    <MicOff className={`${s.icon} animate-pulse text-red-400`} />
                 ) : (
                     <Mic className={s.icon} />
                 )}
             </button>
 
-            {/* Interim text tooltip / Processing status */}
+            {/* Elevated Status & Transcription Tooltip (Positioned safely above button so never clipped by overflow-hidden) */}
             <AnimatePresence>
-                {isListening && interimText && !inline && (
+                {/* 1. Live interim speech / recording status */}
+                {isListening && !inline && (
                     <motion.div
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-bold z-20 shadow-lg"
-                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="absolute bottom-full mb-3 right-0 sm:left-1/2 sm:-translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-xl text-[11px] font-bold z-40 shadow-2xl bg-red-950/95 text-red-300 border border-red-500/40 flex items-center gap-2 backdrop-blur-md pointer-events-none"
                     >
-                        {interimText.slice(0, 40)}...
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
+                        <span className="max-w-[210px] sm:max-w-[280px] truncate">
+                            {interimText ? interimText : 'Mendengar... bercakap sekarang'}
+                        </span>
                     </motion.div>
                 )}
 
+                {/* 2. Processing / Whisper AI transcription status */}
                 {isProcessing && !inline && (
                     <motion.div
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-xl text-[10px] font-bold z-30 shadow-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 backdrop-blur-md"
+                        exit={{ opacity: 0, y: 6 }}
+                        className="absolute bottom-full mb-3 right-0 sm:left-1/2 sm:-translate-x-1/2 whitespace-nowrap px-3.5 py-1.5 rounded-xl text-[11px] font-bold z-40 shadow-2xl bg-amber-950/95 text-amber-300 border border-amber-500/40 flex items-center gap-2 backdrop-blur-md pointer-events-none"
                     >
-                        <Sparkles className="w-3 h-3 text-amber-400 animate-spin" /> Mengecam dialek Kelantan...
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />
+                        <span>Mengecam suara (Dialek Kelantan)...</span>
+                    </motion.div>
+                )}
+
+                {/* 3. Feedback notification notice (e.g. Tiada suara dikesan) */}
+                {!isListening && !isProcessing && feedbackNotice && !inline && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="absolute bottom-full mb-3 right-0 sm:left-1/2 sm:-translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-xl text-[11px] font-bold z-40 shadow-2xl bg-zinc-900/95 text-zinc-300 border border-zinc-700/80 flex items-center gap-1.5 backdrop-blur-md pointer-events-none"
+                    >
+                        <span className="text-amber-400 text-xs">ℹ️</span>
+                        <span>{feedbackNotice}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
         </div>
     );
 }
-

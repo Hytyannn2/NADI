@@ -28,6 +28,7 @@ import {
     FileText,
     Layers,
     Image as ImageIcon,
+    Plus,
     X,
     MapPin,
     Volume2,
@@ -391,6 +392,26 @@ function getDeviceFingerprint(): string {
     return fp;
 }
 
+async function fetchLocationNameFromCoords(lat: number, lng: number): Promise<string> {
+    try {
+        const res = await fetch(`/api/weather?lat=${lat}&lng=${lng}`, {
+            signal: AbortSignal.timeout(4000),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.location && typeof data.location === 'string' && data.location.trim()) {
+                return data.location.trim();
+            }
+            if (data.state && typeof data.state === 'string' && data.state.trim()) {
+                return data.state.trim();
+            }
+        }
+    } catch (e) {
+        console.warn('Reverse geocode error:', e);
+    }
+    return `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+}
+
 interface AduanViewProps {
     onNavigateToBencana?: () => void;
 }
@@ -410,6 +431,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const [isParsingVoice, setIsParsingVoice] = useState(false);
     const [userGpsLocation, setUserGpsLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
     const [isGettingGps, setIsGettingGps] = useState(false);
+    const [gpsErrorMessage, setGpsErrorMessage] = useState<string | null>(null);
+    const gpsErrorTimeoutRef = useRef<any>(null);
 
     // Modals
     const [copiedToast, setCopiedToast] = useState(false);
@@ -421,10 +444,15 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
     const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
 
-    // Photo Attachment
+    // Photo & Media Attachment Hub
     const [attachedPhotoBase64, setAttachedPhotoBase64] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [isMediaMenuOpen, setIsMediaMenuOpen] = useState(false);
     const photoFileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
+    const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
+    const liveCameraVideoRef = useRef<HTMLVideoElement | null>(null);
+    const liveCameraStreamRef = useRef<MediaStream | null>(null);
 
     const supabase = useMemo(() => createClient(), []);
     const detector = usePotholeContext();
@@ -458,13 +486,17 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     useEffect(() => {
         if (!userGpsLocation && typeof navigator !== 'undefined' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
+                async (pos) => {
                     const adjusted = applyLocationPrecision(pos.coords.latitude, pos.coords.longitude);
                     setUserGpsLocation({
                         lat: adjusted.lat,
                         lng: adjusted.lng,
-                        label: locationPrecision === 'fuzzy' ? 'Lokasi Anggaran (~500m Privasi)' : 'Lokasi Semasa (GPS Tepat)'
+                        label: `${adjusted.lat.toFixed(4)}°, ${adjusted.lng.toFixed(4)}°`
                     });
+                    const resolvedName = await fetchLocationNameFromCoords(adjusted.lat, adjusted.lng);
+                    if (resolvedName) {
+                        setUserGpsLocation(prev => prev ? { ...prev, label: resolvedName } : null);
+                    }
                 },
                 () => {},
                 { enableHighAccuracy: locationPrecision === 'high', timeout: 5000 }
@@ -473,24 +505,53 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     }, [userGpsLocation, applyLocationPrecision, locationPrecision]);
 
     const handleGetGps = () => {
-        if (!navigator.geolocation) return;
+        playAlertSound('radar');
+        setGpsErrorMessage(null);
+        if (gpsErrorTimeoutRef.current) clearTimeout(gpsErrorTimeoutRef.current);
+
+        if (typeof window === 'undefined' || !navigator.geolocation) {
+            setGpsErrorMessage('Pelayar anda tidak menyokong fungsi geolokasi.');
+            playAlertSound('error');
+            return;
+        }
+
         setIsGettingGps(true);
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
+            async (pos) => {
                 const adjusted = applyLocationPrecision(pos.coords.latitude, pos.coords.longitude);
                 setUserGpsLocation({
                     lat: adjusted.lat,
                     lng: adjusted.lng,
-                    label: locationPrecision === 'fuzzy' ? 'Lokasi Anggaran (~500m Privasi)' : 'Lokasi Semasa (GPS Tepat)'
+                    label: `${adjusted.lat.toFixed(4)}°, ${adjusted.lng.toFixed(4)}°`
                 });
                 setIsGettingGps(false);
-                playAlertSound('beep');
+                setGpsErrorMessage(null);
+                playAlertSound('success');
+
+                const resolvedName = await fetchLocationNameFromCoords(adjusted.lat, adjusted.lng);
+                if (resolvedName) {
+                    setUserGpsLocation(prev => prev ? { ...prev, label: resolvedName } : null);
+                }
             },
             (err) => {
                 console.warn('GPS location error:', err);
                 setIsGettingGps(false);
+                playAlertSound('error');
+
+                let msg = 'Gagal dapatkan lokasi';
+                if (err && typeof err.code === 'number') {
+                    if (err.code === 1) {
+                        msg = 'Akses lokasi disekat di pelayar';
+                    }
+                }
+                setGpsErrorMessage(msg);
+
+                if (gpsErrorTimeoutRef.current) clearTimeout(gpsErrorTimeoutRef.current);
+                gpsErrorTimeoutRef.current = setTimeout(() => {
+                    setGpsErrorMessage(null);
+                }, 5000);
             },
-            { enableHighAccuracy: locationPrecision === 'high', timeout: 5000 }
+            { enableHighAccuracy: locationPrecision === 'high', timeout: 6000 }
         );
     };
 
@@ -519,10 +580,75 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             const reader = new FileReader();
             reader.onload = (event) => {
                 setAttachedPhotoBase64(event.target?.result as string);
+                try { playAlertSound('success'); } catch {}
             };
             reader.readAsDataURL(file);
         }
+        setIsMediaMenuOpen(false);
         e.target.value = '';
+    };
+
+    const stopLiveCamera = () => {
+        if (liveCameraStreamRef.current) {
+            liveCameraStreamRef.current.getTracks().forEach(track => {
+                try { track.stop(); } catch {}
+            });
+            liveCameraStreamRef.current = null;
+        }
+        setIsLiveCameraOpen(false);
+    };
+
+    const handleTriggerCamera = async () => {
+        setIsMediaMenuOpen(false);
+        if (!isDesktop) {
+            cameraInputRef.current?.click();
+            return;
+        }
+
+        if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+                liveCameraStreamRef.current = stream;
+                setIsLiveCameraOpen(true);
+                setTimeout(() => {
+                    if (liveCameraVideoRef.current) {
+                        liveCameraVideoRef.current.srcObject = stream;
+                        liveCameraVideoRef.current.play().catch(() => {});
+                    }
+                }, 100);
+                return;
+            } catch (err) {
+                console.warn('Webcam access error, fallback to file input:', err);
+            }
+        }
+        cameraInputRef.current?.click();
+    };
+
+    const snapLivePhoto = () => {
+        const video = liveCameraVideoRef.current;
+        if (!video) return;
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const base64 = canvas.toDataURL('image/jpeg', 0.85);
+                setAttachedPhotoBase64(base64);
+                try { playAlertSound('success'); } catch {}
+            }
+        } catch (e) {
+            console.warn('Live photo snap error:', e);
+        }
+        stopLiveCamera();
+    };
+
+    const handleTriggerGallery = () => {
+        setIsMediaMenuOpen(false);
+        photoFileInputRef.current?.click();
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -1278,11 +1404,19 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 </p>
             </motion.div>
 
-            {/* Hidden file input for photo attachment */}
+            {/* Hidden file inputs for photo attachment */}
             <input
                 type="file"
                 accept="image/*"
                 ref={photoFileInputRef}
+                className="hidden"
+                onChange={handleAttachedPhotoSelect}
+            />
+            <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                ref={cameraInputRef}
                 className="hidden"
                 onChange={handleAttachedPhotoSelect}
             />
@@ -1477,8 +1611,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                 {/* Bottom Tools Row */}
                 <div className="relative z-10 flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-zinc-800/50">
-                    {/* Location Badge / Trigger */}
-                    <div className="flex items-center gap-1.5">
+                    {/* Location Badge / Trigger & Error Feedback */}
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button
                             type="button"
                             onClick={handleGetGps}
@@ -1486,44 +1620,131 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all shadow-sm active:scale-95 ${
                                 userGpsLocation
                                     ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                                    : gpsErrorMessage
+                                    ? 'bg-red-500/10 border-red-500/30 text-red-300'
                                     : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
                             }`}
-                            title="Kesan Lokasi GPS Peranti"
+                            title={userGpsLocation ? `Lokasi dikesan: ${userGpsLocation.label} (${userGpsLocation.lat}°, ${userGpsLocation.lng}°)` : "Kesan Lokasi GPS Peranti"}
                         >
                             {isGettingGps ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                            ) : gpsErrorMessage ? (
+                                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
                             ) : (
                                 <MapPin className="w-3.5 h-3.5 text-blue-400" />
                             )}
-                            <span>{userGpsLocation ? `📍 ${userGpsLocation.lat}°, ${userGpsLocation.lng}°` : 'Guna Lokasi Saya (GPS)'}</span>
+                            <span className="truncate max-w-[190px] sm:max-w-[280px]">
+                                {userGpsLocation 
+                                    ? `📍 ${userGpsLocation.label}` 
+                                    : isGettingGps 
+                                    ? 'Mengesan GPS...' 
+                                    : 'Guna Lokasi Saya!'}
+                            </span>
                         </button>
                         {userGpsLocation && (
                             <button
                                 type="button"
-                                onClick={() => setUserGpsLocation(null)}
+                                onClick={() => {
+                                    setUserGpsLocation(null);
+                                    playAlertSound('beep');
+                                }}
                                 className="text-zinc-500 hover:text-zinc-300 text-xs px-1"
                                 title="Reset Lokasi"
                             >
                                 ✕
                             </button>
                         )}
+
+                        {/* GPS Error Feedback Banner */}
+                        <AnimatePresence>
+                            {gpsErrorMessage && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -6, scale: 0.96 }}
+                                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                                    exit={{ opacity: 0, x: -6, scale: 0.96 }}
+                                    className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-red-950/90 border border-red-500/40 text-red-200 flex items-center gap-2 shadow-lg backdrop-blur-md"
+                                >
+                                    <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                    <span>{gpsErrorMessage}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGpsErrorMessage(null)}
+                                        className="text-zinc-400 hover:text-white px-0.5 text-xs"
+                                        title="Tutup amaran"
+                                    >
+                                        ✕
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {/* Tools & Send Button */}
                     <div className="flex items-center gap-2">
-                        {/* Photo attachment button */}
-                        <button
-                            type="button"
-                            onClick={() => photoFileInputRef.current?.click()}
-                            className={`p-2.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center shrink-0 active:scale-95 ${
-                                attachedPhotoBase64
-                                    ? 'bg-[#C5A367]/20 border-[#C5A367] text-[#C5A367]'
-                                    : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
-                            }`}
-                            title={isDesktop ? "Muat Naik, Tampal (Paste) atau Drag & Drop Foto" : "Muat Naik Foto"}
-                        >
-                            <ImageIcon className="w-4 h-4" />
-                        </button>
+                        {/* Media Attachment Action Hub (+ button rotating to X) */}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsMediaMenuOpen(!isMediaMenuOpen);
+                                    try { playAlertSound('beep'); } catch {}
+                                }}
+                                className={`p-2.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center shrink-0 active:scale-95 ${
+                                    isMediaMenuOpen
+                                        ? 'bg-zinc-800 border-[#C5A367] text-[#C5A367] ring-2 ring-[#C5A367]/30 shadow-lg'
+                                        : attachedPhotoBase64
+                                        ? 'bg-[#C5A367]/20 border-[#C5A367] text-[#C5A367]'
+                                        : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                                }`}
+                                title={isMediaMenuOpen ? "Tutup Pilihan Foto" : "Tambah Foto (Kamera / Galeri)"}
+                            >
+                                <motion.div
+                                    animate={{ rotate: isMediaMenuOpen ? 45 : 0 }}
+                                    transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                                    className="flex items-center justify-center"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </motion.div>
+                            </button>
+
+                            {/* Floating 2-choice Menu: Kamera & Galeri */}
+                            <AnimatePresence>
+                                {isMediaMenuOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-30"
+                                            onClick={() => setIsMediaMenuOpen(false)}
+                                        />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 8, scale: 0.92 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 8, scale: 0.92 }}
+                                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                                            className="absolute bottom-full mb-2.5 right-0 flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#0E0E13]/95 border border-zinc-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.65)] backdrop-blur-xl z-40 whitespace-nowrap"
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={handleTriggerCamera}
+                                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-emerald-500/15 border border-zinc-800/80 hover:border-emerald-500/40 text-zinc-200 hover:text-emerald-300 transition-all text-xs font-semibold active:scale-95 shadow-sm group"
+                                                title="Ambil gambar menggunakan kamera"
+                                            >
+                                                <Camera className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                                <span>Kamera</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleTriggerGallery}
+                                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-sky-500/15 border border-zinc-800/80 hover:border-sky-500/40 text-zinc-200 hover:text-sky-300 transition-all text-xs font-semibold active:scale-95 shadow-sm group"
+                                                title="Muat naik gambar daripada galeri"
+                                            >
+                                                <ImageIcon className="w-3.5 h-3.5 text-sky-400 group-hover:scale-110 transition-transform" />
+                                                <span>Galeri</span>
+                                            </button>
+                                        </motion.div>
+                                    </>
+                                )}
+                            </AnimatePresence>
+                        </div>
 
                         {/* Speech Mic */}
                         <GlobalVoiceMic
@@ -2231,6 +2452,96 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                         className="px-4 py-2 rounded-xl text-xs font-bold text-[#C5A367] bg-[#C5A367]/10 hover:bg-[#C5A367]/20 border border-[#C5A367]/30 transition-all active:scale-95"
                                     >
                                         Simpan Rekod Aduan Sahaja ➔
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
+
+            {/* ================================================================= */}
+            {/* 10. LIVE CAMERA VIEWFINDER MODAL (ON-THE-SPOT PHOTO CAPTURE)       */}
+            {/* ================================================================= */}
+            {mounted && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {isLiveCameraOpen && (
+                        <div className="fixed inset-0 z-[999998] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                                transition={{ duration: 0.22 }}
+                                className="relative w-full max-w-lg bg-[#0D0D12] border border-zinc-700/80 rounded-3xl overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.85)] flex flex-col"
+                            >
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/80 bg-zinc-950/60">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                            <Camera className="w-4 h-4 text-emerald-400" />
+                                            Kamera Langsung (Live Camera)
+                                        </h3>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={stopLiveCamera}
+                                        className="p-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                                        title="Tutup Kamera"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                {/* Viewfinder / Video Stream */}
+                                <div className="relative aspect-[4/3] bg-black overflow-hidden flex items-center justify-center">
+                                    <video
+                                        ref={liveCameraVideoRef}
+                                        autoPlay
+                                        playsInline
+                                        muted
+                                        className="w-full h-full object-cover"
+                                    />
+
+                                    {/* Viewfinder Target Reticles */}
+                                    <div className="absolute inset-8 pointer-events-none border border-white/20 rounded-2xl flex items-center justify-center">
+                                        {/* Corner markings */}
+                                        <div className="absolute -top-1 -left-1 w-5 h-5 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
+                                        <div className="absolute -top-1 -right-1 w-5 h-5 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
+                                        <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
+                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+                                        
+                                        {/* Center Crosshair */}
+                                        <div className="w-8 h-0.5 bg-emerald-400/60" />
+                                        <div className="h-8 w-0.5 bg-emerald-400/60 absolute" />
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-medium text-emerald-300 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                        Sedia Tangkap Gambar
+                                    </div>
+                                </div>
+
+                                {/* Controls */}
+                                <div className="p-4 bg-zinc-950/90 border-t border-zinc-800/80 flex items-center justify-between gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={stopLiveCamera}
+                                        className="px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all active:scale-95 cursor-pointer"
+                                    >
+                                        Batal
+                                    </button>
+
+                                    {/* Shutter Button */}
+                                    <button
+                                        type="button"
+                                        onClick={snapLivePhoto}
+                                        className="group flex items-center gap-2.5 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs shadow-[0_4px_20px_rgba(16,185,129,0.35)] transition-all active:scale-95 cursor-pointer"
+                                    >
+                                        <div className="w-3.5 h-3.5 rounded-full border-2 border-black group-hover:scale-110 transition-transform" />
+                                        <span>Tangkap Gambar</span>
                                     </button>
                                 </div>
                             </motion.div>

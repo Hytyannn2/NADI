@@ -8,12 +8,12 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
+import { isWhisperHallucination } from '@/src/lib/speech/whisperHallucinations';
 
-// Authentic conversational Kelantanese speech prompt used to prime Whisper's previous-dialogue context
+// Authentic civic reporting prompt to prime Whisper's context on Kelantanese dialect phonetics
 const KELANTAN_PHONETIC_PRIME = 
-  "Assalamualaikum, kawe nok royak masalah sikit ni. " +
-  "Dekat kawase sini banyok hal hok tok selesai lagi, bahayo ko ore ramai. " +
-  "Harap pihak berkuasa pakat mari tengok dan tolong selesaikan cepat deh.";
+  "Laporan kerosakan jalan, lubang bahaya, parit longkang tersumbat, lampu padam, pokok tumbang. " +
+  "Kawe nok royak masalah dekat kawase sini.";
 
 export async function POST(request: Request) {
   const headersList = await headers();
@@ -69,12 +69,30 @@ export async function POST(request: Request) {
           model,
           prompt: KELANTAN_PHONETIC_PRIME,
           language: 'ms',
-          response_format: 'json',
+          response_format: 'verbose_json',
           temperature: 0.0, // deterministic greedy decoding for maximum phonetic precision
         });
 
-        if (result && typeof result.text === 'string') {
-          transcriptionText = result.text.trim();
+        if (result && typeof (result as any).text === 'string') {
+          const raw = ((result as any).text || '').trim();
+
+          // Check segment-level no_speech_prob if provided by verbose_json
+          const segments = (result as any).segments;
+          let isSilenceProb = false;
+          if (Array.isArray(segments) && segments.length > 0) {
+            const highSilenceSegments = segments.filter(
+              (s: any) => typeof s.no_speech_prob === 'number' && s.no_speech_prob > 0.6
+            );
+            if (highSilenceSegments.length === segments.length) {
+              isSilenceProb = true;
+            }
+          }
+
+          if (isSilenceProb || isWhisperHallucination(raw)) {
+            transcriptionText = '';
+          } else {
+            transcriptionText = raw;
+          }
           break;
         }
       } catch (err: any) {
@@ -89,8 +107,14 @@ export async function POST(request: Request) {
       }
     }
 
+    // If text is empty (due to silence or filtered hallucination), return isSilence cleanly
     if (!transcriptionText) {
-      throw lastError || new Error('Gagal mengecam audio melalui model Whisper.');
+      return NextResponse.json({
+        success: true,
+        text: '',
+        isSilence: true,
+        modelUsed: 'whisper-large-v3',
+      });
     }
 
     return NextResponse.json({

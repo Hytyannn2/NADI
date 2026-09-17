@@ -105,7 +105,7 @@ interface ThemeContextType {
   getSamplingIntervalMs: () => number;
   getAutoRefreshIntervalMs: () => number | null;
   isNotificationAllowed: (category: 'aduan' | 'bantuan' | 'komuniti' | 'disaster', distanceKm?: number) => boolean;
-  playAlertSound: (type?: 'beep' | 'siren' | 'success') => void;
+  playAlertSound: (type?: 'beep' | 'siren' | 'success' | 'radar' | 'error') => void;
 }
 
 const defaults: ThemeContextType = {
@@ -387,13 +387,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [quietHoursEnabled, quietHoursStart, quietHoursEnd, notifAduan, notifBantuan, notifBantuanRadius, notifKomuniti]);
 
   // Plays synthetic sound effects using the Web Audio API
-  const playAlertSound = useCallback((type: 'beep' | 'siren' | 'success' = 'beep') => {
+  const playAlertSound = useCallback((type: 'beep' | 'siren' | 'success' | 'radar' | 'error' = 'beep') => {
     if (type === 'siren' && !emergencySiren) return;
     if (type !== 'siren' && !soundEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       
       if (type === 'siren') {
         // Dual-tone emergency siren
@@ -417,19 +420,51 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         osc2.start();
         osc1.stop(ctx.currentTime + 0.8);
         osc2.stop(ctx.currentTime + 0.8);
-      } else if (type === 'success') {
+      } else if (type === 'radar') {
+        // High-tech GPS radar ping sound (fast frequency chirp with subtle harmonic)
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.12); // D6
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start();
-        osc.stop(ctx.currentTime + 0.35);
+        osc.stop(ctx.currentTime + 0.16);
+      } else if (type === 'success') {
+        // Upbeat ascending 3-note chime (C5 -> E5 -> G5)
+        const notes = [523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const startTime = ctx.currentTime + idx * 0.08;
+          const duration = 0.22;
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(0.14, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        });
+      } else if (type === 'error') {
+        // Distinct low descending tone for errors/unavailable status (280Hz -> 140Hz)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(280, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.14, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
       } else {
         // Default subtle alert beep
         const osc = ctx.createOscillator();

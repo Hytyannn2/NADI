@@ -7,12 +7,12 @@
 
 class SoundEffectsEngine {
   private ctx: AudioContext | null = null;
-  private isEnabled: boolean = false;
+  private isEnabled: boolean = true;
 
   constructor() {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('nadi_sound_enabled');
-      this.isEnabled = saved !== null ? saved === 'true' : false;
+      this.isEnabled = saved !== null ? saved === 'true' : true;
     }
   }
 
@@ -51,6 +51,60 @@ class SoundEffectsEngine {
       } catch {
         // Ignored on devices that restrict vibration without user gestures
       }
+    }
+  }
+
+  /**
+   * Plays an upward radar ping chirp for GPS search/location scanning.
+   */
+  public playRadarPing(): void {
+    if (!this.isEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.12); // D6
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+      this.vibrate(15);
+    } catch {
+      // AudioContext failsafe
+    }
+  }
+
+  /**
+   * Plays a descending error tone for failed actions or unavailable hardware.
+   */
+  public playErrorSound(): void {
+    if (!this.isEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.2);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+      this.vibrate(30);
+    } catch {
+      // AudioContext failsafe
     }
   }
 
