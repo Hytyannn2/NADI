@@ -159,7 +159,7 @@ export default function BencanaView() {
         };
 
         const fetchLatestSensor = () => {
-            fetch('/api/bencana/sensors')
+            fetch(`/api/bencana/sensors?_t=${Date.now()}`, { cache: 'no-store' })
                 .then(res => res.json())
                 .then(resData => {
                     if (resData.success && resData.sensors && resData.sensors.length > 0) {
@@ -186,7 +186,17 @@ export default function BencanaView() {
         };
 
         fetchLatestSensor();
-        const pollInterval = setInterval(fetchLatestSensor, 30000);
+        // Fast 5-second polling to match ESP32 ping interval (real-time responsiveness)
+        const pollInterval = setInterval(fetchLatestSensor, 5000);
+
+        const handleVisibility = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                fetchLatestSensor();
+            }
+        };
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', handleVisibility);
+        }
 
         // Fetch initial sensor data from Supabase DB
         supabase.from('nadi_bencana_sensors').select('*').eq('name', DEFAULT_SENSOR_NODE).single()
@@ -234,6 +244,9 @@ export default function BencanaView() {
 
         return () => {
             clearInterval(pollInterval);
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('visibilitychange', handleVisibility);
+            }
             supabase.removeChannel(channel);
         };
     }, [supabase]);
@@ -472,160 +485,193 @@ export default function BencanaView() {
                 <div className="mb-5 space-y-3">
                     <div className="h-32 skeleton rounded-3xl" />
                 </div>
-            ) : weather && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
-                    className="mb-5 space-y-3"
-                >
-                    {/* Environmental Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+            ) : weather && (() => {
+                const isBmeLive = Boolean(sensorData.is_online && (sensorData.temperature_c !== null || sensorData.humidity_pct !== null));
+                const effectiveTemp = (sensorData.is_online && sensorData.temperature_c !== null)
+                    ? Math.round(sensorData.temperature_c * 10) / 10
+                    : weather.temp;
+                const effectiveHumidity = (sensorData.is_online && sensorData.humidity_pct !== null)
+                    ? Math.round(sensorData.humidity_pct * 10) / 10
+                    : weather.humidity;
 
-                        {/* Main Weather Card */}
-                        <div
-                            className="lg:col-span-5 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden border shadow-xl backdrop-blur-md"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
-                                borderColor: 'rgba(59, 130, 246, 0.2)',
-                            }}
-                        >
-                            <div className="flex items-start justify-between relative z-10">
-                                <div>
-                                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
-                                            <Cloud className="w-3.5 h-3.5" /> CUACA
-                                        </span>
-                                        {weather.condition && (
-                                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                                weather.rainMm > 0 || (weather.weatherCode && weather.weatherCode >= 51)
-                                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse'
-                                                    : 'bg-zinc-800/80 text-zinc-300 border-zinc-700'
-                                            }`}>
-                                                {weather.condition}
+                return (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
+                        className="mb-5 space-y-3"
+                    >
+                        {/* Environmental Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+
+                            {/* Main Weather Card */}
+                            <div
+                                className="lg:col-span-5 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden border shadow-xl backdrop-blur-md"
+                                style={{
+                                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                                    borderColor: 'rgba(59, 130, 246, 0.2)',
+                                }}
+                            >
+                                <div className="flex items-start justify-between relative z-10">
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                                                <Cloud className="w-3.5 h-3.5" /> CUACA
                                             </span>
-                                        )}
+                                            {isBmeLive ? (
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                    BME280 On-Site
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 flex items-center gap-1" title="Sensor BME luar talian — fallback automatik ke data satelit">
+                                                    API Satelit (Fallback)
+                                                </span>
+                                            )}
+                                            {weather.condition && (
+                                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                                    weather.rainMm > 0 || (weather.weatherCode && weather.weatherCode >= 51)
+                                                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse'
+                                                        : 'bg-zinc-800/80 text-zinc-300 border-zinc-700'
+                                                }`}>
+                                                    {weather.condition}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3 className="text-3xl font-bold text-white tracking-tight leading-none">
+                                            {effectiveTemp}°<span className="text-xl font-normal text-zinc-400">C</span>
+                                        </h3>
+                                        <p className="text-xs text-zinc-300 mt-1.5">
+                                            Rasa seperti <strong className="text-white">{weather.feelsLike}°C</strong>
+                                            <span className="text-[10px] text-zinc-400 ml-1.5 font-medium">
+                                                · {isBmeLive ? 'Sensor IoT Langsung' : 'Model Satelit Open-Meteo'}
+                                            </span>
+                                        </p>
                                     </div>
-                                    <h3 className="text-3xl font-bold text-white tracking-tight leading-none">
-                                        {weather.temp}°<span className="text-xl font-normal text-zinc-400">C</span>
-                                    </h3>
-                                    <p className="text-xs text-zinc-300 mt-1.5">
-                                        Rasa seperti <strong className="text-white">{weather.feelsLike}°C</strong>
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                setIsRefreshingWeather(true);
+                                                try { await refreshWeather(); } catch {}
+                                                setTimeout(() => setIsRefreshingWeather(false), 600);
+                                            }}
+                                            disabled={isRefreshingWeather || isWeatherLoading}
+                                            className="p-2.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all active:scale-90"
+                                            title="Muat Semula Cuaca Terkini"
+                                        >
+                                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingWeather || isWeatherLoading ? 'animate-spin text-blue-400' : ''}`} />
+                                        </button>
+                                        <div className="p-3 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400">
+                                            {renderWeatherIcon()}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={async () => {
-                                            setIsRefreshingWeather(true);
-                                            try { await refreshWeather(); } catch {}
-                                            setTimeout(() => setIsRefreshingWeather(false), 600);
-                                        }}
-                                        disabled={isRefreshingWeather || isWeatherLoading}
-                                        className="p-2.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all active:scale-90"
-                                        title="Muat Semula Cuaca Terkini"
-                                    >
-                                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingWeather || isWeatherLoading ? 'animate-spin text-blue-400' : ''}`} />
-                                    </button>
-                                    <div className="p-3 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400">
-                                        {renderWeatherIcon()}
+
+                                {/* Location indicator */}
+                                <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs relative z-10">
+                                    <div className="flex items-center gap-1.5 text-zinc-300">
+                                        <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                        <span className="font-semibold truncate max-w-[200px]">{locationLabel || 'Lokasi Semasa'}</span>
                                     </div>
+                                    <span className="text-[10px] text-emerald-400 font-medium">GPS Auto</span>
                                 </div>
                             </div>
 
-                            {/* Location indicator */}
-                            <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs relative z-10">
-                                <div className="flex items-center gap-1.5 text-zinc-300">
-                                    <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                    <span className="font-semibold truncate max-w-[200px]">{locationLabel || 'Lokasi Semasa'}</span>
-                                </div>
-                                <span className="text-[10px] text-emerald-400 font-medium">GPS Auto</span>
-                            </div>
-                        </div>
-
-                        {/* Air Quality (AQI) Tile */}
-                        <div
-                            className="lg:col-span-7 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden border shadow-xl backdrop-blur-md"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.8) 0%, rgba(9, 9, 11, 0.95) 100%)',
-                                borderColor: 'rgba(255, 255, 255, 0.08)',
-                            }}
-                        >
-                            <div className="flex items-start justify-between relative z-10 mb-3">
-                                <div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1 mb-1">
-                                        <Activity className="w-3.5 h-3.5" /> KUALITI UDARA
+                            {/* Air Quality (AQI) Tile */}
+                            <div
+                                className="lg:col-span-7 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden border shadow-xl backdrop-blur-md"
+                                style={{
+                                    background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.8) 0%, rgba(9, 9, 11, 0.95) 100%)',
+                                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                                }}
+                            >
+                                <div className="flex items-start justify-between relative z-10 mb-3">
+                                    <div>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1 mb-1">
+                                            <Activity className="w-3.5 h-3.5" /> KUALITI UDARA (IPU / API)
+                                        </span>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className={`text-3xl font-bold ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                                {weather.aqi} <span className="text-xs text-zinc-400 font-normal">IPU</span>
+                                            </span>
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                                                weather.aqi > 200 ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' : weather.aqi > 100 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : weather.aqi > 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                            }`}>
+                                                {weather.aqi <= 50 ? 'BAIK' : weather.aqi <= 100 ? 'SEDERHANA' : weather.aqi <= 200 ? 'TIDAK SIHAT' : 'SANGAT TIDAK SIHAT'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[9px] font-semibold text-zinc-400 bg-zinc-800/80 px-2 py-1 rounded-lg border border-zinc-700/60" title="Dikira mengikut piawaian APIMS Jabatan Alam Sekitar Malaysia">
+                                        Formula JAS Malaysia
                                     </span>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className={`text-3xl font-bold ${weather.aqi > 100 ? 'text-orange-400' : weather.aqi > 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                            {weather.aqi} <span className="text-xs text-zinc-400 font-normal">AQI</span>
-                                        </span>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                                            weather.aqi > 100 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : weather.aqi > 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                        }`}>
-                                            {weather.aqi <= 50 ? 'BAIK' : weather.aqi <= 100 ? 'SEDERHANA' : 'TIDAK SIHAT'}
-                                        </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 relative z-10">
+                                    <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
+                                        <span className="text-zinc-400 font-medium">PM2.5</span>
+                                        <strong className={weather.pm25 > 12 ? 'text-amber-400' : 'text-emerald-400'}>{weather.pm25} µg/m³</strong>
+                                    </div>
+                                    <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
+                                        <span className="text-zinc-400 font-medium">PM10</span>
+                                        <strong className={weather.pm10 > 54 ? 'text-amber-400' : 'text-emerald-400'}>{weather.pm10} µg/m³</strong>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="grid grid-cols-2 gap-3 relative z-10">
-                                <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
-                                    <span className="text-zinc-400 font-medium">PM2.5</span>
-                                    <strong className={weather.pm25 > 12 ? 'text-amber-400' : 'text-emerald-400'}>{weather.pm25} µg/m³</strong>
+                        {/* 4 Weather Parameters: Rain, Humidity, Wind, Flood Risk */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                                <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 shrink-0">
+                                    <Droplets className="w-5 h-5" />
                                 </div>
-                                <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
-                                    <span className="text-zinc-400 font-medium">PM10</span>
-                                    <strong className={weather.pm10 > 54 ? 'text-amber-400' : 'text-emerald-400'}>{weather.pm10} µg/m³</strong>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">Hujan</span>
+                                    <span className="text-base font-bold text-white">{weather.rainMm} <span className="text-xs font-normal text-zinc-400">mm</span></span>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                                <div className="p-2.5 rounded-xl bg-sky-500/15 text-sky-400 shrink-0">
+                                    <Gauge className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-zinc-400 block flex items-center gap-1.5">
+                                        Kelembapan
+                                        {isBmeLive ? (
+                                            <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30">BME On-Site</span>
+                                        ) : (
+                                            <span className="text-[8px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded border border-blue-500/30">API Satelit</span>
+                                        )}
+                                    </span>
+                                    <span className="text-base font-bold text-white">{effectiveHumidity} <span className="text-xs font-normal text-zinc-400">%</span></span>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                                <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 shrink-0">
+                                    <Wind className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">Kelajuan Angin</span>
+                                    <span className="text-base font-bold text-white">{weather.windSpeed} <span className="text-xs font-normal text-zinc-400">km/h</span></span>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
+                                <div className={`p-2.5 rounded-xl border shrink-0 ${weather.floodRisk === 'High' ? 'bg-red-500/20 text-red-400 border-red-500/40' : weather.floodRisk === 'Moderate' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'}`}>
+                                    <AlertTriangle className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">Risiko Banjir</span>
+                                    <span className={`text-base font-bold ${weather.floodRisk === 'High' ? 'text-red-400' : weather.floodRisk === 'Moderate' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                        {weather.floodRisk === 'High' ? 'TINGGI' : weather.floodRisk === 'Moderate' ? 'SEDERHANA' : 'RENDAH'}
+                                    </span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    {/* 4 Weather Parameters: Rain, Humidity, Wind, Flood Risk */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
-                            <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 shrink-0">
-                                <Droplets className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Hujan</span>
-                                <span className="text-base font-bold text-white">{weather.rainMm} <span className="text-xs font-normal text-zinc-400">mm</span></span>
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
-                            <div className="p-2.5 rounded-xl bg-sky-500/15 text-sky-400 shrink-0">
-                                <Gauge className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Kelembapan</span>
-                                <span className="text-base font-bold text-white">{weather.humidity} <span className="text-xs font-normal text-zinc-400">%</span></span>
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
-                            <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 shrink-0">
-                                <Wind className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Kelajuan Angin</span>
-                                <span className="text-base font-bold text-white">{weather.windSpeed} <span className="text-xs font-normal text-zinc-400">km/h</span></span>
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl p-3.5 border shadow-lg flex items-center gap-3 bg-zinc-900/80 border-zinc-800">
-                            <div className={`p-2.5 rounded-xl border shrink-0 ${weather.floodRisk === 'High' ? 'bg-red-500/20 text-red-400 border-red-500/40' : weather.floodRisk === 'Moderate' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'}`}>
-                                <AlertTriangle className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Risiko Banjir</span>
-                                <span className={`text-base font-bold ${weather.floodRisk === 'High' ? 'text-red-400' : weather.floodRisk === 'Moderate' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                    {weather.floodRisk === 'High' ? 'TINGGI' : weather.floodRisk === 'Moderate' ? 'SEDERHANA' : 'RENDAH'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
+                    </motion.div>
+                );
+            })()}
 
             {/* River Sensor Status Strip */}
             <motion.div
@@ -1104,21 +1150,33 @@ export default function BencanaView() {
                             {/* Environmental Data (from BME280) */}
                             {(sensorData.temperature_c !== null || sensorData.humidity_pct !== null || sensorData.pressure_hpa !== null) && (
                                 <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                                    <p className="text-[9px] font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                                        <Thermometer className="w-3 h-3" /> On-Site Environmental (BME280)
-                                    </p>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <p className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                                            <Thermometer className="w-3 h-3" /> On-Site Environmental (BME280)
+                                        </p>
+                                        {sensorData.is_online ? (
+                                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                Live Hardware
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30" title="Sensor BME luar talian — papan pemuka menggunakan fallback API satelit">
+                                                Offline · Fallback Satelit Aktif
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                             <Thermometer className="w-5 h-5 text-orange-400 mb-1.5" />
                                             <span className="text-lg font-bold text-white">
-                                                {sensorData.temperature_c !== null ? sensorData.temperature_c.toFixed(1) : '—'}°
+                                                {sensorData.temperature_c !== null ? Number(sensorData.temperature_c).toFixed(1) : '—'}°
                                             </span>
                                             <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-0.5">Temperature</span>
                                         </div>
                                         <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                                             <Droplets className="w-5 h-5 text-blue-400 mb-1.5" />
                                             <span className="text-lg font-bold text-white">
-                                                {sensorData.humidity_pct !== null ? sensorData.humidity_pct : '—'}%
+                                                {sensorData.humidity_pct !== null ? Number(sensorData.humidity_pct).toFixed(1) : '—'}%
                                             </span>
                                             <span className="text-[8px] uppercase font-bold tracking-widest text-zinc-500 mt-0.5">Humidity</span>
                                         </div>

@@ -69,6 +69,9 @@ if (!globalThis.__NADI_SENSORS__) {
 }
 const inMemorySensors = globalThis.__NADI_SENSORS__;
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET: Fetches all sensors, merging Supabase records with in-memory telemetry
 export async function GET() {
     try {
@@ -101,9 +104,10 @@ export async function GET() {
                     if (prodJson.sensors && Array.isArray(prodJson.sensors)) {
                         for (const ps of prodJson.sensors) {
                             const psTs = ps.last_reading ? new Date(ps.last_reading).getTime() : 0;
-                            // If production has a fresh reading from the last 60s, adopt it
-                            if (psTs && (now - psTs) < 60000 && ps.is_online) {
-                                mergedMap.set(ps.name, ps);
+                            const localTs = mergedMap.get(ps.name)?.last_reading ? new Date(mergedMap.get(ps.name).last_reading).getTime() : 0;
+                            // Adopt production data if it has a newer reading
+                            if (psTs >= localTs) {
+                                mergedMap.set(ps.name, { ...mergedMap.get(ps.name), ...ps });
                             }
                         }
                     }
@@ -114,7 +118,8 @@ export async function GET() {
         }
         const sensorsList = Array.from(mergedMap.values()).map((s: any) => {
             const lastReadingTs = s.last_reading ? new Date(s.last_reading).getTime() : 0;
-            const isStale = !lastReadingTs || (now - lastReadingTs) > 30000;
+            // 120s tolerance for exhibition hall Wi-Fi jitter
+            const isStale = !lastReadingTs || (now - lastReadingTs) > 120000;
 
             // Harmonize JPS 'normal' -> 'safe' and 'alert' -> 'warning' for UI consistency
             let status = s.status;
@@ -125,7 +130,6 @@ export async function GET() {
                 return {
                     ...s,
                     is_online: false,
-                    // If stale, unconditionally force offline status (unless explicitly hardware fault)
                     status: s.status === 'sensor_fault' ? 'sensor_fault' : 'offline'
                 };
             }
@@ -137,10 +141,25 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json({ success: true, sensors: sensorsList });
+        return NextResponse.json(
+            { success: true, sensors: sensorsList },
+            {
+                headers: {
+                    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                }
+            }
+        );
     } catch (err) {
         console.error('Sensors GET error:', err);
-        return NextResponse.json({ success: true, sensors: Object.values(inMemorySensors) });
+        return NextResponse.json(
+            { success: true, sensors: Object.values(inMemorySensors) },
+            {
+                headers: {
+                    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                }
+            }
+        );
     }
 }
 

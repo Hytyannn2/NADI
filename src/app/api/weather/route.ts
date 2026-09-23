@@ -268,6 +268,45 @@ export async function GET(request: Request) {
             floodRisk = 'Moderate';
         }
 
+        // Calculates Malaysia DOE (Jabatan Alam Sekitar) Air Pollutant Index (API / IPU)
+        // using official APIMS linear interpolation breakpoints for PM2.5 and PM10
+        const pm25Val = currentA.pm2_5 ?? 10;
+        const pm10Val = currentA.pm10 ?? 20;
+
+        let ipuPm25 = 0;
+        if (pm25Val <= 12.0) {
+            ipuPm25 = (50 / 12.0) * pm25Val;
+        } else if (pm25Val <= 75.5) {
+            ipuPm25 = 51 + ((100 - 51) / (75.5 - 12.1)) * (pm25Val - 12.1);
+        } else if (pm25Val <= 150.4) {
+            ipuPm25 = 101 + ((200 - 101) / (150.4 - 75.5)) * (pm25Val - 75.5);
+        } else if (pm25Val <= 250.4) {
+            ipuPm25 = 201 + ((300 - 201) / (250.4 - 150.5)) * (pm25Val - 150.5);
+        } else if (pm25Val <= 350.4) {
+            ipuPm25 = 301 + ((400 - 301) / (350.4 - 250.5)) * (pm25Val - 250.5);
+        } else if (pm25Val <= 500.4) {
+            ipuPm25 = 401 + ((500 - 401) / (500.4 - 350.5)) * (pm25Val - 350.5);
+        } else {
+            ipuPm25 = 500;
+        }
+
+        let ipuPm10 = 0;
+        if (pm10Val <= 50) {
+            ipuPm10 = pm10Val;
+        } else if (pm10Val <= 150) {
+            ipuPm10 = 50 + 0.5 * (pm10Val - 50);
+        } else if (pm10Val <= 350) {
+            ipuPm10 = 100 + 0.5 * (pm10Val - 150);
+        } else if (pm10Val <= 420) {
+            ipuPm10 = 200 + ((300 - 200) / (420 - 350)) * (pm10Val - 350);
+        } else if (pm10Val <= 500) {
+            ipuPm10 = 300 + ((400 - 300) / (500 - 420)) * (pm10Val - 420);
+        } else {
+            ipuPm10 = 400 + (pm10Val - 500);
+        }
+
+        const malaysiaApi = Math.round(Math.max(ipuPm25, ipuPm10));
+
         return NextResponse.json({
             success: true,
             location: resolvedLocationName,
@@ -283,9 +322,9 @@ export async function GET(request: Request) {
                 floodRisk,
                 friScore: Number(fri.toFixed(1)),
                 weatherCode,
-                aqi: currentA.us_aqi || 50,
-                pm25: currentA.pm2_5 || 10,
-                pm10: currentA.pm10 || 20,
+                aqi: malaysiaApi,
+                pm25: Number(pm25Val.toFixed(1)),
+                pm10: Number(pm10Val.toFixed(1)),
             },
         }, {
             headers: {

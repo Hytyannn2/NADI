@@ -19,7 +19,7 @@ import {
     Sun, Moon, CloudSun, CloudMoon, CloudLightning,
     CloudDrizzle, Cloud, MapPin, Zap
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { WeatherSkeleton } from '@/src/components/ui/Skeleton';
 
@@ -27,6 +27,49 @@ export default function DashboardView() {
     const { user } = useAuth();
     const { t } = useLanguage();
     const { weather, isWeatherLoading, locationLabel } = useWeather();
+
+    const [sensorData, setSensorData] = useState<{
+        is_online: boolean;
+        temperature_c: number | null;
+        humidity_pct: number | null;
+    }>({
+        is_online: false,
+        temperature_c: null,
+        humidity_pct: null,
+    });
+
+    useEffect(() => {
+        const fetchSensor = () => {
+            fetch(`/api/bencana/sensors?_t=${Date.now()}`, { cache: 'no-store' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && d.sensors && d.sensors.length > 0) {
+                        const s = d.sensors[0];
+                        const lastReadingTs = s.last_reading ? new Date(s.last_reading).getTime() : 0;
+                        const isStale = !lastReadingTs || (Date.now() - lastReadingTs) > 30000;
+                        const online = s.is_online !== false && !isStale && s.status !== 'sensor_fault' && s.status !== 'offline';
+                        setSensorData({
+                            is_online: online,
+                            temperature_c: s.temperature_c ?? null,
+                            humidity_pct: s.humidity_pct ?? null,
+                        });
+                    }
+                })
+                .catch(() => {});
+        };
+
+        fetchSensor();
+        const interval = setInterval(fetchSensor, 8000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const isBmeOnline = Boolean(sensorData.is_online && (sensorData.temperature_c !== null || sensorData.humidity_pct !== null));
+    const effectiveTemp = (sensorData.is_online && sensorData.temperature_c !== null)
+        ? Math.round(sensorData.temperature_c * 10) / 10
+        : (weather ? Math.round(weather.temp) : '--');
+    const effectiveHumidity = (sensorData.is_online && sensorData.humidity_pct !== null)
+        ? Math.round(sensorData.humidity_pct * 10) / 10
+        : (weather ? weather.humidity : '--');
 
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Warga';
 
@@ -144,14 +187,21 @@ export default function DashboardView() {
                                     {locationLabel}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                {weather?.condition && (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                        {weather.condition}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {isBmeOnline ? (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                        BME280 On-Site
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                                        API Satelit (Fallback)
                                     </span>
                                 )}
-                                {weather && (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Terkini</span>
+                                {weather?.condition && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800/80 text-zinc-300 border border-zinc-700">
+                                        {weather.condition}
+                                    </span>
                                 )}
                             </div>
                         </div>
@@ -163,10 +213,13 @@ export default function DashboardView() {
                                 </div>
                                 <div>
                                     <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                                        {weather ? Math.round(weather.temp) : '--'}°C
+                                        {effectiveTemp}°C
                                     </div>
                                     <div className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
                                         {weather ? `Rasa seperti ${Math.round(weather.feelsLike)}°C` : ''}
+                                        <span className="text-[9px] opacity-75 ml-1.5 font-normal">
+                                            · {isBmeOnline ? 'Sensor IoT Langsung' : 'Model Satelit Open-Meteo'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -175,7 +228,9 @@ export default function DashboardView() {
                                 <div className="flex flex-col gap-2 border-l pl-4 shrink-0" style={{ borderColor: 'var(--border-default)' }}>
                                     <div className="flex items-center gap-2" title="Kelembapan Udara">
                                         <Droplets className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
-                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{weather.humidity}% <span className="text-[9px] font-normal opacity-70">Lembap</span></span>
+                                        <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                                            {effectiveHumidity}% <span className="text-[9px] font-normal opacity-70">{isBmeOnline ? 'BME' : 'Lembap'}</span>
+                                        </span>
                                     </div>
                                     <div className="flex items-center gap-2" title="Kelajuan Angin">
                                         <Wind className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
