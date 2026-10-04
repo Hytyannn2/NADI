@@ -29,7 +29,6 @@ import useSWR from 'swr';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kelantanPpsCenters';
 import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanStations';
 import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
-import { FALLBACK_PPS_CENTERS } from '@/src/data/fallbacks';
 import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
 import { sound } from '@/src/lib/audio/soundEffects';
 import PpsVerificationModal from '@/src/components/PpsVerificationModal';
@@ -251,12 +250,9 @@ export default function BencanaView() {
         };
     }, [supabase]);
 
-    // SWR Caching for Supabase Data
+    // SWR Caching for Supabase Data (Flood Zones)
     const fetchBencanaData = async () => {
-        const [{ data: zones }, { data: centers }] = await Promise.all([
-            supabase.from('nadi_bencana_zones').select('*'),
-            supabase.from('nadi_bencana_centers').select('*')
-        ]);
+        const { data: zones } = await supabase.from('nadi_bencana_zones').select('*');
         return {
             zones: zones ? zones.map((z: any) => ({
                 district: z.district,
@@ -264,15 +260,7 @@ export default function BencanaView() {
                 river: z.river,
                 historicLevel: z.historic_level,
                 population: z.population
-            })) : [],
-            centers: centers && centers.length > 0 ? centers.map((c: any) => ({
-                name: c.name,
-                district: c.district,
-                capacity: c.capacity,
-                type: c.type,
-                lat: c.lat,
-                lng: c.lng
-            })) : FALLBACK_PPS_CENTERS
+            })) : []
         };
     };
 
@@ -303,10 +291,63 @@ export default function BencanaView() {
         snappedTo?: string;
     } | null>(null);
     const [mounted, setMounted] = useState<boolean>(false);
+    const [ppsOverrides, setPpsOverrides] = useState<Record<string, { lat: number; lng: number; isExact: boolean }>>({});
 
+    // Load locally verified and cloud-approved PPS locations
     useEffect(() => {
         setMounted(true);
-    }, []);
+
+        // 1. Immediately apply local corrections from localStorage
+        try {
+            const stored = JSON.parse(localStorage.getItem('nadi_pps_corrections') || '[]');
+            if (Array.isArray(stored) && stored.length > 0) {
+                const map: Record<string, { lat: number; lng: number; isExact: boolean }> = {};
+                stored.forEach((item: any) => {
+                    if (item.center_name && item.suggested_lat && item.suggested_lng) {
+                        map[item.center_name] = {
+                            lat: Number(item.suggested_lat),
+                            lng: Number(item.suggested_lng),
+                            isExact: true
+                        };
+                    }
+                });
+                setPpsOverrides(prev => ({ ...prev, ...map }));
+            }
+        } catch {
+            // ignore localStorage quota/JSON errors
+        }
+
+        // 2. Fetch any officially approved community corrections from Supabase
+        const fetchApprovedCorrections = async () => {
+            try {
+                const { data } = await supabase
+                    .from('nadi_pps_corrections')
+                    .select('center_name, suggested_lat, suggested_lng')
+                    .eq('status', 'approved');
+                if (data && data.length > 0) {
+                    const approvedMap: Record<string, { lat: number; lng: number; isExact: boolean }> = {};
+                    data.forEach((item: any) => {
+                        approvedMap[item.center_name] = {
+                            lat: Number(item.suggested_lat),
+                            lng: Number(item.suggested_lng),
+                            isExact: true
+                        };
+                    });
+                    setPpsOverrides(prev => ({ ...prev, ...approvedMap }));
+                }
+            } catch {
+                // Table might not exist yet or user offline, silent fallback
+            }
+        };
+        fetchApprovedCorrections();
+    }, [supabase]);
+
+    const handleCenterVerified = (centerName: string, newLat: number, newLng: number) => {
+        setPpsOverrides(prev => ({
+            ...prev,
+            [centerName]: { lat: newLat, lng: newLng, isExact: true }
+        }));
+    };
 
     const handleSosClick = (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
@@ -328,25 +369,31 @@ export default function BencanaView() {
     const { data: bencanaData } = useSWR('bencana_data', fetchBencanaData, { revalidateOnFocus: false });
     const floodZones: FloodZone[] = bencanaData?.zones || [];
 
-    // Calculate distance to all official Kelantan PPS centers from live GPS
+    // Calculate distance to all official Kelantan PPS centers from live GPS (incorporating verified overrides)
     const allProcessedEvacCenters = useMemo(() => {
         return ALL_KELANTAN_PPS_CENTERS.map(center => {
+            const override = ppsOverrides[center.name];
+            const lat = override ? override.lat : center.lat;
+            const lng = override ? override.lng : center.lng;
+            const isExact = override ? override.isExact : center.isExact;
+            const snappedTo = override ? null : center.snappedTo;
+
             const dist = (userLat !== null && userLng !== null)
-                ? getDistanceKm(userLat, userLng, center.lat, center.lng)
+                ? getDistanceKm(userLat, userLng, lat, lng)
                 : null;
             return {
                 name: center.name,
                 district: center.jajahan,
                 capacity: center.capacity,
                 type: center.type,
-                lat: center.lat,
-                lng: center.lng,
+                lat,
+                lng,
                 distanceKm: dist,
-                isExact: center.isExact,
-                snappedTo: center.snappedTo,
+                isExact,
+                snappedTo,
             };
         });
-    }, [userLat, userLng]);
+    }, [userLat, userLng, ppsOverrides]);
 
     const filteredEvacCenters = useMemo(() => {
         const hasSearch = Boolean(searchPps && searchPps.trim());
@@ -1520,6 +1567,11 @@ export default function BencanaView() {
                 isOpen={!!verifyCenter}
                 onClose={() => setVerifyCenter(null)}
                 center={verifyCenter}
+                onVerified={(newLat, newLng) => {
+                    if (verifyCenter) {
+                        handleCenterVerified(verifyCenter.name, newLat, newLng);
+                    }
+                }}
             />
         </div>
     );

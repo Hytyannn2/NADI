@@ -5,9 +5,48 @@
  * zero-dependency client-side eligibility checking, and volunteer missions.
  */
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Compass } from 'lucide-react';
+import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Compass, Utensils, Baby, Pill, Shirt, Truck, Sparkles, Check } from 'lucide-react';
+
+const COMMUNITY_CATEGORIES = [
+    {
+        id: 'Makanan Asas',
+        label: 'Makanan Asas & Minuman',
+        desc: 'Beras, pek makanan kering, biskut & air mineral',
+        icon: Utensils,
+    },
+    {
+        id: 'Bayi & Kanak-kanak',
+        label: 'Susu & Barangan Bayi',
+        desc: 'Susu formula, lampin pakai buang & makanan bayi',
+        icon: Baby,
+    },
+    {
+        id: 'Perubatan',
+        label: 'Ubat & Kit Kesihatan',
+        desc: 'Kit kecemasan, ubat-ubatan asas & sanitasi',
+        icon: Pill,
+    },
+    {
+        id: 'Pakaian & Tilam',
+        label: 'Pakaian, Selimut & Tilam',
+        desc: 'Pakaian bersih, selimut hangat & toto tidur',
+        icon: Shirt,
+    },
+    {
+        id: 'Logistik & Kenderaan',
+        label: 'Bantuan Logistik / 4x4',
+        desc: 'Pacuan 4 roda, bot penyelamat & pengangkutan',
+        icon: Truck,
+    },
+    {
+        id: 'Lain-lain',
+        label: 'Lain-lain',
+        desc: 'Peralatan khusus, khemah, generator & lain-lain',
+        icon: Sparkles,
+    },
+] as const;
 import { motion, AnimatePresence } from 'motion/react';
 import { CardSkeleton, AidCardSkeleton } from '@/src/components/ui/Skeleton';
 import VolunteerChat from '@/src/components/VolunteerChat';
@@ -53,17 +92,38 @@ interface VolunteerJob {
     name: string;
     dist: string;
     req: string;
-    status: 'open' | 'accepted';
+    status: 'open' | 'accepted' | 'banned';
     bounty: number;
     area: string;
     priority: 'High' | 'Medium' | 'Low';
+    posted_by?: string;
+    accepted_by?: string | null;
+    tools_needed?: string;
+    pax_needed?: number;
+    tools?: string;
+    pax?: number | null;
+    created_at?: string;
 }
 
 export default function BantuanView() {
     const { t, lang } = useLanguage();
     const { locationLabel } = useWeather();
     const { applyLocationPrecision, locationPrecision } = useTheme();
-    const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>('programs');
+    const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('nadi_bantuan_active_tab');
+            if (saved === 'volunteer' || saved === 'programs') return saved;
+        }
+        return 'programs';
+    });
+
+    const handleTabChange = (tab: 'programs' | 'volunteer') => {
+        setActiveTab(tab);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('nadi_bantuan_active_tab', tab);
+        }
+    };
+
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
     const [filterLocation, setFilterLocation] = useState<string>('all');
@@ -96,10 +156,48 @@ export default function BantuanView() {
         }
     }, [applyLocationPrecision, locationPrecision]);
 
-    const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}&lang=${lang}` : null;
-    const { data: programsData, isLoading: programsLoading } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
+    const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}&lang=${lang}` : `/api/bantuan/programs?lang=${lang}`;
+    const { data: programsData, isLoading: programsLoading, mutate: mutatePrograms } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
     const aidPrograms: AidProgram[] = programsData?.programs || [];
     const locationName = programsData?.location || '';
+
+    // Community Mutual Aid Modal State (Offers & Donations)
+    const [showCommunityModal, setShowCommunityModal] = useState(false);
+    const [isSubmittingCommunity, setIsSubmittingCommunity] = useState(false);
+    const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+    const [customCategory, setCustomCategory] = useState('');
+    const categoryDropdownRef = useRef<HTMLDivElement>(null);
+    const [communityForm, setCommunityForm] = useState({
+        poster: '',
+        type: 'offer' as const,
+        title: '',
+        description: '',
+        location: '',
+        category: 'Makanan Asas',
+        contact: '',
+    });
+
+    // Close category dropdown on click outside or Escape key
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+                setIsCategoryDropdownOpen(false);
+            }
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setIsCategoryDropdownOpen(false);
+            }
+        };
+        if (isCategoryDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isCategoryDropdownOpen]);
 
     // AI Eligibility Matcher modal states
     const [showAIMatcher, setShowAIMatcher] = useState(false);
@@ -127,17 +225,77 @@ export default function BantuanView() {
 
     // Lock background scroll when modal is open and pre-fill name
     useEffect(() => {
-        if (showJobForm || selectedProgram) {
+        if (showJobForm || selectedProgram || showCommunityModal) {
             document.body.style.overflow = 'hidden';
             if (showJobForm && !jobForm.name && user?.user_metadata?.full_name) {
                 setJobForm(prev => ({ ...prev, name: user.user_metadata.full_name }));
+            }
+            if (showCommunityModal && !communityForm.poster && user?.user_metadata?.full_name) {
+                setCommunityForm(prev => ({ ...prev, poster: user.user_metadata.full_name }));
             }
         } else {
             document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
-    }, [showJobForm, selectedProgram, user]);
+    }, [showJobForm, selectedProgram, showCommunityModal, user]);
     const [chatJobName, setChatJobName] = useState<string | null>(null);
+
+    const handleCreateCommunityRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!communityForm.title.trim() || !communityForm.description.trim() || !communityForm.location.trim()) {
+            showToast('Ralat', 'Sila lengkapkan tajuk, penerangan, dan lokasi bantuan.');
+            return;
+        }
+
+        if (communityForm.category === 'Lain-lain' && !customCategory.trim()) {
+            showToast('Perhatian', 'Sila nyatakan jenis barangan bagi pilihan "Lain-lain".');
+            return;
+        }
+
+        const resolvedCategory = communityForm.category === 'Lain-lain'
+            ? `Lain-lain (${customCategory.trim()})`
+            : communityForm.category;
+
+        setIsSubmittingCommunity(true);
+        try {
+            const res = await fetch('/api/bantuan/requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    poster: communityForm.poster.trim() || user?.user_metadata?.full_name || 'Warga Prihatin',
+                    type: 'offer',
+                    title: communityForm.title.trim(),
+                    description: communityForm.description.trim(),
+                    location: communityForm.location.trim(),
+                    category: resolvedCategory,
+                    contact: communityForm.contact.trim(),
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('Berjaya!', 'Sumbangan komuniti telah berjaya disiarkan.');
+                setShowCommunityModal(false);
+                setCustomCategory('');
+                setIsCategoryDropdownOpen(false);
+                setCommunityForm({
+                    poster: '',
+                    type: 'offer',
+                    title: '',
+                    description: '',
+                    location: '',
+                    category: 'Makanan Asas',
+                    contact: '',
+                });
+                if (mutatePrograms) mutatePrograms();
+            } else {
+                showToast('Gagal', data.error || 'Ralat semasa menyiarkan sumbangan.');
+            }
+        } catch {
+            showToast('Ralat', 'Gagal berhubung dengan pelayan. Sila cuba lagi.');
+        } finally {
+            setIsSubmittingCommunity(false);
+        }
+    };
 
     const handleAcceptJob = async (jobId: string) => {
         try {
@@ -148,16 +306,18 @@ export default function BantuanView() {
             });
             const data = await res.json();
             if (data.success) {
-                mutateLocalJobs({ ...localJobsData, jobs: localJobs.map(j => j.id === jobId ? { ...j, status: 'accepted' } : j) }, false);
-                showToast('Job Accepted', `You have accepted to help: ${localJobs.find(j => j.id === jobId)?.name}`);
+                mutateLocalJobs({ ...localJobsData, jobs: localJobs.map(j => j.id === jobId ? { ...j, status: 'accepted', accepted_by: user?.id } : j) }, false);
+                showToast('Tugasan Diterima', `Anda telah bersetuju untuk membantu: ${localJobs.find(j => j.id === jobId)?.name}`);
+            } else {
+                showToast('Perhatian', data.error || 'Gagal menerima tugasan.');
             }
         } catch {
-            alert('Failed to accept job. Try again.');
+            showToast('Ralat', 'Gagal menerima tugasan. Sila cuba lagi.');
         }
     };
 
     const handleCancelJob = async (jobId: string) => {
-        if (!confirm(t('bencana.cancel_confirm'))) return;
+        if (!confirm(t('bencana.cancel_confirm') || 'Adakah anda pasti ingin membatalkan permohonan bantuan ini?')) return;
         try {
             const res = await fetch('/api/bencana/jobs', {
                 method: 'POST',
@@ -167,9 +327,12 @@ export default function BantuanView() {
             const data = await res.json();
             if (data.success) {
                 mutateLocalJobs({ ...localJobsData, jobs: localJobs.filter(j => j.id !== jobId) }, false);
+                showToast('Dibatalkan', 'Permohonan bantuan telah berjaya dibatalkan.');
+            } else {
+                showToast('Ralat', data.error || 'Gagal membatalkan permohonan.');
             }
         } catch {
-            alert('Failed to cancel request. Try again.');
+            showToast('Ralat', 'Gagal membatalkan permohonan. Sila cuba lagi.');
         }
     };
 
@@ -185,13 +348,15 @@ export default function BantuanView() {
             });
             const data = await res.json();
             if (data.success) {
-                mutateLocalJobs({ ...localJobsData, jobs: [data.job, ...localJobs] }, false);
+                mutateLocalJobs();
                 setShowJobForm(false);
                 setJobForm({ name: '', req: '', dist: '', area: '', phone: '', priority: 'Medium', tools: '', pax: '' });
-                showToast('Request Submitted', 'Your SOS request has been posted to the community.');
+                showToast('Permohonan Dihantar', 'Permohonan SOS anda telah berjaya disimpan.');
+            } else {
+                showToast('Ralat', data.error || 'Gagal menghantar permohonan.');
             }
         } catch {
-            alert('Failed to submit request. Try again.');
+            showToast('Ralat', 'Gagal menghantar permohonan. Sila cuba lagi.');
         } finally {
             setIsSubmittingJob(false);
         }
@@ -294,6 +459,9 @@ export default function BantuanView() {
             setIsMatching(false);
         }
     };
+
+    const activeCategoryObj = COMMUNITY_CATEGORIES.find(c => c.id === communityForm.category) || COMMUNITY_CATEGORIES[0];
+    const ActiveCategoryIcon = activeCategoryObj.icon;
 
     return (
         <div className="p-5 min-h-full w-full flex flex-col relative z-0 overflow-x-hidden">
@@ -429,7 +597,7 @@ export default function BantuanView() {
                 className="flex p-1.5 rounded-2xl mb-6 bg-[#0D0D10] border border-zinc-800/80 shadow-xl"
             >
                 <button
-                    onClick={() => setActiveTab('programs')}
+                    onClick={() => handleTabChange('programs')}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${
                         activeTab === 'programs'
                             ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
@@ -437,7 +605,7 @@ export default function BantuanView() {
                     }`}
                 >{t('bantuan.tab_aid') || 'Program Bantuan'}</button>
                 <button
-                    onClick={() => setActiveTab('volunteer')}
+                    onClick={() => handleTabChange('volunteer')}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${
                         activeTab === 'volunteer'
                             ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
@@ -524,6 +692,13 @@ export default function BantuanView() {
                                             icon: Building,
                                             activeStyle: { background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%)', color: '#A7F3D0', borderColor: '#10B981', boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)' },
                                             inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                                        },
+                                        {
+                                            id: 'community',
+                                            label: t('filter.community') && t('filter.community') !== 'filter.community' ? t('filter.community') : 'Komuniti',
+                                            icon: Users,
+                                            activeStyle: { background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.16) 100%)', color: '#FCD34D', borderColor: '#F59E0B', boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)' },
+                                            inactiveStyle: { background: 'var(--bg-card)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
                                         }
                                     ].map(cat => {
                                         const isActive = filterType === cat.id;
@@ -560,6 +735,37 @@ export default function BantuanView() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Community Banner when viewing Komuniti */}
+                            {filterType === 'community' && (
+                                <div className="p-5 rounded-3xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 text-amber-200 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg backdrop-blur-sm">
+                                    <div className="flex items-start gap-3.5">
+                                        <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/40 shadow-inner mt-0.5">
+                                            <HandHeart className="w-5 h-5 text-amber-300" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h4 className="text-base font-extrabold text-white tracking-wide">
+                                                    Inisiatif Infaq & Sumbangan Komuniti
+                                                </h4>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                    Rakyat Jaga Rakyat
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-amber-200/90 leading-relaxed max-w-2xl font-medium">
+                                                Wadah buat insan prihatin, pertubuhan komuniti, dan penderma menyalurkan barangan keperluan asas — daripada beras, susu formula bayi, pakaian hingga peralatan rumah — secara terus kepada mereka yang diuji, membina ketahanan warga dengan semangat persaudaraan yang tulen.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowCommunityModal(true)}
+                                        className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-zinc-950 font-black text-xs transition-all shadow-md shrink-0 flex items-center gap-2 cursor-pointer self-start md:self-auto active:scale-95 hover:shadow-amber-500/25"
+                                    >
+                                        <Plus className="w-4 h-4 stroke-[3]" />
+                                        <span>Salurkan Sumbangan Komuniti</span>
+                                    </button>
+                                </div>
+                            )}
 
                             {programsLoading ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -860,7 +1066,20 @@ export default function BantuanView() {
                                                     </div>
                                                     <div className="flex flex-col items-end gap-2 ml-3 shrink-0">
                                                         {job.status === 'open' ? (
-                                                            <>
+                                                            Boolean(user?.id && job.posted_by && user.id === job.posted_by) ? (
+                                                                <div className="flex flex-col items-end gap-1.5">
+                                                                    <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                        Permohonan Anda
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => handleCancelJob(job.id)}
+                                                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[8px] font-bold tracking-widest uppercase transition-all text-red-400/80 hover:text-red-400 hover:bg-red-500/10 border border-red-500/20 active:scale-95"
+                                                                        title="Padam permohonan ini"
+                                                                    >
+                                                                        <Trash2 className="w-3 h-3" /> Batal
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
                                                                 <button
                                                                     onClick={() => handleAcceptJob(job.id)}
                                                                     className="px-4 py-2 rounded-xl text-[9px] font-bold tracking-widest uppercase transition-all shadow-lg active:scale-95"
@@ -869,13 +1088,7 @@ export default function BantuanView() {
                                                                     Accept<br />
                                                                     <span className="text-[8px] opacity-70 font-normal">+{job.bounty} pts</span>
                                                                 </button>
-                                                                <button
-                                                                    onClick={() => handleCancelJob(job.id)}
-                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[8px] font-bold tracking-widest uppercase transition-all text-red-400/60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
-                                                                >
-                                                                    <Trash2 className="w-3 h-3" /> Cancel
-                                                                </button>
-                                                            </>
+                                                            )
                                                         ) : (
                                                             <div className="flex flex-col items-end gap-2">
                                                                 <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }}>
@@ -1183,7 +1396,7 @@ export default function BantuanView() {
                                         onClick={() => openUrl(selectedProgram.url)}
                                         className="px-6 py-3 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg bg-[#C5A367] text-black hover:bg-[#d6b478] active:scale-95"
                                     >
-                                        Layari Portal Rasmi ↗
+                                        {selectedProgram.type === 'community' && selectedProgram.url.startsWith('https://wa.me/') ? '💬 Hubungi (WhatsApp) ↗' : 'Layari Portal Rasmi ↗'}
                                     </button>
                                 )}
                             </div>
@@ -1191,6 +1404,283 @@ export default function BantuanView() {
                     </motion.div>
                 </AnimatePresence>
                 , document.body)}
+
+            {/* Community Mutual Aid Modal (Offers & Donations) */}
+            {showCommunityModal && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6"
+                        onClick={(e) => e.target === e.currentTarget && setShowCommunityModal(false)}
+                    >
+                        <motion.div
+                            initial={{ y: '100%', opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 w-full max-w-lg shadow-[0_25px_80px_rgba(0,0,0,0.85)] max-h-[90vh] overflow-y-auto flex flex-col justify-between bg-[#121316] border border-zinc-800 text-zinc-100"
+                        >
+                            <div className="w-12 h-1 rounded-full bg-zinc-700 mx-auto mb-4 sm:hidden" />
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/25">
+                                            <HandHeart className="w-5 h-5 text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-base font-bold text-white">Hulurkan Sumbangan Komuniti</h3>
+                                            <p className="text-[11px] text-zinc-400 font-medium">Infaq Barangan Keperluan · Rakyat Bantu Rakyat</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setShowCommunityModal(false)} className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                {/* Offer Banner Info */}
+                                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-zinc-300 text-xs flex items-center gap-3 mb-4 shadow-inner">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+                                        <HandHeart className="w-4 h-4 text-amber-400" />
+                                    </div>
+                                    <p className="text-[11px] text-zinc-300 leading-relaxed font-normal">
+                                        Siarkan barangan atau makanan yang ingin anda dermakan kepada komuniti setempat. Warga yang memerlukan bantuan akan menghubungi anda secara terus melalui WhatsApp.
+                                    </p>
+                                </div>
+
+                                <form onSubmit={handleCreateCommunityRequest} className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider block mb-1.5 text-zinc-400">
+                                            Tajuk Sumbangan Barangan <span className="text-red-400">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={communityForm.title}
+                                            onChange={e => setCommunityForm(prev => ({ ...prev, title: e.target.value }))}
+                                            placeholder="cth: 20 Pek Makanan Kering & Beras, Susu Formula Bayi Percuma"
+                                            className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400/70 focus:bg-zinc-900 focus:ring-2 focus:ring-amber-400/15 transition-all"
+                                        />
+                                    </div>
+
+                                    {/* Custom Eye-Friendly Category Dropdown */}
+                                    <div className="relative" ref={categoryDropdownRef}>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider block mb-1.5 text-zinc-400">
+                                            Kategori Barangan Sumbangan <span className="text-amber-400">*</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCategoryDropdownOpen(prev => !prev)}
+                                            className={`w-full px-3.5 py-2.5 rounded-xl text-xs flex items-center justify-between transition-all duration-200 cursor-pointer ${
+                                                isCategoryDropdownOpen
+                                                    ? 'bg-zinc-900 border-amber-400/60 ring-2 ring-amber-400/15 shadow-[0_0_15px_rgba(245,158,11,0.12)]'
+                                                    : 'bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                                            } border text-left`}
+                                        >
+                                            <div className="flex items-center gap-2.5 truncate">
+                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                                    isCategoryDropdownOpen
+                                                        ? 'bg-amber-400 text-black font-bold'
+                                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                }`}>
+                                                    <ActiveCategoryIcon className="w-3.5 h-3.5" />
+                                                </div>
+                                                <div className="text-left truncate">
+                                                    <div className="font-semibold text-white text-xs truncate">
+                                                        {communityForm.category === 'Lain-lain' && customCategory.trim()
+                                                            ? `Lain-lain: ${customCategory.trim()}`
+                                                            : activeCategoryObj.label}
+                                                    </div>
+                                                    <div className="text-[11px] text-zinc-400 truncate">
+                                                        {activeCategoryObj.desc}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                <span className="text-[10px] text-zinc-400 font-medium hidden sm:inline">Pilih</span>
+                                                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
+                                            </div>
+                                        </button>
+
+                                        {/* Custom Dropdown Popover */}
+                                        <AnimatePresence>
+                                            {isCategoryDropdownOpen && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className="absolute z-50 left-0 right-0 mt-2 p-2.5 rounded-2xl bg-[#16171B] border border-zinc-700/80 shadow-[0_25px_60px_rgba(0,0,0,0.95)] space-y-1.5"
+                                                >
+                                                    <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-zinc-800 pb-2 mb-1">
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                                                            <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Pilih Kategori Barangan
+                                                        </span>
+                                                        <span className="text-[10px] text-zinc-500 font-medium">6 Kategori</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
+                                                        {COMMUNITY_CATEGORIES.map(cat => {
+                                                            const isSelected = communityForm.category === cat.id;
+                                                            const Icon = cat.icon;
+                                                            return (
+                                                                <button
+                                                                    key={cat.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setCommunityForm(prev => ({ ...prev, category: cat.id }));
+                                                                        setIsCategoryDropdownOpen(false);
+                                                                    }}
+                                                                    className={`px-3 py-2.5 rounded-xl text-left flex items-center justify-between gap-2.5 transition-all cursor-pointer group ${
+                                                                        isSelected
+                                                                            ? 'bg-amber-500/15 border border-amber-500/40 text-white shadow-[0_0_12px_rgba(245,158,11,0.12)]'
+                                                                            : 'hover:bg-zinc-800/80 text-zinc-300 hover:text-white border border-transparent'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                                                            isSelected
+                                                                                ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-black font-bold shadow-sm'
+                                                                                : 'bg-zinc-800/90 text-zinc-400 group-hover:text-amber-300 group-hover:bg-zinc-700/80'
+                                                                        }`}>
+                                                                            <Icon className="w-4 h-4" />
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-xs font-semibold truncate text-zinc-100">{cat.label}</div>
+                                                                            <div className="text-[10px] text-zinc-400 truncate group-hover:text-zinc-300">{cat.desc}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {isSelected && (
+                                                                        <Check className="w-4 h-4 text-amber-400 shrink-0" />
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+
+                                        {/* Dedicated Lain-lain specification field */}
+                                        <AnimatePresence>
+                                            {communityForm.category === 'Lain-lain' && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto', marginTop: 10 }}
+                                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="p-3.5 rounded-2xl bg-zinc-900/70 border border-zinc-800 space-y-2 shadow-inner">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-[11px] font-semibold text-zinc-200 flex items-center gap-1.5">
+                                                                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                                                                Nyatakan Kategori Barangan Lain-lain <span className="text-red-400 font-bold">*</span>
+                                                            </label>
+                                                            <span className="text-[10px] font-mono text-zinc-400 px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700/60">
+                                                                {customCategory.length}/38
+                                                            </span>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            required
+                                                            maxLength={38}
+                                                            value={customCategory}
+                                                            onChange={e => setCustomCategory(e.target.value)}
+                                                            placeholder="cth: Khemah Kecemasan, Generator Elektrik, Lampu Suria..."
+                                                            className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none bg-zinc-950/80 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400/80 focus:ring-2 focus:ring-amber-400/20 transition-all"
+                                                            autoFocus
+                                                        />
+                                                        <p className="text-[11px] text-zinc-400 leading-relaxed font-normal">
+                                                            Sila nyatakan secara spesifik agar warga yang memerlukan dapat mencari sumbangan anda dengan mudah.
+                                                        </p>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    {/* Kawasan & No. Telefon */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-bold uppercase tracking-wider block mb-1.5 text-zinc-400">
+                                                Kawasan / Jajahan <span className="text-red-400">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={communityForm.location}
+                                                onChange={e => setCommunityForm(prev => ({ ...prev, location: e.target.value }))}
+                                                placeholder="cth: Pasir Mas, Kota Bharu"
+                                                className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400/70 focus:bg-zinc-900 focus:ring-2 focus:ring-amber-400/15 transition-all"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[10px] font-bold uppercase tracking-wider block mb-1.5 text-zinc-400">
+                                                No. Telefon / WhatsApp
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={communityForm.contact}
+                                                onChange={e => setCommunityForm(prev => ({ ...prev, contact: e.target.value }))}
+                                                placeholder="cth: 012-3456789"
+                                                className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400/70 focus:bg-zinc-900 focus:ring-2 focus:ring-amber-400/15 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Nama Anda / Organisasi */}
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider block mb-1.5 text-zinc-400">
+                                            Nama Anda / Organisasi (Pemberi Sumbangan)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={communityForm.poster}
+                                            onChange={e => setCommunityForm(prev => ({ ...prev, poster: e.target.value }))}
+                                            placeholder={user?.user_metadata?.full_name || 'cth: Kak Siti / Surau Al-Falah / NGO Komuniti'}
+                                            className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400/70 focus:bg-zinc-900 focus:ring-2 focus:ring-amber-400/15 transition-all"
+                                        />
+                                    </div>
+
+                                    {/* Penerangan Barangan & Maklumat Penyerahan */}
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider block mb-1.5 text-zinc-400">
+                                            Penerangan Barangan & Maklumat Penyerahan <span className="text-red-400">*</span>
+                                        </label>
+                                        <textarea
+                                            required
+                                            rows={3}
+                                            value={communityForm.description}
+                                            onChange={e => setCommunityForm(prev => ({ ...prev, description: e.target.value }))}
+                                            placeholder="Nyatakan jenis barangan, kuantiti yang tersedia, kaedah penyerahan atau lokasi pengambilan oleh penerima..."
+                                            className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none resize-none bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400/70 focus:bg-zinc-900 focus:ring-2 focus:ring-amber-400/15 transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="pt-4 flex items-center justify-end gap-3 border-t border-zinc-800/80 mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCommunityModal(false)}
+                                            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-zinc-700 transition-all cursor-pointer"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmittingCommunity}
+                                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-zinc-950 font-bold text-xs flex items-center gap-2 shadow-[0_4px_16px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_22px_rgba(245,158,11,0.35)] active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                                        >
+                                            {isSubmittingCommunity && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                            <span>Siarkan Sumbangan Ini</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 }

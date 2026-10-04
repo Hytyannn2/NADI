@@ -130,8 +130,13 @@ export function usePotholeDetector({
         lastGpsPointRef.current = { lat, lng, time: now };
         gpsCoordsRef.current = { lat, lng };
       },
-      (err) => console.warn('INFRA Geolocation Speed Error:', err.message),
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 }
+      (err) => {
+        // Suppress benign permission denied / ignored (1) and timeout warnings (3) on desktop/laptop browsers
+        if (err.code !== 1 && err.code !== 3) {
+          console.warn('INFRA Geolocation Speed Error:', err.message);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);

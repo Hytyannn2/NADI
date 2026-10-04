@@ -138,9 +138,10 @@ export async function POST(request: Request) {
             return addRateLimitHeaders(errRes, limit);
         }
 
-        const { title, description, location, category, type, contact } = body;
+        const { poster, title, description, location, category, type, contact } = body;
         
         // Validates length and encodes HTML entities
+        const cleanPoster = sanitizeString(poster, 80) || 'Anonymous Warga';
         const cleanTitle = sanitizeString(title, 150);
         const cleanDescription = sanitizeString(description, 1000);
         const cleanLocation = sanitizeString(location, 150);
@@ -155,7 +156,7 @@ export async function POST(request: Request) {
         const secretToken = generateSecureId();
         const newRow = {
             secret_token: secretToken,
-            poster: 'Anonymous Warga',
+            poster: cleanPoster,
             type: cleanType,
             title: cleanTitle,
             description: cleanDescription,

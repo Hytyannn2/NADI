@@ -5,6 +5,7 @@
  * with eligibility criteria, official portals, and location-aware recommendations.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminSupabase } from '@/src/lib/auth/serverAuth';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -343,14 +344,44 @@ export async function GET(request: NextRequest) {
         }
     ];
 
+    // Fetch live community mutual aid requests from Supabase
+    let communityAidItems: any[] = [];
+    try {
+        const supabase = getAdminSupabase();
+        const { data: reqs } = await supabase
+            .from('nadi_bantuan_requests')
+            .select('id, poster, type, title, description, location, category, contact, fulfilled, created_at')
+            .order('created_at', { ascending: false })
+            .limit(60);
+
+        if (reqs && reqs.length > 0) {
+            communityAidItems = reqs.map((r: any) => ({
+                id: `comm_${r.id}`,
+                name: `${r.type === 'offer' ? '🎁 [Sumbangan Komuniti]' : '🆘 [Permohonan Warga]'} ${r.title}`,
+                provider: `${r.poster || 'Komuniti Setempat'} (Inisiatif Rakyat)`,
+                type: 'community' as const,
+                description: r.description,
+                eligibility: `Kategori Barangan: ${r.category || 'Keperluan Asas'}\nStatus: ${r.fulfilled ? '✅ Telah Diselesaikan' : '⏳ Terbuka / Memerlukan Tindakan'}\nHubungi: ${r.contact || 'Terbuka'}`,
+                status: r.fulfilled ? 'closed' : 'active',
+                deadline: 'Bantuan Komuniti Terus',
+                location: r.location || 'Seluruh Kelantan',
+                url: r.contact ? `https://wa.me/${r.contact.replace(/[^0-9]/g, '')}` : undefined
+            }));
+        }
+    } catch (e) {
+        console.warn('[Programs API] Community requests fetch notice:', e);
+    }
+
+    const allPrograms = [...verifiedPrograms, ...communityAidItems];
+
     return NextResponse.json({
         success: true,
-        programs: verifiedPrograms,
+        programs: allPrograms,
         location: locationName,
-        total: verifiedPrograms.length,
+        total: allPrograms.length,
     }, {
         headers: {
-            'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
+            'Cache-Control': 'no-store, must-revalidate',
         },
     });
 }

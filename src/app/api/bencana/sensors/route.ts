@@ -72,6 +72,10 @@ const inMemorySensors = globalThis.__NADI_SENSORS__;
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Local dev bridge cache: avoid querying Vercel on every single poll request
+let lastBridgeFetchTime = 0;
+let cachedBridgeSensors: any[] = [];
+
 // GET: Fetches all sensors, merging Supabase records with in-memory telemetry
 export async function GET() {
     try {
@@ -93,27 +97,35 @@ export async function GET() {
 
         const now = Date.now();
 
-        // In local development: if hardware is transmitting to production Vercel, bridge it locally
+        // In local development: if hardware is transmitting to production Vercel, bridge it locally with throttle
         const isLocalDev = process.env.NODE_ENV !== 'production' || !process.env.VERCEL;
         if (isLocalDev) {
-            try {
-                const prodUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nadi-alpha.vercel.app';
-                const prodRes = await fetch(`${prodUrl}/api/bencana/sensors`, { cache: 'no-store' });
-                if (prodRes.ok) {
-                    const prodJson = await prodRes.json();
-                    if (prodJson.sensors && Array.isArray(prodJson.sensors)) {
-                        for (const ps of prodJson.sensors) {
-                            const psTs = ps.last_reading ? new Date(ps.last_reading).getTime() : 0;
-                            const localTs = mergedMap.get(ps.name)?.last_reading ? new Date(mergedMap.get(ps.name).last_reading).getTime() : 0;
-                            // Adopt production data if it has a newer reading
-                            if (psTs >= localTs) {
-                                mergedMap.set(ps.name, { ...mergedMap.get(ps.name), ...ps });
-                            }
+            if (now - lastBridgeFetchTime > 8000 || cachedBridgeSensors.length === 0) {
+                lastBridgeFetchTime = now;
+                try {
+                    const prodUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nadi-alpha.vercel.app';
+                    const prodRes = await fetch(`${prodUrl}/api/bencana/sensors`, { 
+                        cache: 'no-store',
+                        signal: AbortSignal.timeout(1800)
+                    });
+                    if (prodRes.ok) {
+                        const prodJson = await prodRes.json();
+                        if (prodJson.sensors && Array.isArray(prodJson.sensors)) {
+                            cachedBridgeSensors = prodJson.sensors;
                         }
                     }
+                } catch {
+                    // Ignore network timeout or offline state
                 }
-            } catch {
-                // Ignore network issues
+            }
+
+            for (const ps of cachedBridgeSensors) {
+                const psTs = ps.last_reading ? new Date(ps.last_reading).getTime() : 0;
+                const localTs = mergedMap.get(ps.name)?.last_reading ? new Date(mergedMap.get(ps.name).last_reading).getTime() : 0;
+                // Adopt production data if it has a newer reading
+                if (psTs >= localTs) {
+                    mergedMap.set(ps.name, { ...mergedMap.get(ps.name), ...ps });
+                }
             }
         }
         const sensorsList = Array.from(mergedMap.values()).map((s: any) => {

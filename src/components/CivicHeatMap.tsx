@@ -697,52 +697,61 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     }
 
     // 4. Official PPS Evacuation Centers (All 600+ Real Kelantan Centers)
+    let ppsOverrides: Record<string, { lat: number; lng: number; isExact: boolean }> = {};
     try {
-      const { data: ppsData } = await supabase.from('nadi_bencana_centers').select('*').limit(200);
-      if (ppsData && ppsData.length > 0) {
-        ppsData.forEach((center) => {
-          if (center.latitude && center.longitude) {
-            heatPoints.push({
-              lat: center.latitude,
-              lng: center.longitude,
-              type: 'pps',
-              label: center.name,
-              sublabel: `${center.district} · ${center.type}`,
-              severity: center.capacity > 400 ? 3 : 2,
-              jajahan: matchJajahan(center.district || center.jajahan, center.latitude, center.longitude),
-            });
+      const stored = JSON.parse(localStorage.getItem('nadi_pps_corrections') || '[]');
+      if (Array.isArray(stored)) {
+        stored.forEach((item: any) => {
+          if (item.center_name && item.suggested_lat && item.suggested_lng) {
+            ppsOverrides[item.center_name] = {
+              lat: Number(item.suggested_lat),
+              lng: Number(item.suggested_lng),
+              isExact: true
+            };
           }
-        });
-      } else {
-        ALL_KELANTAN_PPS_CENTERS.forEach((center, idx) => {
-          heatPoints.push({
-            lat: center.lat,
-            lng: center.lng,
-            type: 'pps',
-            label: center.name,
-            sublabel: `${center.jajahan} · ${center.type}`,
-            severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
-            isExact: center.isExact,
-            snappedTo: center.snappedTo,
-            jajahan: matchJajahan(center.jajahan, center.lat, center.lng),
-          });
         });
       }
     } catch {
-      ALL_KELANTAN_PPS_CENTERS.forEach((center, idx) => {
-        heatPoints.push({
-          lat: center.lat,
-          lng: center.lng,
-          type: 'pps',
-          label: center.name,
-          sublabel: `${center.jajahan} · ${center.type}`,
-          severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
-          isExact: center.isExact,
-          snappedTo: center.snappedTo,
-          jajahan: matchJajahan(center.jajahan, center.lat, center.lng),
-        });
-      });
+      // ignore localStorage quota/JSON errors
     }
+
+    try {
+      const { data: approved } = await supabase
+        .from('nadi_pps_corrections')
+        .select('center_name, suggested_lat, suggested_lng')
+        .eq('status', 'approved');
+      if (approved && approved.length > 0) {
+        approved.forEach((item: any) => {
+          ppsOverrides[item.center_name] = {
+            lat: Number(item.suggested_lat),
+            lng: Number(item.suggested_lng),
+            isExact: true
+          };
+        });
+      }
+    } catch {
+      // Table might not exist yet, silent fallback
+    }
+
+    ALL_KELANTAN_PPS_CENTERS.forEach((center, idx) => {
+      const override = ppsOverrides[center.name];
+      const lat = override ? override.lat : center.lat;
+      const lng = override ? override.lng : center.lng;
+      const isExact = override ? override.isExact : center.isExact;
+      const snappedTo = override ? null : center.snappedTo;
+
+      heatPoints.push({
+        lat,
+        lng,
+        type: 'pps',
+        label: center.name,
+        sublabel: `${center.jajahan} · ${center.type}`,
+        severity: center.capacity > 400 || idx % 4 === 0 ? 3 : 2,
+        isExact,
+        snappedTo,
+        jajahan: matchJajahan(center.jajahan, lat, lng),
+      });
+    });
 
     // 5. River Water Sensor Hardware Nodes (Jambatan Sultan Yahya Petra LoRaWAN Node)
     try {
@@ -1620,6 +1629,9 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
           isOpen={!!verifyCenter}
           onClose={() => setVerifyCenter(null)}
           center={verifyCenter}
+          onVerified={() => {
+            loadHeatPoints();
+          }}
         />
       </div>
     </motion.div>
