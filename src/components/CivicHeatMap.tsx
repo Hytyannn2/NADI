@@ -1443,15 +1443,27 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                           </a>
                         </div>
                       ) : (
+                        <>
+                        {/* Approximate PPS pin: never 1-tap navigate to a guessed coordinate */}
+                        {point.type === 'pps' && !point.isExact && (
+                          <p className="text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-lg px-2 py-1.5 flex items-start gap-1.5">
+                            <AlertTriangle className="w-3 h-3 shrink-0 mt-px" />
+                            {isMs
+                              ? 'Lokasi pin ini ANGGARAN, bukan pintu PPS sebenar. Sahkan alamat dengan JKM / penghulu sebelum bergerak.'
+                              : 'This pin is APPROXIMATE, not the real PPS gate. Confirm the address with JKM / the village head before travelling.'}
+                          </p>
+                        )}
                         <div className="grid grid-cols-2 gap-2 h-[34px] mt-0.5">
                           <a
-                            href={`https://www.waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`}
+                            href={point.type === 'pps' && !point.isExact
+                              ? `https://www.waze.com/ul?q=${encodeURIComponent(point.label + ' ' + (point.sublabel || 'Kelantan'))}`
+                              : `https://www.waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/80 hover:border-zinc-500/80 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-white no-underline active:scale-95 transition-all shadow-md"
                           >
                             <img src="/icons/waze.png" alt="Waze" className="w-4 h-4 object-contain shrink-0" />
-                            <span className="text-white">Waze</span>
+                            <span className="text-white">{point.type === 'pps' && !point.isExact ? 'Cari Waze' : 'Waze'}</span>
                           </a>
                           <a
                             href={point.type === 'pps' && !point.isExact
@@ -1465,6 +1477,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                             <span className="text-white">{point.type === 'pps' && !point.isExact ? 'Cari Maps' : 'Google Maps'}</span>
                           </a>
                         </div>
+                        </>
                       )}
 
                       {/* f) TRUST FOOTER (PPS only) */}

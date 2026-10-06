@@ -9,7 +9,10 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+.agents
+.claude
+.kilo
+neural_network_plan.md
 # testing
 /coverage
 
@@ -45,10 +48,6 @@ dialect-engine/learned_mappings.json
 dialect-engine/clusters.json
 dialect-engine/feedback_log.jsonl
 dialect-engine/__pycache__/
-
-# Firmware & Arduino Sketches
-/firmware/
-*.ino
 
 # Secrets / Credentials (NEVER commit these)
 secrets.h

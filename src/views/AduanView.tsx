@@ -43,6 +43,7 @@ import {
     Flame,
     Siren,
     ShieldAlert,
+    Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
@@ -436,6 +437,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
     // Modals
     const [copiedToast, setCopiedToast] = useState(false);
+    const [deletedToast, setDeletedToast] = useState(false);
     const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
     const [feedbackCorrectText, setFeedbackCorrectText] = useState('');
@@ -896,7 +898,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
     const totalReports = anomalies.length;
     const totalVerified = anomalies.filter(a => a.status === 'verified').length;
-    const estimatedResolved = Math.max(1, Math.floor(totalVerified * 0.38));
+    const estimatedResolved = totalReports === 0 ? 0 : Math.max(0, Math.floor(totalVerified * 0.38));
 
     const persistAnomaliesAndFeedback = (
         updatedList: Anomaly[],
@@ -1328,6 +1330,42 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             setCopiedToast(true);
             setTimeout(() => setCopiedToast(false), 2000);
         } catch {}
+    };
+
+    const handleDeleteReport = async (a: Anomaly) => {
+        try {
+            // 1. Remove from local state immediately
+            setAnomalies(prev => prev.filter(item => item.id !== a.id));
+
+            // 2. Clear from browser localStorage caches
+            const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
+            try {
+                const cleanKey = (key: string) => {
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        try {
+                            const list = JSON.parse(raw);
+                            if (Array.isArray(list)) {
+                                const filtered = list.filter((item: any) => item.id !== a.id);
+                                localStorage.setItem(key, JSON.stringify(filtered));
+                            }
+                        } catch {}
+                    }
+                };
+                cleanKey(cacheKey);
+                cleanKey('nadi_local_potholes');
+            } catch {}
+
+            // 3. Delete from Supabase database
+            if (a.id) {
+                await supabase.from('nadi_infra_reports').delete().eq('id', a.id);
+            }
+
+            setDeletedToast(true);
+            setTimeout(() => setDeletedToast(false), 2500);
+        } catch (err) {
+            console.error('Gagal memadam aduan:', err);
+        }
     };
 
     const [mounted, setMounted] = useState(false);
@@ -2160,6 +2198,17 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                                 <Copy className="w-3.5 h-3.5 text-emerald-400" />
                                                                 <span>Salin Butiran</span>
                                                             </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteReport(a);
+                                                                    setActiveMenuReportId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-colors border-t border-zinc-800/60 mt-1 pt-2"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                                                <span>Padam Aduan</span>
+                                                            </button>
                                                         </div>
                                                     </>
                                                 )}
@@ -2267,6 +2316,16 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-emerald-500 text-black px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-emerald-400/50 backdrop-blur-md"
                         >
                             <Check className="w-4 h-4 text-black" /> Butiran aduan berjaya disalin ke papan keratan!
+                        </motion.div>
+                    )}
+                    {deletedToast && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-rose-600 text-white px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-rose-400/40 backdrop-blur-md"
+                        >
+                            <Trash2 className="w-4 h-4 text-white" /> Rekod aduan telah berjaya dipadam!
                         </motion.div>
                     )}
                 </AnimatePresence>,
