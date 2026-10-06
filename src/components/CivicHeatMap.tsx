@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from 'react';
+import { useEffect, useState, useMemo, useCallback, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   Droplets,
   Construction,
-  Loader2,
   MapPin,
   Home,
   Radio,
@@ -29,6 +28,8 @@ import {
   Clock,
   CheckCircle2,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { Map as LeafletMap, LatLngBounds, LeafletEvent } from 'leaflet';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
 
@@ -82,7 +83,7 @@ interface ClusterPoint {
 
 const TYPE_CONFIG: Record<
   HeatType,
-  { color: string; labelMs: string; labelEn: string; icon: any }
+  { color: string; labelMs: string; labelEn: string; icon: LucideIcon }
 > = {
   pothole: { color: '#EF4444', labelMs: 'Jalan Berlubang', labelEn: 'Potholes', icon: Construction },
   flood: { color: '#3B82F6', labelMs: 'Zon Banjir', labelEn: 'Flood Zones', icon: Droplets },
@@ -284,13 +285,13 @@ function MapEventsController({
   onMapInit,
   onMapChange,
 }: {
-  onMapInit: (map: any) => void;
-  onMapChange: (zoom: number, bounds: any) => void;
+  onMapInit: (map: LeafletMap | null) => void;
+  onMapChange: (zoom: number, bounds: LatLngBounds) => void;
 }) {
   const { useMapEvents } = require('react-leaflet');
 
   const map = useMapEvents({
-    zoomend(e: any) {
+    zoomend(e: LeafletEvent) {
       try {
         const m = e.target;
         if (m && typeof m.getZoom === 'function') {
@@ -298,7 +299,7 @@ function MapEventsController({
         }
       } catch {}
     },
-    moveend(e: any) {
+    moveend(e: LeafletEvent) {
       try {
         const m = e.target;
         if (m && typeof m.getZoom === 'function') {
@@ -373,13 +374,13 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [liveSensorData, setLiveSensorData] = useState<{ water_level: number; is_online?: boolean; status?: string | null }>({ water_level: 1.74, is_online: true });
   const [zoomLevel, setZoomLevel] = useState<number>(13);
-  const [mapBounds, setMapBounds] = useState<any>(null);
+  const [mapBounds, setMapBounds] = useState<LatLngBounds | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchSuggestions, setSearchSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
-  const [activeMap, setActiveMap] = useState<any>(null);
+  const [activeMap, setActiveMap] = useState<LeafletMap | null>(null);
   const [verifyCenter, setVerifyCenter] = useState<{
     name: string;
     jajahan?: string;
@@ -851,10 +852,6 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     setMapReady(true);
   }, []);
 
-  const toggleFilter = (type: HeatType) => {
-    setFilters((prev) => ({ ...prev, [type]: !prev[type] }));
-  };
-
   // Real Dynamic Spatial Grid Clustering + Bounding-Circle Union Merge Engine
   const clusterPoints = useMemo<ClusterPoint[]>(() => {
     // 1. Filter base points by 2D filter: Category (Dimension 1) & Jajahan (Dimension 2) & radius & viewport
@@ -955,7 +952,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     return points.filter((p) => !selectedJajahan || p.jajahan === selectedJajahan).length;
   }, [points, selectedJajahan]);
 
-  const handleMapChange = useCallback((z: number, b: any) => {
+  const handleMapChange = useCallback((z: number, b: LatLngBounds) => {
     setZoomLevel(z);
     setMapBounds(b);
   }, []);

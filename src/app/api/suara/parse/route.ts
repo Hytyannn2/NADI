@@ -99,7 +99,7 @@ Respond strictly with a JSON object in this format:
     ];
 
     let data: any = null;
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const model of candidateModels) {
       try {
@@ -113,13 +113,14 @@ Respond strictly with a JSON object in this format:
         });
         data = JSON.parse(chatCompletion.choices[0]?.message?.content || '{}');
         if (data && typeof data === 'object') break;
-      } catch (error: any) {
+      } catch (error) {
         lastError = error;
-        if (error?.status === 404 || error?.status === 400) {
-          console.warn(`[suara/parse] Model ${model} unavailable (${error?.status}), falling back to next candidate.`);
+        const status = error instanceof Groq.APIError ? error.status : undefined;
+        if (status === 404 || status === 400) {
+          console.warn(`[suara/parse] Model ${model} unavailable (${status}), falling back to next candidate.`);
           continue;
         }
-        if (error?.status === 429) {
+        if (status === 429) {
           return NextResponse.json(
             { success: false, error: 'Groq API rate limit exceeded. Please wait a moment and try again.' },
             { status: 429 }

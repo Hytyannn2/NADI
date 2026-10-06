@@ -310,11 +310,11 @@ export function usePotholeDetector({
   const startDetection = useCallback(async () => {
     if (typeof window === 'undefined') return;
 
-    if (
-      typeof (DeviceMotionEvent as any).requestPermission === 'function'
-    ) {
+    // iOS 13+ only: motion sensors need an explicit permission prompt
+    const MotionEvent = DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<PermissionState> };
+    if (typeof MotionEvent.requestPermission === 'function') {
       try {
-        const state = await (DeviceMotionEvent as any).requestPermission();
+        const state = await MotionEvent.requestPermission();
         if (state !== 'granted') {
           setMotionError('Kebenaran sensor gerakan diperlukan untuk pengesanan lubang jalan.');
           return;

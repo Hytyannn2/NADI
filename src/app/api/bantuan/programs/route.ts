@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const lat = parseFloat(searchParams.get('lat') || '0');
     const lng = parseFloat(searchParams.get('lng') || '0');
-    const langParam = searchParams.get('lang') || 'ms';
 
     let locationName = 'Malaysia';
     try {
@@ -28,7 +27,6 @@ export async function GET(request: NextRequest) {
         locationName = 'Malaysia';
     }
 
-    const isKelantan = locationName.toLowerCase().includes('kelantan');
     const isSelangor = locationName.toLowerCase().includes('selangor');
 
     // Verified Malaysian Social Welfare & Assistance Programs

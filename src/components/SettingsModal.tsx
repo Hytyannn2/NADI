@@ -5,13 +5,13 @@
  * notification quiet hours, privacy location precision, and accessibility enhancements.
  */
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import {
-  X, Sun, Moon, Monitor, Globe, LogOut, Award, Eye, Baseline, Activity, Palette,
+  X, Sun, Moon, Monitor, LogOut, Eye, Baseline, Activity, Palette,
   Clock, Volume2, RefreshCw, LayoutGrid, SlidersHorizontal, ShieldCheck, Scale,
-  Bell, BellOff, Siren, MapPin, MapPinOff, Download, Trash2, Radio, Gauge,
+  Bell, Siren, MapPin, MapPinOff, Download, Trash2, Radio, Gauge,
   MoonStar, Shield, FileJson, FileSpreadsheet, Smartphone, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
@@ -21,7 +21,7 @@ import { sound } from '@/src/lib/audio/soundEffects';
 import {
   useTheme, THEMES, SENSOR_SAMPLING_RATES,
   type FontSize, type ColorblindMode, type ThemeId, type ClockFormat,
-  type AutoRefreshRate, type SensorSamplingRate, type NotifRadius, type LocationPrecision
+  type AutoRefreshRate, type NotifRadius, type LocationPrecision
 } from '@/src/context/ThemeContext';
 
 // Settings tab definitions
@@ -161,8 +161,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       sessionStorage.clear();
       onClose();
       window.location.href = '/?deleted=true';
-    } catch (err: any) {
-      setDeleteError(err.message || (lang === 'ms' ? 'Ralat berlaku semasa memadam akaun.' : 'An error occurred while deleting account.'));
+    } catch (err) {
+      setDeleteError((err instanceof Error && err.message) || (lang === 'ms' ? 'Ralat berlaku semasa memadam akaun.' : 'An error occurred while deleting account.'));
       setIsDeletingAccount(false);
     }
   };

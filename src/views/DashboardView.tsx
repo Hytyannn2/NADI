@@ -14,13 +14,12 @@ import { useWeather } from '@/src/hooks/useWeather';
 import { useLiveSensor } from '@/src/hooks/useLiveSensor';
 import { sound } from '@/src/lib/audio/soundEffects';
 import {
-    CloudRain, AlertTriangle, Heart, Activity,
-    ChevronRight, Loader2, Thermometer,
+    CloudRain, AlertTriangle, Heart,
+    ChevronRight, Thermometer,
     Wind, Droplets, ClipboardList, ShoppingBag,
     Sun, Moon, CloudSun, CloudMoon, CloudLightning,
-    CloudDrizzle, Cloud, MapPin, Zap
+    CloudDrizzle, Cloud, MapPin
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { WeatherSkeleton } from '@/src/components/ui/Skeleton';
 
 export default function DashboardView() {

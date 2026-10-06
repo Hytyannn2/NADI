@@ -6,12 +6,12 @@
  */
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { AlertTriangle, Home, Heart, ChevronRight, ChevronDown, Bell, LogOut, User, Globe, Sun, Moon, Target, Award, Users, Map, X, Shield, Zap, Trophy, Settings, Calendar, Sparkles, ClipboardList, ShoppingBag, Share2, Siren, Volume2, CheckCircle2 } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
+import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import { AlertTriangle, Home, Heart, Bell, LogOut, Users, Map, X, Shield, Settings, Calendar, ClipboardList, ShoppingBag, Siren, Volume2, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
-import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
-import { useTheme, THEMES, type ThemeId, type FontSize } from '@/src/context/ThemeContext';
+import { useLanguage } from '@/src/context/LanguageContext';
+import { useTheme } from '@/src/context/ThemeContext';
 
 import { useGreeting } from '@/src/hooks/useGreeting';
 
@@ -37,8 +37,8 @@ type TabId = 'utama' | 'bencana' | 'bantuan' | 'aduan' | 'komuniti';
 export default function App() {
   // Auth and Theme Contexts
   const { user, loading, signOut } = useAuth();
-  const { t, lang, setLang } = useLanguage();
-  const { themeId, setThemeId, fontSize, setFontSize, isNotificationAllowed, playAlertSound } = useTheme();
+  const { t } = useLanguage();
+  const { isNotificationAllowed, playAlertSound } = useTheme();
 
   // Hooks
   const greeting = useGreeting();
@@ -72,7 +72,6 @@ export default function App() {
   // === UI State ===
   const [activeTab, setActiveTab] = useState<TabId>('utama');
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
-  const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(false);
 
   useEffect(() => {
     const savedWidth = localStorage.getItem('nadi_sidebar_width');
@@ -82,12 +81,6 @@ export default function App() {
         setSidebarWidth(parsed);
       }
     }
-    const checkDesktop = () => {
-      setIsDesktopLayout(window.innerWidth >= 768);
-    };
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
   const handleSidebarWidthChange = (newWidth: number) => {
@@ -96,30 +89,6 @@ export default function App() {
   };
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
-  const [showLangPicker, setShowLangPicker] = useState(false);
-
-  const fabX = useMotionValue(0);
-  const fabY = useMotionValue(0);
-  const isDragging = useRef(false);
-  const [fabRect, setFabRect] = useState<DOMRect | null>(null);
-  const [fabConstraints, setFabConstraints] = useState({ top: -110, bottom: 500, left: -300, right: 0 });
-
-  useEffect(() => {
-    const updateConstraints = () => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const hasSidebar = w >= 768;
-      setFabConstraints({
-        top: -110, // Allows dragging up to 20px from top
-        bottom: h - 130 - 56 - 90, // Allows dragging down to ~90px from bottom edge
-        left: -(w - (hasSidebar ? 352 : 96)), // Restrict dragging to the left edge of the main content area
-        right: 0 // Cannot drag past the 20px right margin
-      });
-    };
-    updateConstraints();
-    window.addEventListener('resize', updateConstraints);
-    return () => window.removeEventListener('resize', updateConstraints);
-  }, []);
 
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -141,7 +110,6 @@ export default function App() {
   const closeAllMenus = () => {
     setShowUserMenu(false);
     setShowNotif(false);
-    setShowLangPicker(false);
   };
 
   const handleTabSwitch = (id: string) => {
@@ -183,9 +151,7 @@ export default function App() {
         {/* ===== RIGHT CONTENT AREA ===== */}
         <div
           className="flex-1 relative flex flex-col min-w-0 overflow-hidden transition-none md:pl-[var(--sidebar-width,260px)]"
-          style={{
-            ['--sidebar-width' as any]: `${sidebarWidth}px`,
-          }}
+          style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
         >
 
           {/* ===== HEADER ===== */}
@@ -229,7 +195,7 @@ export default function App() {
                 <button id="tour-heatmap" aria-label="View Civic Heatmap" onClick={() => setShowHeatMap(true)} className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Peta Haba Sivik">
                   <Map className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 </button>
-                <button id="notif-btn" aria-label="View Notifications" onClick={() => { setShowNotif(!showNotif); setShowUserMenu(false); setShowLangPicker(false); }}
+                <button id="notif-btn" aria-label="View Notifications" onClick={() => { setShowNotif(!showNotif); setShowUserMenu(false); }}
                   className="relative p-2.5 sm:p-3 rounded-xl transition-colors hover:opacity-70" style={{ background: 'var(--bg-subtle)' }} title="Notifikasi"
                 >
                   <Bell className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />

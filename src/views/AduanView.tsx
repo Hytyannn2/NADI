@@ -9,7 +9,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    Activity,
     Check,
     AlertCircle,
     Camera,
@@ -36,12 +35,9 @@ import {
     AlertTriangle,
     Building2,
     Clock,
-    Calendar,
     
     Phone,
     Heart,
-    Flame,
-    Siren,
     ShieldAlert,
     Trash2,
 } from 'lucide-react';
@@ -380,7 +376,7 @@ interface AduanViewProps {
 export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) {
     const { user, session } = useAuth();
     const { t } = useLanguage();
-    const { formatTime, applyLocationPrecision, locationPrecision, playAlertSound } = useTheme();
+    const { applyLocationPrecision, locationPrecision, playAlertSound } = useTheme();
     const [filter, setFilter] = useState<'all' | 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain' | 'verified'>('all');
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const [activeMenuReportId, setActiveMenuReportId] = useState<string | null>(null);
@@ -393,18 +389,15 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const [userGpsLocation, setUserGpsLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
     const [isGettingGps, setIsGettingGps] = useState(false);
     const [gpsErrorMessage, setGpsErrorMessage] = useState<string | null>(null);
-    const gpsErrorTimeoutRef = useRef<any>(null);
+    const gpsErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Modals
     const [copiedToast, setCopiedToast] = useState(false);
     const [deletedToast, setDeletedToast] = useState(false);
     const [deleteErrorToast, setDeleteErrorToast] = useState(false);
-    const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
     const [feedbackCorrectText, setFeedbackCorrectText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-    const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
     const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
 
     // Photo & Media Attachment Hub
@@ -428,15 +421,6 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     }, [manualDescription]);
 
     const [interceptEmergency, setInterceptEmergency] = useState<EmergencyProtocol | null>(null);
-
-    const handleVoiceSuccess = (transcript: string) => {
-        if (!transcript.trim()) return;
-        setManualDescription(prev => prev ? `${prev} ${transcript}` : transcript);
-        if (!hasManuallySelectedCategory) {
-            const detected = detectCategoryFromText(transcript);
-            setSelectedCategory(detected);
-        }
-    };
 
     const handleDescriptionChange = (text: string) => {
         setManualDescription(text);

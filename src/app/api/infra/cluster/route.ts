@@ -19,8 +19,6 @@ const KOTA_BHARU_BOUNDS = {
     maxLng: 102.30,
 };
 
-const CLUSTER_RADIUS_METERS = 15;
-const CLUSTER_WINDOW_HOURS = 48;
 const URBAN_THRESHOLD = 3; // Unique devices required in urban areas
 const RURAL_THRESHOLD = 2; // Unique devices required in rural areas
 
@@ -44,7 +42,7 @@ export async function POST(request: Request) {
     }
 
     // Enforce server-side caller authentication before executing spatial clustering RPC (CWE-862)
-    const { user, adminSupa, errorResponse } = await requireServerAuth(request);
+    const { adminSupa, errorResponse } = await requireServerAuth(request);
     if (errorResponse) {
         return errorResponse;
     }

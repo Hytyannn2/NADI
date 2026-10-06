@@ -7,7 +7,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Heart, MapPin, Loader2, Plus, X, Search, Phone, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Compass, Utensils, Baby, Pill, Shirt, Truck, Sparkles, Check } from 'lucide-react';
+import { MapPin, Loader2, Plus, X, Search, Clock, Users, Package, ChevronDown, CheckCircle, AlertTriangle, HandHeart, Briefcase, Trash2, ExternalLink, Globe, Calendar, UserCheck, MessageCircle, Filter, Landmark, Building, Utensils, Baby, Pill, Shirt, Truck, Sparkles, Check } from 'lucide-react';
 
 const COMMUNITY_CATEGORIES = [
     {
@@ -55,7 +55,7 @@ import { useLanguage } from '@/src/context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
 import { useDebounce } from '@/src/hooks/useDebounce';
 import { useWeather } from '@/src/hooks/useWeather';
-import { evaluateAllEligibility } from '@/src/utils/eligibilityEngine';
+import { evaluateAllEligibility, type EligibilityResult } from '@/src/utils/eligibilityEngine';
 import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -159,7 +159,6 @@ export default function BantuanView() {
     const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}&lang=${lang}` : `/api/bantuan/programs?lang=${lang}`;
     const { data: programsData, isLoading: programsLoading, mutate: mutatePrograms } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
     const aidPrograms: AidProgram[] = programsData?.programs || [];
-    const locationName = programsData?.location || '';
 
     // Community Mutual Aid Modal State (Offers & Donations)
     const [showCommunityModal, setShowCommunityModal] = useState(false);
@@ -203,7 +202,7 @@ export default function BantuanView() {
     const [showAIMatcher, setShowAIMatcher] = useState(false);
     const [isMatching, setIsMatching] = useState(false);
     const [profile, setProfile] = useState({ age: '', income: '', status: 'Bekerja', dependents: '0' });
-    const [matchResults, setMatchResults] = useState<Record<string, { isEligible: boolean | 'maybe', reason: string }>>({});
+    const [matchResults, setMatchResults] = useState<Record<string, EligibilityResult>>({});
 
     // Volunteer opportunities (nationwide from API)
     const { data: volData, isLoading: volLoading, mutate: mutateVolOpportunities } = useSWR(activeTab === 'volunteer' ? `/api/bantuan/volunteers?lang=${lang}` : null, fetcher, { revalidateOnFocus: false });
@@ -421,13 +420,13 @@ export default function BantuanView() {
             if (sortBy === 'provider_asc') return a.provider.localeCompare(b.provider);
             if (sortBy === 'provider_desc') return b.provider.localeCompare(a.provider);
             if (sortBy === 'match_desc') {
-                const scoreA = (matchResults[a.id] as any)?.matchScore ?? ((matchResults[a.id] as any)?.isEligible === true ? 100 : 0);
-                const scoreB = (matchResults[b.id] as any)?.matchScore ?? ((matchResults[b.id] as any)?.isEligible === true ? 100 : 0);
+                const scoreA = matchResults[a.id]?.matchScore ?? (matchResults[a.id]?.isEligible === true ? 100 : 0);
+                const scoreB = matchResults[b.id]?.matchScore ?? (matchResults[b.id]?.isEligible === true ? 100 : 0);
                 return scoreB - scoreA;
             }
             if (sortBy === 'match_asc') {
-                const scoreA = (matchResults[a.id] as any)?.matchScore ?? ((matchResults[a.id] as any)?.isEligible === true ? 100 : 0);
-                const scoreB = (matchResults[b.id] as any)?.matchScore ?? ((matchResults[b.id] as any)?.isEligible === true ? 100 : 0);
+                const scoreA = matchResults[a.id]?.matchScore ?? (matchResults[a.id]?.isEligible === true ? 100 : 0);
+                const scoreB = matchResults[b.id]?.matchScore ?? (matchResults[b.id]?.isEligible === true ? 100 : 0);
                 return scoreA - scoreB;
             }
             return 0;
@@ -450,7 +449,7 @@ export default function BantuanView() {
         setIsMatching(true);
         try {
             const results = evaluateAllEligibility(profile, aidPrograms);
-            setMatchResults(results as any);
+            setMatchResults(results);
             setShowAIMatcher(false);
             showToast('Semakan Selesai', 'Kelayakan bantuan anda telah dikemas kini serta-merta.');
         } catch {
@@ -512,7 +511,7 @@ export default function BantuanView() {
                                         <label className="text-[9px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)' }}>{f.label}</label>
                                         <input
                                             type={f.key === 'pax' ? 'number' : 'text'}
-                                            value={(jobForm as any)[f.key] || f.defaultValue || ''}
+                                            value={jobForm[f.key as keyof typeof jobForm] || f.defaultValue || ''}
                                             onChange={e => setJobForm(prev => ({ ...prev, [f.key]: e.target.value }))}
                                             placeholder={f.placeholder}
                                             required={f.required}
@@ -642,7 +641,7 @@ export default function BantuanView() {
                                         <Filter className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--accent)' }} />
                                         <select
                                             value={sortBy}
-                                            onChange={e => setSortBy(e.target.value as any)}
+                                            onChange={e => setSortBy(e.target.value as typeof sortBy)}
                                             className="appearance-none pl-9 pr-8 py-3 rounded-2xl text-xs font-bold outline-none cursor-pointer border transition-all"
                                             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                                         >
@@ -706,7 +705,7 @@ export default function BantuanView() {
                                         return (
                                             <button
                                                 key={cat.id}
-                                                onClick={() => setFilterType(cat.id as any)}
+                                                onClick={() => setFilterType(cat.id as typeof filterType)}
                                                 className="flex items-center gap-3 px-6 py-3.5 rounded-2xl text-base font-extrabold transition-all duration-300 shrink-0 border hover:-translate-y-1 hover:brightness-110 active:scale-95 shadow-md"
                                                 style={isActive ? cat.activeStyle : cat.inactiveStyle}
                                             >
@@ -911,7 +910,7 @@ export default function BantuanView() {
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Keputusan Kelayakan Aktif</span>
                                                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-                                                            {Object.values(matchResults).filter((m: any) => m.isEligible).length} Layak
+                                                            {Object.values(matchResults).filter((m) => m.isEligible).length} Layak
                                                         </span>
                                                     </div>
                                                     <p className="text-[10px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -932,7 +931,7 @@ export default function BantuanView() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {filteredPrograms.map((aid, i) => {
-                                            const match = matchResults[aid.id] as any;
+                                            const match = matchResults[aid.id];
                                             return (
                                                 <motion.div
                                                     key={aid.id}
@@ -1313,7 +1312,7 @@ export default function BantuanView() {
 
                                 {/* AI Match Status (If Available) */}
                                 {matchResults[selectedProgram.id] && (() => {
-                                    const selectedMatch = matchResults[selectedProgram.id] as any;
+                                    const selectedMatch = matchResults[selectedProgram.id];
                                     return (
                                         <div className={`mb-6 p-4 rounded-2xl border ${selectedMatch.isEligible === true ? 'bg-green-500/10 border-green-500/20' : selectedMatch.isEligible === false ? 'bg-red-500/10 border-red-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
                                             <div className="flex items-center justify-between mb-2">

@@ -12,7 +12,7 @@
  */
 'use client';
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useWeather } from '@/src/hooks/useWeather';
 
 /**
@@ -64,7 +64,6 @@ export function WeatherAtmosphere() {
   // Danger state disables decorative animations for clarity; warning reduces particle rate
   const isDanger = weather?.floodRisk === 'High' || rainMm >= 25.0;
   const isWarning = !isDanger && (weather?.floodRisk === 'Moderate' || rainMm >= 8.0);
-  const isSafe = !isDanger && !isWarning;
 
   // Compute smooth temperature-based color
   const [tempR, tempG, tempB] = useMemo(() => {

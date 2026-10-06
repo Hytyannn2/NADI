@@ -5,7 +5,6 @@
  * schools, mosques, emergency facilities, and districts. Includes Levenshtein distance matching,
  * token overlap scoring, and Fuse.js integration helpers.
  */
-import Fuse from 'fuse.js';
 import { levenshteinDistance } from '@/src/lib/dialect/phonetics';
 
 // In-memory memoization cache for normalized text strings

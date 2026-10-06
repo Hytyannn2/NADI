@@ -8,7 +8,7 @@
  */
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { usePotholeDetector, type SensorAnomalyEvent } from '@/src/hooks/usePotholeDetector';
 import { useAuth } from './AuthContext';
 import { useTheme } from './ThemeContext';

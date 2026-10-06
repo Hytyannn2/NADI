@@ -7,7 +7,7 @@
  */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
 import { Lock, Eye, EyeOff, ArrowRight, CheckCircle2, AlertCircle, Shield } from 'lucide-react';
@@ -55,8 +55,8 @@ export default function ResetPasswordPage() {
       setTimeout(() => {
         window.location.href = '/';
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Ralat berlaku. Sila cuba lagi.');
+    } catch (err) {
+      setError((err instanceof Error && err.message) || 'Ralat berlaku. Sila cuba lagi.');
     } finally {
       setLoading(false);
     }

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     // Try primary model (whisper-large-v3) with fallback to (whisper-large-v3-turbo)
     const candidateModels = ['whisper-large-v3', 'whisper-large-v3-turbo'];
     let transcriptionText = '';
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const model of candidateModels) {
       try {
@@ -73,15 +73,17 @@ export async function POST(request: Request) {
           temperature: 0.0, // deterministic greedy decoding for maximum phonetic precision
         });
 
-        if (result && typeof (result as any).text === 'string') {
-          const raw = ((result as any).text || '').trim();
+        // verbose_json adds per-segment fields the SDK's Transcription type doesn't declare
+        const verbose = result as { text?: unknown; segments?: { no_speech_prob?: unknown }[] };
+        if (verbose && typeof verbose.text === 'string') {
+          const raw = verbose.text.trim();
 
           // Check segment-level no_speech_prob if provided by verbose_json
-          const segments = (result as any).segments;
+          const segments = verbose.segments;
           let isSilenceProb = false;
           if (Array.isArray(segments) && segments.length > 0) {
             const highSilenceSegments = segments.filter(
-              (s: any) => typeof s.no_speech_prob === 'number' && s.no_speech_prob > 0.6
+              (s) => typeof s.no_speech_prob === 'number' && s.no_speech_prob > 0.6
             );
             if (highSilenceSegments.length === segments.length) {
               isSilenceProb = true;
@@ -95,10 +97,10 @@ export async function POST(request: Request) {
           }
           break;
         }
-      } catch (err: any) {
+      } catch (err) {
         lastError = err;
-        console.warn(`[suara/transcribe] Whisper model ${model} error:`, err?.message || err);
-        if (err?.status === 429) {
+        console.warn(`[suara/transcribe] Whisper model ${model} error:`, err instanceof Error ? err.message : err);
+        if (err instanceof Groq.APIError && err.status === 429) {
           return NextResponse.json(
             { success: false, error: 'Had panggilan Groq Whisper dicapai. Sila tunggu sebentar.' },
             { status: 429 }
@@ -123,10 +125,10 @@ export async function POST(request: Request) {
       modelUsed: 'whisper-large-v3',
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[suara/transcribe] Fatal error:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Ralat semasa memproses pengecaman suara.' },
+      { success: false, error: (error instanceof Error && error.message) || 'Ralat semasa memproses pengecaman suara.' },
       { status: 500 }
     );
   }

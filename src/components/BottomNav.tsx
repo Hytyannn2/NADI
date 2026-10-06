@@ -6,11 +6,12 @@
  */
 'use client';
 import { motion } from 'motion/react';
+import type { LucideIcon } from 'lucide-react';
 
 interface Tab {
   id: string;
   name: string;
-  icon: any;
+  icon: LucideIcon;
   isCenter?: boolean;
 }
 

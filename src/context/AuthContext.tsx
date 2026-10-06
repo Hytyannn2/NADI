@@ -6,7 +6,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Session, User, type AuthChangeEvent, type AuthError } from '@supabase/supabase-js';
+import { Session, User, isAuthError, type AuthChangeEvent, type AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/src/lib/supabase/client';
 
 interface AuthContextType {
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (
             msg.includes('Refresh Token') ||
             msg.includes('refresh_token_not_found') ||
-            (error as any).status === 400
+            error.status === 400
           ) {
             console.warn('[AuthContext] Stale or invalid refresh token detected. Purging corrupted session.');
             try {
@@ -65,10 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session?.user ?? null);
         }
       })
-      .catch(async (err: any) => {
+      .catch(async (err: unknown) => {
         console.warn('[AuthContext] Session fetch warning:', err);
-        const msg = err?.message || '';
-        if (msg.includes('Refresh Token') || msg.includes('refresh_token_not_found') || err?.status === 400) {
+        const msg = (err instanceof Error && err.message) || '';
+        if (msg.includes('Refresh Token') || msg.includes('refresh_token_not_found') || (isAuthError(err) && err.status === 400)) {
           try {
             await supabase.auth.signOut({ scope: 'local' });
           } catch {}

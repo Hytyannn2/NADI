@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
       await adminSupabase.from('nadi_infra_reports').delete().eq('user_id', userId);
       await adminSupabase.from('nadi_bencana_jobs').delete().eq('posted_by', userId);
       await adminSupabase.from('nadi_dialect_feedback').delete().eq('user_id', userId);
-    } catch (cleanupErr: any) {
-      console.warn('Notice during user data purge:', cleanupErr.message);
+    } catch (cleanupErr) {
+      console.warn('Notice during user data purge:', cleanupErr instanceof Error ? cleanupErr.message : cleanupErr);
     }
 
     // 3. Permanently delete user from Supabase Auth
@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Akaun dan segala rekod berkaitan telah dipadam selama-lamanya.',
     });
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json(
-      { success: false, error: err.message || 'Gagal memadam akaun. Sila cuba lagi.' },
+      { success: false, error: (err instanceof Error && err.message) || 'Gagal memadam akaun. Sila cuba lagi.' },
       { status: 500 }
     );
   }

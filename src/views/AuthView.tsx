@@ -10,48 +10,7 @@ import pkg from '@/package.json';
 
 const APP_VERSION = `v${pkg.version}`;
 
-function MalaysiaFlagIcon({ className = "w-7 h-7" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <g clipPath="url(#circular-flag-clip)">
-        {/* White background circle */}
-        <circle cx="256" cy="256" r="256" fill="#FFFFFF" />
-
-        {/* 14 Red and White Stripes */}
-        <rect y="0" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="73.14" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="146.28" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="219.42" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="292.57" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="365.71" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="438.85" width="512" height="36.57" fill="#CC1E27" />
-        <rect y="475.42" width="512" height="36.57" fill="#CC1E27" />
-
-        {/* Navy Blue Canton (Top-Left quadrant covering 8 stripes) */}
-        <rect width="323" height="292.57" fill="#1C2156" />
-
-        {/* Golden Crescent Moon */}
-        <path
-          d="M 185 85 C 235 85 275 125 275 175 C 275 225 235 265 185 265 C 162 265 141 257 125 244 C 158 231 181 198 181 175 C 181 152 158 119 125 106 C 141 93 162 85 185 85 Z"
-          fill="#FFC800"
-        />
-
-        {/* 14-Pointed Golden Star */}
-        <path
-          d="M 235 175 L 246 153 L 262 167 L 264 143 L 285 153 L 280 129 L 304 132 L 292 110 L 316 105 L 297 89 L 318 77 L 295 70 L 309 52 L 287 53 L 292 29 L 272 40 L 269 16 L 253 31 L 242 9 L 232 31 L 216 16 L 213 40 L 193 29 L 198 53 L 176 52 L 190 70 L 167 77 L 188 89 L 169 105 L 193 110 L 181 132 L 205 129 L 200 153 L 221 143 L 223 167 Z"
-          fill="#FFC800"
-        />
-      </g>
-      <defs>
-        <clipPath id="circular-flag-clip">
-          <circle cx="256" cy="256" r="256" />
-        </clipPath>
-      </defs>
-    </svg>
-  );
-}
-
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/src/lib/supabase/client';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Zap, Globe, Sparkles, User, Phone, MapPin, CheckCircle2, ChevronDown, Check, AlertCircle, RotateCw, Info } from 'lucide-react';
@@ -653,8 +612,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
         }
         onSuccess?.();
       }
-    } catch (err: any) {
-      setError(err.message || (lang === 'BM' ? 'Ralat berlaku. Sila cuba lagi.' : 'An error occurred. Please try again.'));
+    } catch (err) {
+      setError((err instanceof Error && err.message) || (lang === 'BM' ? 'Ralat berlaku. Sila cuba lagi.' : 'An error occurred. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -674,8 +633,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       if (error) throw error;
       setMessage(lang === 'BM' ? '✅ E-mel disahkan! Menglog masuk...' : '✅ Email verified! Logging in...');
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || (lang === 'BM' ? 'Kod tidak sah atau telah tamat tempoh.' : 'Invalid or expired code.'));
+    } catch (err) {
+      setError((err instanceof Error && err.message) || (lang === 'BM' ? 'Kod tidak sah atau telah tamat tempoh.' : 'Invalid or expired code.'));
       setOtpDigits(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
     } finally {
@@ -696,8 +655,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       if (error) throw error;
       setResendCooldown(60);
       setMessage(lang === 'BM' ? 'Kod baru telah dihantar ke e-mel anda.' : 'New code sent to your email.');
-    } catch (err: any) {
-      setError(err.message || (lang === 'BM' ? 'Gagal menghantar semula kod.' : 'Failed to resend code.'));
+    } catch (err) {
+      setError((err instanceof Error && err.message) || (lang === 'BM' ? 'Gagal menghantar semula kod.' : 'Failed to resend code.'));
     }
   };
 
@@ -753,8 +712,8 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
         },
       });
       if (error) throw error;
-    } catch (err: any) {
-      setError(err.message || (lang === 'BM' ? 'Log masuk Google gagal.' : 'Google sign-in failed.'));
+    } catch (err) {
+      setError((err instanceof Error && err.message) || (lang === 'BM' ? 'Log masuk Google gagal.' : 'Google sign-in failed.'));
       setGoogleLoading(false);
     }
   };

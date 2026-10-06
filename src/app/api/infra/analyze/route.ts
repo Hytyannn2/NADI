@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     // Enforce server-side caller authentication before executing AI analysis (CWE-862)
-    const { user, errorResponse } = await requireServerAuth(request);
+    const { errorResponse } = await requireServerAuth(request);
     if (errorResponse) {
         return errorResponse;
     }

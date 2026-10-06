@@ -51,7 +51,7 @@ export async function GET(request: Request) {
             jobs: uniqueJobs,
             vendors: uniqueVendors
         });
-    } catch (err: any) {
+    } catch (err) {
         return NextResponse.json({
             success: true,
             location: locationParam || 'Malaysia',
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
         const errRes = NextResponse.json({ success: false, error: 'Jenis item tidak sah.' }, { status: 400 });
         return addRateLimitHeaders(errRes, limit);
-    } catch (err: any) {
-        return NextResponse.json({ success: false, error: err?.message || 'Gagal' }, { status: 500 });
+    } catch (err) {
+        return NextResponse.json({ success: false, error: (err instanceof Error && err.message) || 'Gagal' }, { status: 500 });
     }
 }

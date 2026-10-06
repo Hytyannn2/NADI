@@ -5,7 +5,7 @@
  * location or a manually selected location. Uses a reactive global singleton store
  * so all views (Utama, Bencana, Ambient) stay 100% synchronized in real time.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface WeatherData {
     temp: number;

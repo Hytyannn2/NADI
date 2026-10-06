@@ -26,7 +26,7 @@ export interface AidProgram {
     url?: string;
 }
 
-interface EligibilityResult {
+export interface EligibilityResult {
     id: string;
     isEligible: boolean | 'maybe';
     matchScore: number; // 0 to 100
@@ -38,7 +38,6 @@ interface EligibilityResult {
 // Income bracket thresholds in MYR
 const B40_MAX = 5250;
 const MISKIN_TEGAR_MAX = 2208;
-const M40_MAX = 11819;
 
 /**
  * Evaluates a user profile against a specific aid program's eligibility rules.
@@ -69,7 +68,6 @@ function evaluateEligibility(profile: UserProfile, program: AidProgram): Eligibi
         const isWargaEmas = age >= 60;
         const isOKU = status.includes('oku');
         const isPelajar = status.includes('pelajar');
-        const isBujang = dependents === 0 && !status.includes('suri') && !status.includes('bekerja') ? false : (dependents === 0 && status !== 'Suri Rumah');
 
         if (isWargaEmas && dependents === 0) {
             // Category: Warga Emas Tiada Pasangan (60+ years, income <= RM5000)

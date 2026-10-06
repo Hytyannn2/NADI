@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { imageBase64, lat, lng, zDropped, anomalyId, speedKmh, magnitudeG } = body;
+    const { imageBase64, lat, lng, zDropped, speedKmh, magnitudeG } = body;
 
     // Rejects payloads larger than ~4MB
     if (imageBase64 && imageBase64.length > 4000000) {
@@ -77,8 +77,8 @@ TASK & SCALING RULES:
         model: 'llama-3.2-90b-vision-preview',
       });
       responseText = chatCompletion.choices[0]?.message?.content || '{}';
-    } catch (primaryErr: any) {
-      console.warn('[infra/vision] Primary 90B Vision error, trying 11B Vision fallback:', primaryErr?.message);
+    } catch (primaryErr) {
+      console.warn('[infra/vision] Primary 90B Vision error, trying 11B Vision fallback:', primaryErr instanceof Error ? primaryErr.message : primaryErr);
       const chatCompletion = await groq.chat.completions.create({
         messages: [{ role: 'user', content }],
         model: 'llama-3.2-11b-vision-preview',

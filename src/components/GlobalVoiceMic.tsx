@@ -31,12 +31,12 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
     const [interimText, setInterimText] = useState('');
     const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
     
-    const recognitionRef = useRef<any>(null);
+    const recognitionRef = useRef<{ stop(): void } | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const mediaStreamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
-    const volumeIntervalRef = useRef<any>(null);
+    const volumeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const maxVolumeRef = useRef<number>(0);
     const recordStartRef = useRef<number>(0);
     const finalWebSpeechRef = useRef('');
@@ -130,7 +130,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
 
                 // Setup Web Audio VAD energy tracker to detect human speech vs pure silence
                 try {
-                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
                     if (AudioContextClass) {
                         const actx = new AudioContextClass();
                         if (actx.state === 'suspended') {
@@ -247,10 +247,10 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                     recorder.start(250); // Collect slices every 250ms
                 }
             }
-        } catch (err: any) {
-            console.warn('[GlobalVoiceMic] Microphone access error:', err?.message || err);
+        } catch (err) {
+            console.warn('[GlobalVoiceMic] Microphone access error:', err instanceof Error ? err.message : err);
             // If user explicitly denied mic permission or hardware unavailable
-            if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+            if (err instanceof Error && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
                 alert('Sila benarkan akses mikrofon pada pelayar untuk menggunakan fungsi suara NADI.');
                 return;
             }
@@ -271,7 +271,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                     setIsProcessing(false);
                 };
 
-                recognition.onresult = (event: any) => {
+                recognition.onresult = (event: { resultIndex: number; results: SpeechRecognitionResultList }) => {
                     let interim = '';
                     let final = '';
                     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -290,7 +290,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
                     setInterimText(interim);
                 };
 
-                recognition.onerror = (event: any) => {
+                recognition.onerror = (event: { error: string }) => {
                     if (event.error !== 'aborted') {
                         console.info('Speech recognition interim warning:', event.error);
                     }

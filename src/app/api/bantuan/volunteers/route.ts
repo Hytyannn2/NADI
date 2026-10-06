@@ -299,7 +299,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(responseData);
 
-    } catch (error: any) {
+    } catch (error) {
         console.error('Volunteer opportunities API error:', error);
         return NextResponse.json({
             success: false,

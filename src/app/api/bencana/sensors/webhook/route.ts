@@ -356,7 +356,7 @@ export async function POST(request: Request) {
             rise_rate_cm_hr: riseRate,
             telegram_sent: telegramSent,
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[Webhook] Error processing TTN uplink:', err);
         return NextResponse.json({ success: false, error: 'Webhook processing failed' }, { status: 500 });
     }

@@ -7,15 +7,15 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useLanguage } from '@/src/context/LanguageContext';
 import { sound } from '@/src/lib/audio/soundEffects';
 import pkg from '@/package.json';
 
 interface Tab {
   id: string;
   name: string;
-  icon: any;
+  icon: LucideIcon;
   isCenter?: boolean;
 }
 
@@ -28,7 +28,6 @@ interface SideNavProps {
 }
 
 export default function SideNav({ tabs, activeTab, onTabSwitch, sidebarWidth, onWidthChange }: SideNavProps) {
-  const { t } = useLanguage();
   const [isResizing, setIsResizing] = useState(false);
 
   // Threshold for collapsed icon-only layout (<180px)

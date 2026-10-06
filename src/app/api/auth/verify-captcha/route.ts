@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       { success: false, error: 'CAPTCHA verification failed', codes: result['error-codes'] },
       { status: 403 }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error('[CAPTCHA] Verification error:', err);
     return NextResponse.json(
       { success: false, error: 'Internal verification error' },

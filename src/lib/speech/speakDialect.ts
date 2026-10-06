@@ -31,7 +31,6 @@ export function normalizeForSpeech(text: string): string {
 class DialectSpeechSynthesizer {
   private synth: SpeechSynthesis | null = null;
   private voices: SpeechSynthesisVoice[] = [];
-  private isInitialized = false;
 
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -45,9 +44,6 @@ class DialectSpeechSynthesizer {
 
     const loadVoices = () => {
       this.voices = this.synth!.getVoices();
-      if (this.voices.length > 0) {
-        this.isInitialized = true;
-      }
     };
 
     loadVoices();

@@ -322,8 +322,8 @@ export async function POST(request: Request) {
 
         const successRes = NextResponse.json({ success: true, message: "Telemetry received", telemetry: updatePayload });
         return addRateLimitHeaders(successRes, limitResult);
-    } catch (err: any) {
+    } catch (err) {
         console.error('Sensor update error:', err);
-        return NextResponse.json({ success: false, error: 'Failed to process sensor payload.', details: err?.message || String(err) }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Failed to process sensor payload.', details: err instanceof Error ? err.message : String(err) }, { status: 500 });
     }
 }

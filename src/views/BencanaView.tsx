@@ -5,8 +5,8 @@
  * centers (PPS), weather radars, and emergency SOS coordination.
  */
 'use client';
-import { MapPin, Navigation, AlertTriangle, Radio, Info, Loader2, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, BarChart3, Search, X, SlidersHorizontal, Filter, ArrowUpDown, ChevronDown, Phone, SunMedium, Sparkles, Check, Share2, CloudRain, Moon, RefreshCw, Zap, Compass } from 'lucide-react';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { MapPin, Navigation, AlertTriangle, Radio, Info, ShieldAlert, Cloud, Droplets, Wind, Thermometer, Activity, Battery, Signal, Clock, Gauge, Search, X, Filter, ArrowUpDown, Phone, SunMedium, Check, Share2, CloudRain, Moon, RefreshCw, Zap } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/src/context/LanguageContext';
@@ -27,7 +27,7 @@ import { useWeather } from '@/src/hooks/useWeather';
 import { useLiveSensor } from '@/src/hooks/useLiveSensor';
 import { createClient } from '@/src/lib/supabase/client';
 import useSWR from 'swr';
-import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kelantanPpsCenters';
+import { ALL_KELANTAN_PPS_CENTERS } from '@/src/data/kelantanPpsCenters';
 import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanStations';
 import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
 import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
@@ -56,13 +56,12 @@ export interface EvacCenter {
 }
 
 export default function BencanaView() {
-    const { t, lang } = useLanguage();
-    const isMs = lang === 'ms';
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<'map' | 'sensors' | 'zones'>('map');
 
     const supabase = useMemo(() => createClient(), []);
 
-    const { weather, isWeatherLoading, locationLabel, userLat, userLng, refreshWeather, isManualOverride } = useWeather();
+    const { weather, isWeatherLoading, locationLabel, userLat, userLng, refreshWeather } = useWeather();
     const [isRefreshingWeather, setIsRefreshingWeather] = useState(false);
 
     // Resolves live contextual weather icon based on WMO code, rainfall, and time of day
@@ -150,7 +149,6 @@ export default function BencanaView() {
     const [searchPps, setSearchPps] = useState<string>('');
     const [searchJps, setSearchJps] = useState<string>('');
     const [displayLimit, setDisplayLimit] = useState<number>(24);
-    const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
     const [showSosModal, setShowSosModal] = useState<boolean>(false);
     const [verifyCenter, setVerifyCenter] = useState<{
         name: string;
@@ -303,9 +301,6 @@ export default function BencanaView() {
 
         return filtered;
     }, [allProcessedEvacCenters, selectedJajahan, selectedType, searchPps, sortBy, sortOrder, userLat, userLng]);
-
-    // Map shelters layer (top 10 nearest centers)
-    const mapShelters = filteredEvacCenters.slice(0, 10);
 
     // Signal bars component
     const SignalBars = ({ rssi }: { rssi: number | null }) => {

@@ -40,8 +40,8 @@ export async function GET() {
         ];
         const uniqueJobs = Array.from(new Map(allJobs.map(j => [j.id, j])).values());
         return NextResponse.json({ success: true, jobs: uniqueJobs });
-    } catch (err: any) {
-        console.error('Jobs GET error:', err?.message);
+    } catch (err) {
+        console.error('Jobs GET error:', err instanceof Error ? err.message : err);
         return NextResponse.json({ success: true, jobs: IN_MEMORY_BENCANA_JOBS });
     }
 }
@@ -209,8 +209,8 @@ export async function POST(request: Request) {
                 } else if (error) {
                     console.warn('Supabase jobs insert warning, falling back to local memory:', error.message);
                 }
-            } catch (err: any) {
-                console.warn('Supabase jobs insert exception:', err?.message);
+            } catch (err) {
+                console.warn('Supabase jobs insert exception:', err instanceof Error ? err.message : err);
             }
 
             if (!jobRecord) {

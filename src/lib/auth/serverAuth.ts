@@ -78,8 +78,8 @@ export async function requireServerAuth(request: Request): Promise<ServerAuthRes
             token,
             errorResponse: null,
         };
-    } catch (err: any) {
-        console.error('[requireServerAuth] Internal authorization error:', err?.message || err);
+    } catch (err) {
+        console.error('[requireServerAuth] Internal authorization error:', err instanceof Error ? err.message : err);
         return {
             user: null,
             adminSupa: null,

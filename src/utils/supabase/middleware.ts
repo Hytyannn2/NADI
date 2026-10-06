@@ -41,7 +41,7 @@ export async function createClient(request: NextRequest) {
     if (error && (
       error.message?.includes('Refresh Token') ||
       error.message?.includes('refresh_token_not_found') ||
-      (error as any).code === 'refresh_token_not_found'
+      error.code === 'refresh_token_not_found'
     )) {
       // Purge stale auth cookies if the refresh token is missing or invalid
       request.cookies.getAll().forEach((cookie) => {

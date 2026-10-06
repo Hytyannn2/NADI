@@ -12,9 +12,9 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useWeather } from '@/src/hooks/useWeather';
 import {
-    ShoppingBag, Briefcase, Search, MapPin, Phone, Clock, Star,
+    ShoppingBag, Briefcase, Search, MapPin, Phone, Clock,
     Loader2, Plus, Send, X, ExternalLink, Compass,
-    Building2, ShieldCheck, Navigation
+    Building2, ShieldCheck
 } from 'lucide-react';
 import { CardSkeleton, StatsBannerSkeleton } from '@/src/components/ui/Skeleton';
 import { getDistanceKm } from '@/src/lib/format';
@@ -687,7 +687,7 @@ export default function KomunitiView() {
                                                 <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">Kadar Bayaran</label>
                                                 <select
                                                     value={wageType}
-                                                    onChange={e => setWageType(e.target.value as any)}
+                                                    onChange={e => setWageType(e.target.value as typeof wageType)}
                                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
                                                 >
                                                     <option value="monthly">Sebulan (/bulan)</option>

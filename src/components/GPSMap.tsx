@@ -7,7 +7,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LocateFixed, Plus, Minus, Maximize2, Minimize2, Layers, Globe, MapPin, Eye, Check } from 'lucide-react';
+import { LocateFixed, Plus, Minus, Maximize2, Minimize2, Layers, Globe, Eye, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';

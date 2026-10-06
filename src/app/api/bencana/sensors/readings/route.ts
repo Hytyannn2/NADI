@@ -47,7 +47,7 @@ export async function GET(request: Request) {
             count: chronologicalReadings.length,
             readings: chronologicalReadings,
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[Readings API] Error:', err);
         return NextResponse.json({ success: false, error: 'Failed to fetch readings' }, { status: 500 });
     }

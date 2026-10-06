@@ -78,15 +78,13 @@ export function useDashcam(): UseDashcamReturn {
       const track = stream.getVideoTracks()[0];
 
       // Detect hardware features like continuous autofocus
-      if (track && typeof (track as any).getCapabilities === 'function') {
-        const capabilities = (track as any).getCapabilities();
-        const advancedConstraints: any[] = [];
-        if (capabilities && 'focusMode' in capabilities && Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
-          advancedConstraints.push({ focusMode: 'continuous' });
-        }
-        if (advancedConstraints.length > 0) {
+      // getCapabilities is missing in Firefox; focusMode is an Image Capture extension lib.dom doesn't declare
+      if (track && typeof track.getCapabilities === 'function') {
+        const capabilities: MediaTrackCapabilities & { focusMode?: unknown } = track.getCapabilities();
+        if (capabilities && Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
+          const continuousFocus: MediaTrackConstraintSet & { focusMode: string } = { focusMode: 'continuous' };
           try {
-            await track.applyConstraints({ advanced: advancedConstraints } as any);
+            await track.applyConstraints({ advanced: [continuousFocus] });
           } catch {
             // Ignore constraint errors if browser restricts focus controls
           }
