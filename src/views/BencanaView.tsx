@@ -191,7 +191,8 @@ export default function BencanaView() {
                 const { data } = await supabase
                     .from('nadi_pps_corrections')
                     .select('center_name, suggested_lat, suggested_lng')
-                    .eq('status', 'approved');
+                    .eq('status', 'approved')
+                    .order('reviewed_at'); // latest approval per centre wins
                 if (data && data.length > 0) {
                     const approvedMap: Record<string, { lat: number; lng: number; isExact: boolean }> = {};
                     data.forEach((item: any) => {
@@ -1110,9 +1111,7 @@ export default function BencanaView() {
 
                             {/* 24-Hour Trend Chart */}
                             <SensorTrendChart
-                                sensorId={sensorData.id}
                                 currentWaterLevel={sensorData.water_level}
-                                riseRate={sensorData.rise_rate_cm_hr}
                                 unit="m"
                                 status={sensorData.status}
                                 lastReadingTime={sensorData.last_reading}

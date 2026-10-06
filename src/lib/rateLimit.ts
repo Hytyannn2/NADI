@@ -163,15 +163,6 @@ export function checkInfraVisionLimit(ip: string): RateLimitResult {
     });
 }
 
-/** Report text triage: max 10 requests per minute */
-export function checkInfraAnalyzeLimit(ip: string): RateLimitResult {
-    return checkRateLimit(ip, {
-        maxRequests: 10,
-        windowSeconds: 60,
-        bucketName: 'infra-analyze',
-    });
-}
-
 /** Heatmap clustering: max 20 requests per minute */
 export function checkInfraClusterLimit(ip: string): RateLimitResult {
     return checkRateLimit(ip, {

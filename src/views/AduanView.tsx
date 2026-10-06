@@ -317,6 +317,13 @@ interface ClusterInfo {
     isVerified: boolean;
 }
 
+// Officers move reports past 'pending' via /admin (citizens can only insert 'pending').
+type AnomalyStatus = 'pending' | 'verified' | 'resolved' | 'rejected';
+const STATUS_LABEL: Record<AnomalyStatus, string> = {
+    pending: 'Dalam Semakan', verified: 'Disahkan', resolved: 'Selesai', rejected: 'Ditolak',
+};
+const isConfirmed = (s: AnomalyStatus) => s === 'verified' || s === 'resolved';
+
 interface Anomaly {
     id: string;
     userId?: string;
@@ -325,7 +332,7 @@ interface Anomaly {
     category?: CivicCategory;
     zDropped: number;
     verifications: number;
-    status: 'pending' | 'verified';
+    status: AnomalyStatus;
     time: string;
     createdAt?: string;
     aiAnalysis?: AiAnalysis | null;
@@ -659,8 +666,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         inputText: textToProcess,
-                        targetLanguage: 'ms',
-                        dialectRegion: 'kelantan'
+                        targetLanguage: 'ms'
                     })
                 });
                 if (res.ok) {
@@ -733,7 +739,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             suggestedAgency: effectiveAgency,
             zDropped: 0,
             verifications: 1,
-            status: photoToProcess ? 'verified' : 'pending',
+            status: 'pending',
             createdAt: createdAtIso,
             time: formatReportRelative(createdAtIso, true, 'Baru sahaja'),
             title: `${intent} @ ${locName}`,
@@ -788,7 +794,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
         try {
             const deviceFp = getDeviceFingerprint();
-            const { data: insertRes } = await supabase.from('nadi_infra_reports').insert({
+            const { data: insertRes, error: insertError } = await supabase.from('nadi_infra_reports').insert({
                 user_id: user?.id || null,
                 lat: String(newA.lat),
                 lng: String(newA.lng),
@@ -809,6 +815,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                 photo_url: photoToProcess || null,
                 created_at: createdAtIso,
             }).select('id').single();
+            if (insertError) console.error('[AduanView] report insert failed:', insertError.message);
 
             if (insertRes?.id) {
                 const dbId = insertRes.id;
@@ -835,15 +842,15 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
     const filteredAnomalies = useMemo(() => {
         return anomalies.filter(a => {
-            if (filter === 'verified') return a.status === 'verified';
+            if (filter === 'verified') return isConfirmed(a.status);
             if (filter === 'all') return true;
             return resolveCategory(a) === filter;
         });
     }, [anomalies, filter]);
 
     const totalReports = anomalies.length;
-    const totalVerified = anomalies.filter(a => a.status === 'verified').length;
-    const estimatedResolved = totalReports === 0 ? 0 : Math.max(0, Math.floor(totalVerified * 0.38));
+    const totalVerified = anomalies.filter(a => isConfirmed(a.status)).length;
+    const totalResolved = anomalies.filter(a => a.status === 'resolved').length;
 
     const persistAnomaliesAndFeedback = (
         updatedList: Anomaly[],
@@ -1028,7 +1035,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             } catch {}
         }
 
-        supabase.from('nadi_infra_reports').select('*').order('created_at', { ascending: false }).limit(100)
+        supabase.from('nadi_infra_reports').select('*').neq('status', 'rejected').order('created_at', { ascending: false }).limit(100)
             .then(({ data }) => {
                 if (data && data.length > 0) {
                     const mapped: Anomaly[] = data.map((d: any) => ({
@@ -1242,7 +1249,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         const issueTitle = a.title || a.aiAnalysis?.damageType || 'Aduan Warga';
         const loc = a.locationName ? `${a.locationName} (${a.lat}°, ${a.lng}°)` : `${a.lat}°, ${a.lng}°`;
         const quote = a.originalText ? `"${a.originalText}"` : (a.translatedText ? `"${a.translatedText}"` : '');
-        const shareText = `🚨 Aduan NADI: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Keterangan: ${quote}\n⚠️ Status: ${a.status === 'verified' ? 'Disahkan' : 'Dalam Semakan'} (ID: #${a.id.slice(-6)})\n\nLayari NADI Civic OS untuk tindakan lanjut.`;
+        const shareText = `🚨 Aduan NADI: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Keterangan: ${quote}\n⚠️ Status: ${STATUS_LABEL[a.status]} (ID: #${a.id.slice(-6)})\n\nLayari NADI Civic OS untuk tindakan lanjut.`;
 
         if (typeof navigator !== 'undefined' && navigator.share) {
             try {
@@ -1268,7 +1275,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         const issueTitle = a.title || a.aiAnalysis?.damageType || 'Aduan Warga';
         const loc = a.locationName ? `${a.locationName} (${a.lat}°, ${a.lng}°)` : `${a.lat}°, ${a.lng}°`;
         const quote = a.originalText ? `"${a.originalText}"` : (a.translatedText ? `"${a.translatedText}"` : '');
-        const shareText = `🚨 Aduan NADI: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Keterangan: ${quote}\n⚠️ Status: ${a.status === 'verified' ? 'Disahkan' : 'Dalam Semakan'}`;
+        const shareText = `🚨 Aduan NADI: ${issueTitle}\n📍 Lokasi: ${loc}\n💬 Keterangan: ${quote}\n⚠️ Status: ${STATUS_LABEL[a.status]}`;
 
         try {
             await navigator.clipboard.writeText(shareText);
@@ -1783,7 +1790,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                         <div>
                             <span className="text-[9px] uppercase font-bold tracking-widest text-emerald-400 block mb-0.5">
-                                Disahkan AI & Warga
+                                Disahkan Pegawai
                             </span>
                             <span className="text-xl font-bold text-emerald-400 font-mono">{totalVerified}</span>
                         </div>
@@ -1797,7 +1804,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             <span className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367] block mb-0.5">
                                 Selesai & Tindakan
                             </span>
-                            <span className="text-xl font-bold text-[#C5A367] font-mono">{estimatedResolved} minggu ini</span>
+                            <span className="text-xl font-bold text-[#C5A367] font-mono">{totalResolved}</span>
                         </div>
                     </div>
                 </div>
@@ -1907,7 +1914,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border p-2 shadow-inner ${
-                                                a.status === 'verified'
+                                                isConfirmed(a.status)
                                                     ? 'bg-emerald-500/10 border-emerald-500/30'
                                                     : 'bg-zinc-900/90 border-zinc-800'
                                             }`}>
@@ -1946,11 +1953,11 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                                         {/* Status Pill */}
                                         <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${
-                                            a.status === 'verified'
+                                            isConfirmed(a.status)
                                                 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                                                 : 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
                                         }`}>
-                                            {a.status === 'verified' ? '✓ Disahkan' : 'Dalam Semakan'}
+                                            {isConfirmed(a.status) ? `✓ ${STATUS_LABEL[a.status]}` : STATUS_LABEL[a.status]}
                                         </span>
                                     </div>
 

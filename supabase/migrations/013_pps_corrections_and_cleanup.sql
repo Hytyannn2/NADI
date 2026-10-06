@@ -5,9 +5,9 @@
 -- ============================================================================
 
 -- 1. DROP OBSOLETE TABLE & TRIGGERS
-DROP TRIGGER IF EXISTS trg_populate_center_location ON public.nadi_bencana_centers;
-DROP FUNCTION IF EXISTS populate_center_location();
+-- CASCADE drops the trigger too; DROP TRIGGER ... ON <table> errors if the table is already gone
 DROP TABLE IF EXISTS public.nadi_bencana_centers CASCADE;
+DROP FUNCTION IF EXISTS populate_center_location();
 
 -- 2. CREATE PPS CORRECTIONS TABLE
 CREATE TABLE IF NOT EXISTS public.nadi_pps_corrections (

@@ -60,7 +60,6 @@ export async function POST(request: Request) {
     // Try primary model (whisper-large-v3) with fallback to (whisper-large-v3-turbo)
     const candidateModels = ['whisper-large-v3', 'whisper-large-v3-turbo'];
     let transcriptionText = '';
-    let lastError: unknown = null;
 
     for (const model of candidateModels) {
       try {
@@ -98,7 +97,6 @@ export async function POST(request: Request) {
           break;
         }
       } catch (err) {
-        lastError = err;
         console.warn(`[suara/transcribe] Whisper model ${model} error:`, err instanceof Error ? err.message : err);
         if (err instanceof Groq.APIError && err.status === 429) {
           return NextResponse.json(

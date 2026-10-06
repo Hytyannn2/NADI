@@ -31,6 +31,9 @@ export async function GET(request: Request) {
             .select('*')
             .order('created_at', { ascending: false });
 
+        if (jobsError) console.error('[api/komuniti] nadi_jobs read failed:', jobsError.message);
+        if (vendorsError) console.error('[api/komuniti] nadi_vendors read failed:', vendorsError.message);
+
         const allJobs = [
             ...(dbJobs || []),
             ...IN_MEMORY_JOBS

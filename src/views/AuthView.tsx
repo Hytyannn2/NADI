@@ -53,7 +53,7 @@ const JAJAHAN_COORDINATES: Record<string, { lat: number; lng: number }> = {
  * 3D Particle Globe Component using HTML5 Canvas perspective projection.
  * Renders rotating globe animation with Malaysian city markers and ambient connection arcs.
  */
-function ParticleGlobe({ isMobile = false }: { isMobile?: boolean }) {
+function ParticleGlobe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {

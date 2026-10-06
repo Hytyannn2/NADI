@@ -7,15 +7,12 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { normalizePhonetic, computeSimilarity } from './phonetics';
 import seedData from '@/src/data/seed_lexicon.json';
-
-const THRESHOLD = 0.65;
 
 // Initializes the Supabase client only when database access is first needed
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
   if (!url || !key) return null;
   return createClient(url, key);
 }
@@ -72,72 +69,6 @@ export async function allMappings(): Promise<Record<string, string>> {
     }
   }
   return m;
-}
-
-/**
- * Groups dialect variations under their respective standard word.
- */
-function clustersOf(m: Record<string, string>): Record<string, string[]> {
-  const c: Record<string, Set<string>> = {};
-  for (const [d, s] of Object.entries(m)) {
-    (c[s] ??= new Set()).add(d);
-    c[s].add(s);
-  }
-  return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, [...v].sort()]));
-}
-
-export interface LookupResult {
-  input: string;
-  standard: string;
-  normalized?: string;
-  variants?: string[];
-  confidence: string;
-  matched_via?: string;
-  score?: number;
-}
-
-/**
- * Looks up a single dialect word using three tiers:
- * 1. Exact dictionary match
- * 2. Phonetic normalized match
- * 3. Fuzzy Levenshtein match
- */
-export async function lookup(wordRaw: string): Promise<LookupResult | null> {
-  const word = wordRaw.toLowerCase().trim();
-  const m = await allMappings();
-  const clusters = clustersOf(m);
-
-  // Tier 1: Exact dictionary match
-  if (m[word]) {
-    return {
-      input: word, standard: m[word], normalized: normalizePhonetic(word),
-      variants: clusters[m[word]], confidence: 'high',
-    };
-  }
-
-  // Tier 2: Phonetic normalized match
-  const normalized = normalizePhonetic(word);
-  if (m[normalized]) {
-    return {
-      input: word, standard: m[normalized], normalized,
-      variants: clusters[m[normalized]], confidence: 'medium',
-    };
-  }
-
-  // Tier 3: Fuzzy similarity matching
-  let best: LookupResult | null = null;
-  let bestScore = 0;
-  for (const [known, standard] of Object.entries(m)) {
-    const score = computeSimilarity(word, known);
-    if (score > bestScore && score > THRESHOLD) {
-      bestScore = score;
-      best = {
-        input: word, standard, normalized, matched_via: known,
-        variants: clusters[standard], confidence: 'fuzzy', score,
-      };
-    }
-  }
-  return best;
 }
 
 // Validation guards against prompt injection and untrusted crowd data

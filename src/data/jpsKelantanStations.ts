@@ -75,13 +75,6 @@ export const JPS_KELANTAN_STATIONS: JpsStation[] = [
 ];
 
 /**
- * Get JPS station by ID
- */
-export function getJpsStation(stationId: string): JpsStation | undefined {
-    return JPS_KELANTAN_STATIONS.find(s => s.id === stationId);
-}
-
-/**
  * Tambatan D'Raja station — co-located with our Node A sensor
  */
 export const TAMBATAN_DRAJA = JPS_KELANTAN_STATIONS.find(s => s.id === '0730671WL')!;

@@ -91,11 +91,13 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(cacheKey, JSON.stringify([newCacheItem, ...existing].slice(0, 50)));
     } catch {}
 
-    // 2. Persists verified sensor telemetry record to Supabase
+    // 2. Persists sensor telemetry to Supabase, then clusters it with nearby reports
+    //    (auto-verifies once enough separate users hit the same spot; RLS requires sign-in)
+    if (!user?.id) return;
     try {
       const deviceFp = getDeviceFingerprint();
-      await supabase.from('nadi_infra_reports').insert({
-        user_id: user?.id || null,
+      const { data: report, error: insertError } = await supabase.from('nadi_infra_reports').insert({
+        user_id: user.id,
         lat: String(event.lat),
         lng: String(event.lng),
         z_dropped: event.zDrop,
@@ -107,7 +109,17 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
         status: 'pending',
         title: `Lubang Jalan Dikesan (${event.zDrop.toFixed(1)}g)`,
         created_at: createdAtIso,
-      });
+      }).select('id').single();
+      if (insertError) throw insertError;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await fetch('/api/infra/cluster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ reportId: report.id }),
+        });
+      }
     } catch (dbErr) {
       console.warn('[PotholeDetectorContext] Supabase insert warning:', dbErr);
     }

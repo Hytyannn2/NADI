@@ -20,14 +20,14 @@ export async function POST(request: Request) {
   }
 
   // Enforce server-side authentication before Vision processing & database writes (CWE-862)
-  const { user, adminSupa, errorResponse } = await requireServerAuth(request);
+  const { errorResponse } = await requireServerAuth(request);
   if (errorResponse) {
     return errorResponse;
   }
 
   try {
     const body = await request.json();
-    const { imageBase64, lat, lng, zDropped, speedKmh, magnitudeG } = body;
+    const { imageBase64, zDropped, magnitudeG } = body;
 
     // Rejects payloads larger than ~4MB
     if (imageBase64 && imageBase64.length > 4000000) {
@@ -106,23 +106,7 @@ TASK & SCALING RULES:
     analysis.estimatedAreaM2 = parseFloat((Math.PI * Math.pow(analysis.estimatedDiameterCm / 200, 2)).toFixed(2));
     analysis.estimatedDimensions = `~${analysis.estimatedDiameterCm}cm lebar, ~${analysis.estimatedDepthCm}cm dalam`;
 
-    // Persists verified report to Supabase attributed to the authenticated user
-    try {
-      await adminSupa.from('nadi_infra_reports').insert({
-        user_id: user.id,
-        lat: lat || 6.1251,
-        lng: lng || 102.2345,
-        z_dropped: parseFloat((zDropped || magnitudeG || 1.2).toFixed(2)),
-        speed_kmh: Math.round(speedKmh || 0),
-        waveform_duration_ms: 150,
-        confidence_score: 95,
-        status: 'verified',
-        ai_analysis: analysis,
-      });
-    } catch (dbErr) {
-      console.error('[infra/vision] Supabase insert error:', dbErr);
-    }
-
+    // Analysis only. The caller (AduanView) saves the report as 'pending'; officers verify via /admin.
     return NextResponse.json({ success: true, analysis });
   } catch (error) {
     console.error('Vision analysis error:', error);

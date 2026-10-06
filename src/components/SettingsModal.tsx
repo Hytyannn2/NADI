@@ -202,7 +202,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleExportAduan = (format: 'json' | 'csv') => {
     try {
-      const raw = localStorage.getItem('nadi_aduan_records');
+      const raw = localStorage.getItem('nadi_local_potholes'); // written by AduanView
       if (!raw) { alert('Tiada rekod aduan untuk dimuat turun.'); return; }
       const data = JSON.parse(raw);
       let blob: Blob;
@@ -215,28 +215,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         const rows = data.map((r: any) => Object.values(r).map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         blob = new Blob([headers + '\n' + rows], { type: 'text/csv' });
         filename = `nadi_aduan_${Date.now()}.csv`;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
-    } catch { alert('Gagal memuat turun rekod.'); }
-  };
-
-  const handleExportLoRaWAN = (format: 'json' | 'csv') => {
-    try {
-      const raw = localStorage.getItem('nadi_lorawan_records');
-      if (!raw) { alert('Tiada rekod paras air untuk dimuat turun.'); return; }
-      const data = JSON.parse(raw);
-      let blob: Blob;
-      let filename: string;
-      if (format === 'json') {
-        blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        filename = `nadi_lorawan_${Date.now()}.json`;
-      } else {
-        const headers = Object.keys(data[0] || {}).join(',');
-        const rows = data.map((r: any) => Object.values(r).map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-        blob = new Blob([headers + '\n' + rows], { type: 'text/csv' });
-        filename = `nadi_lorawan_${Date.now()}.csv`;
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
@@ -560,7 +538,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         {/* Aduan Export */}
-        <div className="mb-2.5">
+        <div>
           <p className="text-[10px] font-bold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Rekod Aduan</p>
           <div className="flex gap-2">
             <button onClick={() => handleExportAduan('json')}
@@ -569,23 +547,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <FileJson className="w-3.5 h-3.5 text-emerald-500" /> JSON
             </button>
             <button onClick={() => handleExportAduan('csv')}
-              className="flex-1 py-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-colors hover:opacity-80"
-              style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}>
-              <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500" /> CSV
-            </button>
-          </div>
-        </div>
-
-        {/* LoRaWAN Export */}
-        <div>
-          <p className="text-[10px] font-bold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Rekod Paras Air LoRaWAN</p>
-          <div className="flex gap-2">
-            <button onClick={() => handleExportLoRaWAN('json')}
-              className="flex-1 py-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-colors hover:opacity-80"
-              style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}>
-              <FileJson className="w-3.5 h-3.5 text-emerald-500" /> JSON
-            </button>
-            <button onClick={() => handleExportLoRaWAN('csv')}
               className="flex-1 py-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-colors hover:opacity-80"
               style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}>
               <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500" /> CSV

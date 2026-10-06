@@ -49,7 +49,7 @@ export default async function VerifyPage({ params, searchParams }: VerifyPagePro
         id: String(record.id),
         ticketId,
         title: record.ai_analysis?.damageType || 'Aduan Infrastruktur Awam',
-        status: record.status === 'verified' ? 'Disahkan (Tindakan PBT)' : record.status || 'Dalam Semakan',
+        status: ({ verified: 'Disahkan (Tindakan PBT)', resolved: 'Selesai', rejected: 'Ditolak' } as Record<string, string>)[record.status] || 'Dalam Semakan',
         urgency: record.ai_analysis?.severityScore >= 4 ? 'Tinggi' : 'Sederhana',
         locationName: record.ai_analysis?.nearestRoadType || `${record.lat}°, ${record.lng}°`,
         lat: Number(record.lat) || 0,

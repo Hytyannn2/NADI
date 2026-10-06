@@ -2,9 +2,12 @@
  * Crowdsource Spatial Clustering API
  * 
  * Groups nearby pothole reports within a 15-meter radius (PostGIS ST_DWithin)
- * and automatically marks defects as verified when confirmed by multiple devices:
- * - Urban zones (Kota Bharu center): 3 unique devices
- * - Rural zones: 2 unique devices
+ * and automatically marks defects as verified when confirmed by multiple users:
+ * - Urban zones (Kota Bharu center): 3 unique users
+ * - Rural zones: 2 unique users
+ *
+ * Called by PotholeDetectorContext after each detection insert. Coordinates are read
+ * from the stored report, never from the request body.
  */
 import { NextResponse } from 'next/server';
 import { checkInfraClusterLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
@@ -19,8 +22,8 @@ const KOTA_BHARU_BOUNDS = {
     maxLng: 102.30,
 };
 
-const URBAN_THRESHOLD = 3; // Unique devices required in urban areas
-const RURAL_THRESHOLD = 2; // Unique devices required in rural areas
+const URBAN_THRESHOLD = 3; // Unique users required in urban areas
+const RURAL_THRESHOLD = 2; // Unique users required in rural areas
 
 function isUrban(lat: number, lng: number): boolean {
     return (
@@ -42,24 +45,38 @@ export async function POST(request: Request) {
     }
 
     // Enforce server-side caller authentication before executing spatial clustering RPC (CWE-862)
-    const { adminSupa, errorResponse } = await requireServerAuth(request);
+    const { user, adminSupa, errorResponse } = await requireServerAuth(request);
     if (errorResponse) {
         return errorResponse;
     }
 
     try {
         const body = await request.json();
-        const { reportId, lat, lng, deviceFingerprint } = body;
+        const { reportId } = body;
 
-        if (!reportId || lat == null || lng == null) {
+        if (typeof reportId !== 'string' || !reportId) {
             return NextResponse.json(
-                { success: false, error: 'Missing required fields: reportId, lat, lng' },
+                { success: false, error: 'Missing required field: reportId' },
                 { status: 400 }
             );
         }
 
-        const parsedLat = typeof lat === 'string' ? parseFloat(lat) : lat;
-        const parsedLng = typeof lng === 'string' ? parseFloat(lng) : lng;
+        // Only the report's owner may cluster it, at the location it was stored with
+        const { data: report } = await adminSupa
+            .from('nadi_infra_reports')
+            .select('lat, lng, device_fingerprint, user_id')
+            .eq('id', reportId)
+            .maybeSingle();
+
+        if (!report || report.user_id !== user.id) {
+            return NextResponse.json({ success: false, error: 'Report not found' }, { status: 404 });
+        }
+
+        const parsedLat = parseFloat(report.lat);
+        const parsedLng = parseFloat(report.lng);
+        if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
+            return NextResponse.json({ success: false, error: 'Report has no valid location' }, { status: 400 });
+        }
         const threshold = isUrban(parsedLat, parsedLng) ? URBAN_THRESHOLD : RURAL_THRESHOLD;
 
         // Executes atomic spatial clustering stored procedure
@@ -67,7 +84,7 @@ export async function POST(request: Request) {
             p_report_id: reportId,
             p_lat: parsedLat,
             p_lng: parsedLng,
-            p_fingerprint: deviceFingerprint || null,
+            p_fingerprint: report.device_fingerprint,
             p_threshold: threshold
         });
 

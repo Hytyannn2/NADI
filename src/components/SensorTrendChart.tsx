@@ -19,9 +19,7 @@ interface ChartDataPoint {
 }
 
 interface SensorTrendChartProps {
-    sensorId: string | null;
     currentWaterLevel: number; // Water level value
-    riseRate: number;          // Pre-calculated backend rate (cm/hr, optional fallback)
     unit?: 'm' | 'cm';        // Explicit unit declaration. Default: 'm' (meters)
     status?: string;          // e.g. 'safe', 'warning', 'danger', 'sensor_fault', 'offline'
     lastReadingTime?: string | number | null; // Last ping timestamp
@@ -41,9 +39,7 @@ const TIME_WINDOW_MINUTES = 30;
 const NOISE_DEADBAND_CM_HR = 5.0;
 
 export default function SensorTrendChart({
-    sensorId,
     currentWaterLevel,
-    riseRate,
     unit = 'm',
     status,
     lastReadingTime,

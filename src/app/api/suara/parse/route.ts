@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { inputText, targetLanguage, dialectRegion } = body;
+    const { inputText, targetLanguage } = body;
 
     if (!inputText || typeof inputText !== 'string' || inputText.trim().length < 3) {
       return NextResponse.json(

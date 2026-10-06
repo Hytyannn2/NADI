@@ -602,6 +602,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       const { data: infraData } = await supabase
         .from('nadi_infra_reports')
         .select('*')
+        .in('status', ['pending', 'verified']) // resolved = fixed, rejected = spam
         .order('created_at', { ascending: false })
         .limit(200);
 
@@ -694,7 +695,8 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       const { data: approved } = await supabase
         .from('nadi_pps_corrections')
         .select('center_name, suggested_lat, suggested_lng')
-        .eq('status', 'approved');
+        .eq('status', 'approved')
+        .order('reviewed_at'); // latest approval per centre wins
       if (approved && approved.length > 0) {
         approved.forEach((item: any) => {
           ppsOverrides[item.center_name] = {

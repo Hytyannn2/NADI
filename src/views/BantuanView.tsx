@@ -54,7 +54,6 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
 import { useDebounce } from '@/src/hooks/useDebounce';
-import { useWeather } from '@/src/hooks/useWeather';
 import { evaluateAllEligibility, type EligibilityResult } from '@/src/utils/eligibilityEngine';
 import useSWR from 'swr';
 
@@ -107,7 +106,6 @@ interface VolunteerJob {
 
 export default function BantuanView() {
     const { t, lang } = useLanguage();
-    const { locationLabel } = useWeather();
     const { applyLocationPrecision, locationPrecision } = useTheme();
     const [activeTab, setActiveTab] = useState<'programs' | 'volunteer'>(() => {
         if (typeof window !== 'undefined') {
@@ -126,7 +124,6 @@ export default function BantuanView() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'government' | 'ngo' | 'zakat' | 'community'>('all');
-    const [filterLocation, setFilterLocation] = useState<string>('all');
     const [filterEligStatus, setFilterEligStatus] = useState<'all' | 'eligible' | 'maybe' | 'not_eligible'>('all');
     const [sortBy, setSortBy] = useState<'default' | 'name_asc' | 'name_desc' | 'provider_asc' | 'provider_desc' | 'match_desc' | 'match_asc'>('name_asc');
     const [volFilterCategory, setVolFilterCategory] = useState<string>('all');
@@ -395,7 +392,6 @@ export default function BantuanView() {
     const filteredPrograms = aidPrograms
         .filter(a => {
             const matchesType = filterType === 'all' || a.type === filterType;
-            const matchesLoc = filterLocation === 'all' || a.location.toLowerCase().includes(filterLocation.toLowerCase());
             const matchObj = matchResults[a.id];
             const matchesElig = filterEligStatus === 'all'
                 ? true
@@ -412,7 +408,7 @@ export default function BantuanView() {
                 a.description.toLowerCase().includes(q) ||
                 a.eligibility.toLowerCase().includes(q);
 
-            return matchesType && matchesLoc && matchesElig && matchesSearch;
+            return matchesType && matchesElig && matchesSearch;
         })
         .sort((a, b) => {
             if (sortBy === 'name_asc') return a.name.localeCompare(b.name);

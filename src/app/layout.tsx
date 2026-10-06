@@ -2,7 +2,7 @@
  * Root Application Layout
  * 
  * Configures global metadata, PWA viewport, font optimization, Structured Data (JSON-LD),
- * and wraps client providers (Auth, Language, Theme, Family).
+ * and wraps client providers (Auth, Language, Theme, Pothole Detector).
  */
 import "./globals.css";
 import { type Metadata, type Viewport } from "next";
@@ -10,7 +10,6 @@ import Script from "next/script";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { LanguageProvider } from "@/src/context/LanguageContext";
 import { ThemeProvider } from "@/src/context/ThemeContext";
-import { FamilyProvider } from "@/src/context/FamilyContext";
 import { PotholeDetectorProvider } from "@/src/context/PotholeDetectorContext";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nadi-alpha.vercel.app";
@@ -173,9 +172,7 @@ export default function RootLayout({
           <LanguageProvider>
             <ThemeProvider>
               <PotholeDetectorProvider>
-                <FamilyProvider>
-                  {children}
-                </FamilyProvider>
+                {children}
               </PotholeDetectorProvider>
             </ThemeProvider>
           </LanguageProvider>

@@ -157,9 +157,6 @@ export function normalizeCivicSearch(text: string | null | undefined): string {
     return result;
 }
 
-// Levenshtein distance for typo tolerance (shared with the dialect engine)
-export { levenshteinDistance };
-
 /**
  * Checks if query is a consonant shorthand or subsequence of target (e.g. "isml" in "ismail").
  */

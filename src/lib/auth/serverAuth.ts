@@ -92,6 +92,24 @@ export async function requireServerAuth(request: Request): Promise<ServerAuthRes
     }
 }
 
+/**
+ * requireServerAuth + officer role check against app_metadata.role
+ * (app_metadata is only writable with the service role; see migration 016).
+ */
+export async function requireOfficer(request: Request, roles: readonly string[]): Promise<ServerAuthResult> {
+    const auth = await requireServerAuth(request);
+    if (auth.errorResponse || roles.includes(auth.user.app_metadata?.role)) return auth;
+    return {
+        user: null,
+        adminSupa: null,
+        token: null,
+        errorResponse: NextResponse.json(
+            { success: false, error: 'Akses ditolak. Peranan pegawai diperlukan.' },
+            { status: 403 }
+        ),
+    };
+}
+
 // Constant-time string comparison to prevent timing attacks
 export function safeCompare(a: string, b: string): boolean {
     try {
