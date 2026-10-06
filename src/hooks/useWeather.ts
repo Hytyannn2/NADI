@@ -420,7 +420,7 @@ export function useWeather() {
             );
 
             // Watch position updates
-            navigator.geolocation.watchPosition(
+            const watchId = navigator.geolocation.watchPosition(
                 (position) => {
                     if (globalIsManualOverride || globalSimulatedWeather !== 'auto') return;
                     const { latitude, longitude, accuracy } = position.coords;
@@ -449,7 +449,11 @@ export function useWeather() {
                 }
             }, 120000);
 
-            return () => clearInterval(pollInterval);
+            return () => {
+                clearInterval(pollInterval);
+                navigator.geolocation.clearWatch(watchId);
+                isGeoInitialized = false; // let the next mounted consumer re-arm GPS + polling
+            };
         }
     }, []);
 

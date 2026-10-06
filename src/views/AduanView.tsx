@@ -50,12 +50,13 @@ import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '@/src/context/AuthContext';
-import { usePotholeContext } from '@/src/context/PotholeDetectorContext';
+import { usePotholeContext, getDeviceFingerprint } from '@/src/context/PotholeDetectorContext';
 import { useDashcam } from '../hooks/useDashcam';
 import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
 import { DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
+import { formatReportRelative, formatReportExact } from '@/src/lib/format';
 
 // Civic Complaint Categories & Local Agency Routing
 export type CivicCategory = 'jalan' | 'saliran' | 'lampu' | 'sampah' | 'pokok' | 'kemudahan' | 'lain';
@@ -352,47 +353,6 @@ interface Anomaly {
     suggestedAgency?: string;
 }
 
-function formatReportRelative(dateInput?: string | number | Date, isMs = true): string {
-    if (!dateInput) return isMs ? 'Baru sahaja' : 'Just now';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return isMs ? 'Baru sahaja' : 'Just now';
-    const diffMs = Date.now() - d.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 45) return isMs ? 'Baru sahaja' : 'Just now';
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return isMs ? `${diffMin} minit lalu` : `${diffMin}m ago`;
-    const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return isMs ? `${diffHours} jam lalu` : `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return isMs ? `${diffDays} hari lalu` : `${diffDays}d ago`;
-    return d.toLocaleDateString(isMs ? 'ms-MY' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatReportExact(dateInput?: string | number | Date, isMs = true): string {
-    if (!dateInput) return '';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleString(isMs ? 'ms-MY' : 'en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-    });
-}
-
-function getDeviceFingerprint(): string {
-    const key = 'nadi_device_fp';
-    if (typeof window === 'undefined') return 'dev_server';
-    let fp = localStorage.getItem(key);
-    if (!fp) {
-        fp = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-        localStorage.setItem(key, fp);
-    }
-    return fp;
-}
-
 async function fetchLocationNameFromCoords(lat: number, lng: number): Promise<string> {
     try {
         const res = await fetch(`/api/weather?lat=${lat}&lng=${lng}`, {
@@ -438,6 +398,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     // Modals
     const [copiedToast, setCopiedToast] = useState(false);
     const [deletedToast, setDeletedToast] = useState(false);
+    const [deleteErrorToast, setDeleteErrorToast] = useState(false);
     const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
     const [feedbackModalAnomaly, setFeedbackModalAnomaly] = useState<Anomaly | null>(null);
     const [feedbackCorrectText, setFeedbackCorrectText] = useState('');
@@ -790,7 +751,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             verifications: 1,
             status: photoToProcess ? 'verified' : 'pending',
             createdAt: createdAtIso,
-            time: formatReportRelative(createdAtIso, true),
+            time: formatReportRelative(createdAtIso, true, 'Baru sahaja'),
             title: `${intent} @ ${locName}`,
             source: photoToProcess ? 'dashcam' : 'voice',
             originalText: textToProcess || `Aduan bergambar (${catConfig?.label})`,
@@ -1095,7 +1056,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                         verifications: Number(d.verifications || 1),
                         status: d.status || 'pending',
                         createdAt: d.created_at,
-                        time: formatReportRelative(d.created_at, true),
+                        time: formatReportRelative(d.created_at, true, 'Baru sahaja'),
                         title: d.title || d.ai_analysis?.damageType || (d.z_dropped ? `Lubang Jalan Dikesan (${Number(d.z_dropped).toFixed(1)}g)` : 'Aduan Infrastruktur'),
                         aiAnalysis: d.ai_analysis,
                         photoBase64: d.photo_url,
@@ -1200,7 +1161,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             verifications: Number(d.verifications || 1),
                             status: d.status || 'pending',
                             createdAt: d.created_at,
-                            time: formatReportRelative(d.created_at, true),
+                            time: formatReportRelative(d.created_at, true, 'Baru sahaja'),
                             title: d.title || d.ai_analysis?.damageType || (d.z_dropped ? `Lubang Jalan Dikesan (${Number(d.z_dropped).toFixed(1)}g)` : 'Aduan Infrastruktur'),
                             aiAnalysis: d.ai_analysis,
                             photoBase64: d.photo_url,
@@ -1253,7 +1214,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             verifications: 1,
             status: 'pending',
             createdAt: createdAtIso,
-            time: formatReportRelative(createdAtIso, true),
+            time: formatReportRelative(createdAtIso, true, 'Baru sahaja'),
             confidenceScore: det.confidenceScore,
             speedKmh: det.speedKmh,
             snapshotBase64: snapshot || undefined,
@@ -1333,38 +1294,39 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     };
 
     const handleDeleteReport = async (a: Anomaly) => {
+        const showDeleteError = () => {
+            setDeleteErrorToast(true);
+            setTimeout(() => setDeleteErrorToast(false), 3500);
+        };
         try {
-            // 1. Remove from local state immediately
+            // 1. Delete from Supabase first (synced reports have UUID ids; local drafts don't).
+            // RLS rejections return no error, just 0 rows, so confirm via the returned rows.
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a.id)) {
+                const { data, error } = await supabase.from('nadi_infra_reports').delete().eq('id', a.id).select('id');
+                if (error || !data?.length) {
+                    console.error('Gagal memadam aduan:', error ?? 'ditolak oleh RLS');
+                    showDeleteError();
+                    return;
+                }
+            }
+
+            // 2. Remove from local state and browser localStorage caches
             setAnomalies(prev => prev.filter(item => item.id !== a.id));
-
-            // 2. Clear from browser localStorage caches
             const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
-            try {
-                const cleanKey = (key: string) => {
-                    const raw = localStorage.getItem(key);
-                    if (raw) {
-                        try {
-                            const list = JSON.parse(raw);
-                            if (Array.isArray(list)) {
-                                const filtered = list.filter((item: any) => item.id !== a.id);
-                                localStorage.setItem(key, JSON.stringify(filtered));
-                            }
-                        } catch {}
+            for (const key of [cacheKey, 'nadi_local_potholes']) {
+                try {
+                    const list: unknown = JSON.parse(localStorage.getItem(key) || 'null');
+                    if (Array.isArray(list)) {
+                        localStorage.setItem(key, JSON.stringify(list.filter((item: { id?: string }) => item.id !== a.id)));
                     }
-                };
-                cleanKey(cacheKey);
-                cleanKey('nadi_local_potholes');
-            } catch {}
-
-            // 3. Delete from Supabase database
-            if (a.id) {
-                await supabase.from('nadi_infra_reports').delete().eq('id', a.id);
+                } catch {}
             }
 
             setDeletedToast(true);
             setTimeout(() => setDeletedToast(false), 2500);
         } catch (err) {
             console.error('Gagal memadam aduan:', err);
+            showDeleteError();
         }
     };
 
@@ -1983,7 +1945,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                     </span>
                                                     <span className="text-[10px] font-mono text-zinc-300 font-medium bg-zinc-900/90 px-2.5 py-0.5 rounded-md border border-zinc-800 flex items-center gap-1.5 shadow-sm">
                                                         <Clock className="w-3 h-3 text-[#C5A367]" />
-                                                        <span className="font-semibold text-white">{formatReportRelative(a.createdAt || a.time, true)}</span>
+                                                        <span className="font-semibold text-white">{formatReportRelative(a.createdAt || a.time, true, 'Baru sahaja')}</span>
                                                         {a.createdAt && (
                                                             <>
                                                                 <span className="text-zinc-600">•</span>
@@ -2326,6 +2288,17 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-rose-600 text-white px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-rose-400/40 backdrop-blur-md"
                         >
                             <Trash2 className="w-4 h-4 text-white" /> Rekod aduan telah berjaya dipadam!
+                        </motion.div>
+                    )}
+                    {deleteErrorToast && (
+                        <motion.div
+                            role="alert"
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-zinc-900 text-rose-300 px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-rose-500/50 backdrop-blur-md"
+                        >
+                            <AlertTriangle className="w-4 h-4 text-rose-400" /> Gagal memadam aduan — tiada kebenaran atau ralat rangkaian.
                         </motion.div>
                     )}
                 </AnimatePresence>,

@@ -5,25 +5,10 @@
  * and rate-limited fulfillment status updates.
  */
 import { NextResponse } from 'next/server';
-import { randomUUID, timingSafeEqual } from 'crypto';
+import { randomUUID } from 'crypto';
 import { checkBantuanRequestLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
-import { getAdminSupabase } from '@/src/lib/auth/serverAuth';
-
-// Constant-time string comparison to prevent timing attacks
-function safeCompare(a: string, b: string): boolean {
-    try {
-        const bufA = Buffer.from(a);
-        const bufB = Buffer.from(b);
-        if (bufA.length !== bufB.length) {
-            timingSafeEqual(bufA, bufA);
-            return false;
-        }
-        return timingSafeEqual(bufA, bufB);
-    } catch {
-        return false;
-    }
-}
+import { getAdminSupabase, safeCompare } from '@/src/lib/auth/serverAuth';
 
 // Cooldown map for fulfillment attempts
 const fulfillRateLimit = new Map<string, number>();

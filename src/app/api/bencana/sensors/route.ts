@@ -6,24 +6,9 @@
  */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { timingSafeEqual } from 'crypto';
+import { safeCompare } from '@/src/lib/auth/serverAuth';
 import { checkSensorLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { sendTelegramAlert } from '@/src/lib/telegram';
-
-// Constant-time string comparison to prevent timing attacks
-function safeCompare(a: string, b: string): boolean {
-    try {
-        const bufA = Buffer.from(a);
-        const bufB = Buffer.from(b);
-        if (bufA.length !== bufB.length) {
-            timingSafeEqual(bufA, bufA);
-            return false;
-        }
-        return timingSafeEqual(bufA, bufB);
-    } catch {
-        return false;
-    }
-}
 
 // 30-minute cooldown cache between Telegram alerts per sensor
 const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();

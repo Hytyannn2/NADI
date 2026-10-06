@@ -6,6 +6,7 @@ import { X, CheckCircle2, Navigation, AlertTriangle, Send, Loader2, Compass } fr
 import { createClient } from '@/src/lib/supabase/client';
 import { useAuth } from '@/src/context/AuthContext';
 import { sound } from '@/src/lib/audio/soundEffects';
+import { haversineKm } from '@/src/lib/format';
 
 export interface PpsVerificationModalProps {
   isOpen: boolean;
@@ -19,19 +20,6 @@ export interface PpsVerificationModalProps {
     snappedTo?: string | null;
   } | null;
   onVerified?: (newLat: number, newLng: number) => void;
-}
-
-// Haversine distance calculator in kilometers
-function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 const SUBMIT_COOLDOWN_MS = 30000; // 30-second rate-limit cooldown per client session
@@ -111,7 +99,7 @@ export default function PpsVerificationModal({
 
     // 4. Distance Proximity Check from Estimated Center
     if (center.currentLat && center.currentLng) {
-      const dist = getDistanceKm(center.currentLat, center.currentLng, lat, lng);
+      const dist = haversineKm(center.currentLat, center.currentLng, lat, lng);
       if (dist > 35) {
         setErrorMsg(`Koordinat ini (${dist.toFixed(1)} km jauh) terlalu jauh dari lokasi anggaran ${center.snappedTo || district}. Had maksimum ialah 35 km.`);
         return;

@@ -6,6 +6,7 @@
  * before executing privileged service_role operations (CWE-862 Remediation).
  */
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { createClient as createSupabaseClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
 export function getAdminSupabase(): SupabaseClient {
@@ -88,5 +89,20 @@ export async function requireServerAuth(request: Request): Promise<ServerAuthRes
                 { status: 500 }
             ),
         };
+    }
+}
+
+// Constant-time string comparison to prevent timing attacks
+export function safeCompare(a: string, b: string): boolean {
+    try {
+        const bufA = Buffer.from(a);
+        const bufB = Buffer.from(b);
+        if (bufA.length !== bufB.length) {
+            timingSafeEqual(bufA, bufA);
+            return false;
+        }
+        return timingSafeEqual(bufA, bufB);
+    } catch {
+        return false;
     }
 }

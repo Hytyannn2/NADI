@@ -24,12 +24,14 @@ const SensorTrendChart = dynamic(() => import('@/src/components/SensorTrendChart
 });
 
 import { useWeather } from '@/src/hooks/useWeather';
+import { useLiveSensor } from '@/src/hooks/useLiveSensor';
 import { createClient } from '@/src/lib/supabase/client';
 import useSWR from 'swr';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS } from '@/src/data/kelantanPpsCenters';
 import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanStations';
 import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
 import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
+import { getDistanceKm } from '@/src/lib/format';
 import { sound } from '@/src/lib/audio/soundEffects';
 import PpsVerificationModal from '@/src/components/PpsVerificationModal';
 
@@ -51,19 +53,6 @@ export interface EvacCenter {
     distanceKm?: number | null;
     isExact?: boolean;
     snappedTo?: string;
-}
-
-// Calculates Haversine distance in km between two GPS coordinates
-function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 10) / 10;
 }
 
 export default function BencanaView() {
@@ -99,25 +88,8 @@ export default function BencanaView() {
         return <SunMedium className="w-7 h-7 text-amber-400" />;
     };
 
-    // LoRaWAN sensor data — full telemetry from hardware + BME280
-    interface SensorData {
-        id: string | null;
-        status: 'safe' | 'warning' | 'danger' | 'offline' | 'sensor_fault' | string;
-        water_level: number;
-        battery_pct: number | null;
-        rssi_dbm: number | null;
-        temperature_c: number | null;
-        humidity_pct: number | null;
-        pressure_hpa: number | null;
-        rise_rate_cm_hr: number;
-        last_reading: string | null;
-        is_online: boolean;
-    }
-    const [sensorData, setSensorData] = useState<SensorData>({
-        id: null, status: 'safe', water_level: 0, battery_pct: null, rssi_dbm: null,
-        temperature_c: null, humidity_pct: null, pressure_hpa: null,
-        rise_rate_cm_hr: 0, last_reading: null, is_online: false,
-    });
+    // LoRaWAN sensor data — full telemetry from hardware + BME280 (polling paused while tab hidden)
+    const sensorData = useLiveSensor({ realtime: true });
     const sensorStatus = sensorData.status;
     const sensorLabels: Record<string, { text: string; style: string }> = {
         safe: { text: 'SELAMAT', style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
@@ -147,108 +119,6 @@ export default function BencanaView() {
         if (rssi >= -110) return 1;
         return 0;
     };
-
-    // Real-time Supabase Subscription & API Polling for LoRaWAN / ESP32 Sensor
-    useEffect(() => {
-        // Poll local API endpoint for real-time ESP32 sensor updates
-        const calcIsOnline = (lastReading: any, rawIsOnline: any, rawStatus: any) => {
-            const lastReadingTs = lastReading ? new Date(lastReading).getTime() : 0;
-            const isStale = !lastReadingTs || (Date.now() - lastReadingTs) > 30000;
-            return rawIsOnline !== false && !isStale && rawStatus !== 'sensor_fault' && rawStatus !== 'offline';
-        };
-
-        const fetchLatestSensor = () => {
-            fetch(`/api/bencana/sensors?_t=${Date.now()}`, { cache: 'no-store' })
-                .then(res => res.json())
-                .then(resData => {
-                    if (resData.success && resData.sensors && resData.sensors.length > 0) {
-                        const target = resData.sensors.find((s: any) => s.name === DEFAULT_SENSOR_NODE) || resData.sensors[0];
-                        if (target) {
-                            const online = calcIsOnline(target.last_reading, target.is_online, target.status);
-                            setSensorData({
-                                id: target.id ?? null,
-                                status: online ? (target.status || 'safe') : 'offline',
-                                water_level: target.water_level ?? 0,
-                                battery_pct: target.battery_pct ?? null,
-                                rssi_dbm: target.rssi_dbm ?? null,
-                                temperature_c: target.temperature_c ?? null,
-                                humidity_pct: target.humidity_pct ?? null,
-                                pressure_hpa: target.pressure_hpa ?? null,
-                                rise_rate_cm_hr: target.rise_rate_cm_hr ?? 0,
-                                last_reading: target.last_reading ?? null,
-                                is_online: online,
-                            });
-                        }
-                    }
-                })
-                .catch(() => {});
-        };
-
-        fetchLatestSensor();
-        // Fast 5-second polling to match ESP32 ping interval (real-time responsiveness)
-        const pollInterval = setInterval(fetchLatestSensor, 5000);
-
-        const handleVisibility = () => {
-            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-                fetchLatestSensor();
-            }
-        };
-        if (typeof document !== 'undefined') {
-            document.addEventListener('visibilitychange', handleVisibility);
-        }
-
-        // Fetch initial sensor data from Supabase DB
-        supabase.from('nadi_bencana_sensors').select('*').eq('name', DEFAULT_SENSOR_NODE).single()
-            .then(({ data }) => {
-                if (data) {
-                    const online = calcIsOnline(data.last_reading, data.is_online, data.status);
-                    setSensorData({
-                        id: data.id ?? null,
-                        status: online ? (data.status || 'safe') : 'offline',
-                        water_level: data.water_level ?? 0,
-                        battery_pct: data.battery_pct ?? null,
-                        rssi_dbm: data.rssi_dbm ?? null,
-                        temperature_c: data.temperature_c ?? null,
-                        humidity_pct: data.humidity_pct ?? null,
-                        pressure_hpa: data.pressure_hpa ?? null,
-                        rise_rate_cm_hr: data.rise_rate_cm_hr ?? 0,
-                        last_reading: data.last_reading ?? null,
-                        is_online: online,
-                    });
-                }
-            });
-
-        // Subscribe to real-time changes — capture full telemetry
-        const channel = supabase.channel('sensor_changes')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nadi_bencana_sensors' }, (payload) => {
-                if (payload.new) {
-                    const d = payload.new;
-                    const online = calcIsOnline(d.last_reading, d.is_online, d.status);
-                    setSensorData({
-                        id: d.id ?? null,
-                        status: online ? (d.status || 'safe') : 'offline',
-                        water_level: d.water_level ?? 0,
-                        battery_pct: d.battery_pct ?? null,
-                        rssi_dbm: d.rssi_dbm ?? null,
-                        temperature_c: d.temperature_c ?? null,
-                        humidity_pct: d.humidity_pct ?? null,
-                        pressure_hpa: d.pressure_hpa ?? null,
-                        rise_rate_cm_hr: d.rise_rate_cm_hr ?? 0,
-                        last_reading: d.last_reading ?? null,
-                        is_online: online,
-                    });
-                }
-            })
-            .subscribe();
-
-        return () => {
-            clearInterval(pollInterval);
-            if (typeof document !== 'undefined') {
-                document.removeEventListener('visibilitychange', handleVisibility);
-            }
-            supabase.removeChannel(channel);
-        };
-    }, [supabase]);
 
     // SWR Caching for Supabase Data (Flood Zones)
     const fetchBencanaData = async () => {

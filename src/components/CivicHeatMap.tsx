@@ -39,6 +39,7 @@ import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } f
 import { DEFAULT_SENSOR_NODE, DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
 import { FALLBACK_FLOOD_ZONES, FALLBACK_VENDORS } from '@/src/data/fallbacks';
 import PpsVerificationModal from '@/src/components/PpsVerificationModal';
+import { formatReportRelative, formatReportExact, getDistanceKm } from '@/src/lib/format';
 
 // Dynamic import to prevent SSR window reference errors in Leaflet
 const MapContainer = dynamic(() => import('react-leaflet').then((m) => m.MapContainer), { ssr: false });
@@ -63,36 +64,6 @@ interface HeatPoint {
   jajahan?: string;
   loraRadius?: number;
   loraMaxRadius?: number;
-}
-
-function formatReportRelative(dateInput?: string | number | Date, isMs = true): string {
-  if (!dateInput) return '';
-  const d = new Date(dateInput);
-  if (isNaN(d.getTime())) return '';
-  const diffMs = Date.now() - d.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 45) return isMs ? 'Baru sahaja' : 'Just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return isMs ? `${diffMin} minit lalu` : `${diffMin}m ago`;
-  const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return isMs ? `${diffHours} jam lalu` : `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return isMs ? `${diffDays} hari lalu` : `${diffDays}d ago`;
-  return d.toLocaleDateString(isMs ? 'ms-MY' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatReportExact(dateInput?: string | number | Date, isMs = true): string {
-  if (!dateInput) return '';
-  const d = new Date(dateInput);
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleString(isMs ? 'ms-MY' : 'en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
 }
 
 interface ClusterPoint {
@@ -227,17 +198,6 @@ function runUnionMergePass(items: ClusterPoint[], zoom: number): ClusterPoint[] 
   }
 
   return currentList;
-}
-
-function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return parseFloat((R * c).toFixed(1));
 }
 
 // Map any point's district name or coordinates to one of the 10 official Kelantan Jajahans
@@ -411,7 +371,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     }))
   );
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [liveSensorData, setLiveSensorData] = useState<any>({ water_level: 1.74, is_online: true });
+  const [liveSensorData, setLiveSensorData] = useState<{ water_level: number; is_online?: boolean; status?: string | null }>({ water_level: 1.74, is_online: true });
   const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [mapBounds, setMapBounds] = useState<any>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -488,9 +448,23 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       }
     };
 
-    fetchSensor();
-    const interval = setInterval(fetchSensor, 5000);
-    return () => clearInterval(interval);
+    // Poll every 5s while the tab is visible; pause when hidden
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const start = () => {
+      fetchSensor();
+      if (!interval) interval = setInterval(fetchSensor, 5000);
+    };
+    const stop = () => {
+      clearInterval(interval);
+      interval = undefined;
+    };
+    const onVisibility = () => (document.visibilityState === 'visible' ? start() : stop());
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [supabase]);
 
   // Category filter state helpers: check if all categories are active

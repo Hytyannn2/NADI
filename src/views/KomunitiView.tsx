@@ -17,6 +17,7 @@ import {
     Building2, ShieldCheck, Navigation
 } from 'lucide-react';
 import { CardSkeleton, StatsBannerSkeleton } from '@/src/components/ui/Skeleton';
+import { getDistanceKm } from '@/src/lib/format';
 
 // Type Definitions
 export interface Job {
@@ -68,18 +69,6 @@ const RADIUS_OPTIONS = [
     { label: '50 km', value: 50 },
     { label: '100 km', value: 100 },
 ];
-
-function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 10) / 10;
-}
 
 function formatWage(amount: number, type: string): string {
     const num = Number(amount) || 0;

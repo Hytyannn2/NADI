@@ -39,7 +39,7 @@ export interface PotholeDetectorContextType {
 
 const PotholeDetectorContext = createContext<PotholeDetectorContextType | null>(null);
 
-function getDeviceFingerprint(): string {
+export function getDeviceFingerprint(): string {
   const key = 'nadi_device_fp';
   if (typeof window === 'undefined') return 'dev_server';
   let fp = localStorage.getItem(key);

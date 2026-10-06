@@ -11,6 +11,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import pkg from '@/package.json';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { useWeather } from '@/src/hooks/useWeather';
+import { useLiveSensor } from '@/src/hooks/useLiveSensor';
 import { sound } from '@/src/lib/audio/soundEffects';
 import {
     CloudRain, AlertTriangle, Heart, Activity,
@@ -19,7 +20,6 @@ import {
     Sun, Moon, CloudSun, CloudMoon, CloudLightning,
     CloudDrizzle, Cloud, MapPin, Zap
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { WeatherSkeleton } from '@/src/components/ui/Skeleton';
 
@@ -28,40 +28,8 @@ export default function DashboardView() {
     const { t } = useLanguage();
     const { weather, isWeatherLoading, locationLabel } = useWeather();
 
-    const [sensorData, setSensorData] = useState<{
-        is_online: boolean;
-        temperature_c: number | null;
-        humidity_pct: number | null;
-    }>({
-        is_online: false,
-        temperature_c: null,
-        humidity_pct: null,
-    });
-
-    useEffect(() => {
-        const fetchSensor = () => {
-            fetch(`/api/bencana/sensors?_t=${Date.now()}`, { cache: 'no-store' })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success && d.sensors && d.sensors.length > 0) {
-                        const s = d.sensors[0];
-                        const lastReadingTs = s.last_reading ? new Date(s.last_reading).getTime() : 0;
-                        const isStale = !lastReadingTs || (Date.now() - lastReadingTs) > 30000;
-                        const online = s.is_online !== false && !isStale && s.status !== 'sensor_fault' && s.status !== 'offline';
-                        setSensorData({
-                            is_online: online,
-                            temperature_c: s.temperature_c ?? null,
-                            humidity_pct: s.humidity_pct ?? null,
-                        });
-                    }
-                })
-                .catch(() => {});
-        };
-
-        fetchSensor();
-        const interval = setInterval(fetchSensor, 8000);
-        return () => clearInterval(interval);
-    }, []);
+    // BME280 temp/humidity from the default sensor node (8s poll, paused while tab hidden)
+    const sensorData = useLiveSensor({ intervalMs: 8000 });
 
     const isBmeOnline = Boolean(sensorData.is_online && (sensorData.temperature_c !== null || sensorData.humidity_pct !== null));
     const effectiveTemp = (sensorData.is_online && sensorData.temperature_c !== null)
