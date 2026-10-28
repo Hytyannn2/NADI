@@ -9,10 +9,6 @@ import { checkKomunitiLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/
 import { headers } from 'next/headers';
 import { requireServerAuth, getAdminSupabase } from '@/src/lib/auth/serverAuth';
 
-// In-memory fallback cache for jobs and local vendors
-let IN_MEMORY_JOBS: any[] = [];
-let IN_MEMORY_VENDORS: any[] = [];
-
 // GET: Fetches local job postings and small business vendor listings
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -21,46 +17,33 @@ export async function GET(request: Request) {
     try {
         const adminSupa = getAdminSupabase();
 
+        // Service role skips RLS, so the spam filter (hidden, set by auto_hide_spammed) is applied here
         const { data: dbJobs, error: jobsError } = await adminSupa
             .from('nadi_jobs')
             .select('*')
+            .eq('hidden', false)
             .order('created_at', { ascending: false });
 
         const { data: dbVendors, error: vendorsError } = await adminSupa
             .from('nadi_vendors')
             .select('*')
+            .eq('hidden', false)
             .order('created_at', { ascending: false });
 
-        if (jobsError) console.error('[api/komuniti] nadi_jobs read failed:', jobsError.message);
-        if (vendorsError) console.error('[api/komuniti] nadi_vendors read failed:', vendorsError.message);
-
-        const allJobs = [
-            ...(dbJobs || []),
-            ...IN_MEMORY_JOBS
-        ];
-
-        const allVendors = [
-            ...(dbVendors || []),
-            ...IN_MEMORY_VENDORS
-        ];
-
-        // Deduplicate records by unique ID
-        const uniqueJobs = Array.from(new Map(allJobs.map(j => [j.id, j])).values());
-        const uniqueVendors = Array.from(new Map(allVendors.map(v => [v.id, v])).values());
+        if (jobsError || vendorsError) {
+            console.error('[api/komuniti] read failed:', jobsError?.message, vendorsError?.message);
+            return NextResponse.json({ success: false, error: 'Gagal memuatkan data komuniti.' }, { status: 500 });
+        }
 
         return NextResponse.json({
             success: true,
             location: locationParam || 'Malaysia',
-            jobs: uniqueJobs,
-            vendors: uniqueVendors
+            jobs: dbJobs ?? [],
+            vendors: dbVendors ?? []
         });
     } catch (err) {
-        return NextResponse.json({
-            success: true,
-            location: locationParam || 'Malaysia',
-            jobs: IN_MEMORY_JOBS,
-            vendors: IN_MEMORY_VENDORS
-        });
+        console.error('[api/komuniti] GET error:', err);
+        return NextResponse.json({ success: false, error: 'Gagal memuatkan data komuniti.' }, { status: 500 });
     }
 }
 
@@ -86,7 +69,7 @@ export async function POST(request: Request) {
         if (itemType === 'job') {
             const newJob = {
                 id: `job-${Date.now()}`,
-                userId: user.id,
+                user_id: user.id,
                 title: itemData.title,
                 employer: itemData.employer,
                 location: itemData.location,
@@ -106,17 +89,15 @@ export async function POST(request: Request) {
 
             const { data, error } = await adminSupa.from('nadi_jobs').insert(newJob).select().single();
             if (error) {
-                console.warn('Supabase insert notice, saved to local store:', error.message);
-                IN_MEMORY_JOBS.unshift(newJob);
-                const res = NextResponse.json({ success: true, job: newJob });
-                return addRateLimitHeaders(res, limit);
+                console.error('[api/komuniti] nadi_jobs insert failed:', error.message);
+                return NextResponse.json({ success: false, error: 'Gagal menyimpan iklan kerja.' }, { status: 500 });
             }
             const res = NextResponse.json({ success: true, job: data });
             return addRateLimitHeaders(res, limit);
         } else if (itemType === 'vendor') {
             const newVendor = {
                 id: `vendor-${Date.now()}`,
-                userId: user.id,
+                user_id: user.id,
                 name: itemData.name,
                 category: itemData.category || 'Makanan',
                 location: itemData.location,
@@ -133,10 +114,8 @@ export async function POST(request: Request) {
 
             const { data, error } = await adminSupa.from('nadi_vendors').insert(newVendor).select().single();
             if (error) {
-                console.warn('Supabase vendor insert notice, saved to local store:', error.message);
-                IN_MEMORY_VENDORS.unshift(newVendor);
-                const res = NextResponse.json({ success: true, vendor: newVendor });
-                return addRateLimitHeaders(res, limit);
+                console.error('[api/komuniti] nadi_vendors insert failed:', error.message);
+                return NextResponse.json({ success: false, error: 'Gagal menyimpan peniaga.' }, { status: 500 });
             }
             const res = NextResponse.json({ success: true, vendor: data });
             return addRateLimitHeaders(res, limit);

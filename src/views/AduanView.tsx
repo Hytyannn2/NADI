@@ -52,6 +52,7 @@ import { createClient } from '@/src/lib/supabase/client';
 import { generateAduanPdf } from '@/src/lib/pdf/generateAduanPdf';
 import { speakDialect } from '@/src/lib/speech/speakDialect';
 import { DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
+import { fileToJpegDataUrl, toJpegDataUrl } from '@/src/lib/image';
 import { formatReportRelative, formatReportExact } from '@/src/lib/format';
 
 // Civic Complaint Categories & Local Agency Routing
@@ -324,6 +325,9 @@ const STATUS_LABEL: Record<AnomalyStatus, string> = {
 };
 const isConfirmed = (s: AnomalyStatus) => s === 'verified' || s === 'resolved';
 
+// Named columns only: device_fingerprint and speed_kmh are not client-readable (migration 019)
+const INFRA_FEED_COLUMNS = 'id, user_id, lat, lng, z_dropped, verifications, status, created_at, title, ai_analysis, photo_url, confidence_score, snapshot_base64';
+
 interface Anomaly {
     id: string;
     userId?: string;
@@ -516,11 +520,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             if (items[i].type.indexOf('image') !== -1) {
                 const blob = items[i].getAsFile();
                 if (blob) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        setAttachedPhotoBase64(event.target?.result as string);
-                    };
-                    reader.readAsDataURL(blob);
+                    fileToJpegDataUrl(blob).then(setAttachedPhotoBase64).catch(() => {});
                     e.preventDefault();
                     break;
                 }
@@ -531,12 +531,10 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     const handleAttachedPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setAttachedPhotoBase64(event.target?.result as string);
+            fileToJpegDataUrl(file).then(dataUrl => {
+                setAttachedPhotoBase64(dataUrl);
                 try { playAlertSound('success'); } catch {}
-            };
-            reader.readAsDataURL(file);
+            }).catch(() => {});
         }
         setIsMediaMenuOpen(false);
         e.target.value = '';
@@ -584,16 +582,8 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         const video = liveCameraVideoRef.current;
         if (!video) return;
         try {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth || 1280;
-            canvas.height = video.videoHeight || 720;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const base64 = canvas.toDataURL('image/jpeg', 0.85);
-                setAttachedPhotoBase64(base64);
-                try { playAlertSound('success'); } catch {}
-            }
+            setAttachedPhotoBase64(toJpegDataUrl(video, video.videoWidth || 1280, video.videoHeight || 720));
+            try { playAlertSound('success'); } catch {}
         } catch (e) {
             console.warn('Live photo snap error:', e);
         }
@@ -627,11 +617,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
         const file = e.dataTransfer?.files?.[0];
         if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setAttachedPhotoBase64(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
+            fileToJpegDataUrl(file).then(setAttachedPhotoBase64).catch(() => {});
         }
     };
 
@@ -663,7 +649,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             if (textToProcess) {
                 const res = await fetch('/api/suara/parse', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
                     body: JSON.stringify({
                         inputText: textToProcess,
                         targetLanguage: 'ms'
@@ -717,7 +703,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         const clientUrgency = detectUrgencyFromText(textToProcess);
         const urgency: 'Low' | 'Medium' | 'High' = isVectorOrHealth
             ? 'High'
-            : ((resData?.urgency || (visionAnalysis?.severityScore >= 4 ? 'High' : clientUrgency)) as 'Low' | 'Medium' | 'High');
+            : ((resData?.urgency || (visionAnalysis?.visualSeverity >= 4 ? 'High' : clientUrgency)) as 'Low' | 'Medium' | 'High');
 
         const effectiveAgency = resData?.suggestedAgency || (isVectorOrHealth ? 'Pejabat Kesihatan Daerah (PKD) / KKM' : catConfig?.suggestedAgency || 'PBT');
 
@@ -754,17 +740,17 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             confidenceScore: parsedConfidence,
             photoBase64: photoToProcess || undefined,
             aiAnalysis: visionAnalysis ? {
-                severityScore: visionAnalysis.severityScore || (urgency === 'High' ? 4 : 3),
+                severityScore: visionAnalysis.visualSeverity || (urgency === 'High' ? 4 : 3),
                 severityLabel: visionAnalysis.damageType || `Aduan ${catConfig?.label}`,
                 damageType: visionAnalysis.damageType || intent,
-                estimatedWidth: visionAnalysis.estimatedWidth || '—',
-                estimatedDepth: visionAnalysis.estimatedDepth || '—',
-                repairMethod: visionAnalysis.recommendedAction || (isVectorOrHealth ? 'Pemeriksaan Tapak & Semburan Fogging' : 'Penilaian & Tindakan PBT'),
+                estimatedWidth: visionAnalysis.estimatedDiameterCm ? `~${visionAnalysis.estimatedDiameterCm} cm` : '—',
+                estimatedDepth: visionAnalysis.estimatedDepthCm ? `~${visionAnalysis.estimatedDepthCm} cm` : '—',
+                repairMethod: visionAnalysis.repairRecommendation || (isVectorOrHealth ? 'Pemeriksaan Tapak & Semburan Fogging' : 'Penilaian & Tindakan PBT'),
                 repairCostMYR: 'Mengikut Skop Kerosakan',
                 priorityScore: visionAnalysis.priorityScore || (isVectorOrHealth ? 95 : 75),
-                riskAssessment: visionAnalysis.riskAssessment || intendedMeaning,
+                riskAssessment: visionAnalysis.description || intendedMeaning,
                 nearestRoadType: locName,
-                recommendedAction: visionAnalysis.recommendedAction || (isVectorOrHealth ? 'Kawalan Vektor & Hapus Tempat Pembiakan' : 'Penugasan Skuad Tindakan Tapak'),
+                recommendedAction: visionAnalysis.repairRecommendation || (isVectorOrHealth ? 'Kawalan Vektor & Hapus Tempat Pembiakan' : 'Penugasan Skuad Tindakan Tapak'),
                 routingAgency: effectiveAgency
             } : {
                 severityScore: urgency === 'High' ? 4 : urgency === 'Medium' ? 3 : 2,
@@ -961,7 +947,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
         try {
             await fetch('/api/dialect/feedback', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
                 body: JSON.stringify({
                     dialectText: originalText,
                     correctMeaning: correction,
@@ -1035,7 +1021,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             } catch {}
         }
 
-        supabase.from('nadi_infra_reports').select('*').neq('status', 'rejected').order('created_at', { ascending: false }).limit(100)
+        supabase.from('nadi_infra_reports').select(INFRA_FEED_COLUMNS).neq('status', 'rejected').order('created_at', { ascending: false }).limit(100)
             .then(({ data }) => {
                 if (data && data.length > 0) {
                     const mapped: Anomaly[] = data.map((d: any) => ({
@@ -1052,7 +1038,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                         aiAnalysis: d.ai_analysis,
                         photoBase64: d.photo_url,
                         confidenceScore: d.confidence_score || 0,
-                        speedKmh: d.speed_kmh || 0,
+                        speedKmh: 0, // speed_kmh is not readable by clients (migration 019)
                         snapshotBase64: d.snapshot_base64,
                         suggestedAgency: d.ai_analysis?.routingAgency || 'JKR / PBT',
                         category: d.ai_analysis?.category || 'lain',
@@ -1157,7 +1143,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             aiAnalysis: d.ai_analysis,
                             photoBase64: d.photo_url,
                             confidenceScore: d.confidence_score || 0,
-                            speedKmh: d.speed_kmh || 0,
+                            speedKmh: 0, // speed_kmh is not readable by clients (migration 019)
                             snapshotBase64: d.snapshot_base64,
                             suggestedAgency: d.ai_analysis?.routingAgency || 'JKR / PBT',
                             category: d.ai_analysis?.category || 'lain',
@@ -2063,7 +2049,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                                                     try {
                                                                         await fetch('/api/dialect/feedback', {
                                                                             method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
                                                                             body: JSON.stringify({
                                                                                 dialectText: a.originalText || a.title || '',
                                                                                 correctMeaning: a.translatedText || '',

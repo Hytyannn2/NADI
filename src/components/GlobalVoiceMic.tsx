@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isWhisperHallucination } from '@/src/lib/speech/whisperHallucinations';
+import { useAuth } from '@/src/context/AuthContext';
 
 interface GlobalVoiceMicProps {
     /** Callback fired with the transcribed text */
@@ -26,6 +27,8 @@ interface GlobalVoiceMicProps {
 }
 
 export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 'md', className = '', inline = false }: GlobalVoiceMicProps) {
+    // Whisper needs a signed-in session; signed-out users fall back to browser speech recognition
+    const { session } = useAuth();
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [interimText, setInterimText] = useState('');
@@ -214,6 +217,7 @@ export default function GlobalVoiceMic({ onTranscript, currentText = '', size = 
 
                             const res = await fetch('/api/suara/transcribe', {
                                 method: 'POST',
+                                headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
                                 body: formData,
                             });
 

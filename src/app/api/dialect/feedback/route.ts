@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { addCorrection, exportForPrompt } from '@/src/lib/dialect/engine';
 import { checkDialectFeedbackLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 export async function POST(request: Request) {
     const headersList = await headers();
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
         const errRes = NextResponse.json({ success: false, error: limit.message, retryAfter: limit.retryAfterSeconds }, { status: 429 });
         return addRateLimitHeaders(errRes, limit);
     }
+
+    // Sign-in required; the correction is stored as pending until approved in /admin
+    const { errorResponse } = await requireServerAuth(request);
+    if (errorResponse) return errorResponse;
 
     try {
         const body = await request.json();
@@ -74,7 +79,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
-            message: 'Feedback received and persisted for AI learning!',
+            message: 'Feedback received. It is used by the AI after officer review.',
             engineResult,
             reportId,
         });

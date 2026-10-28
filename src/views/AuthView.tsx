@@ -519,27 +519,12 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
           return;
         }
 
-        // Verify CAPTCHA token server-side before signup
-        if (captchaToken) {
-          const captchaRes = await fetch('/api/auth/verify-captcha', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: captchaToken }),
-          });
-          const captchaResult = await captchaRes.json();
-          if (!captchaResult.success && !captchaResult.skipped) {
-            setError(lang === 'BM' ? 'Pengesahan CAPTCHA gagal. Sila cuba lagi.' : 'CAPTCHA verification failed. Please try again.');
-            turnstileRef.current?.reset();
-            setCaptchaToken('');
-            setLoading(false);
-            return;
-          }
-        }
-
+        // Supabase Auth verifies the Turnstile token server-side (Auth > Bot and Abuse Protection)
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            captchaToken: captchaToken || undefined,
             data: {
               full_name: fullName,
               phone: phone,
@@ -572,12 +557,13 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: getAuthRedirectUrl(),
+          captchaToken: captchaToken || undefined,
         });
         if (error) throw error;
         setMessageType('success');
         setMessage(lang === 'BM' ? 'Pautan menetapkan semula kata laluan telah dihantar!' : 'Password reset link sent to your email!');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captchaToken || undefined } });
         if (error) {
           const errMsg = (error.message || '').toLowerCase();
           // If account doesn't exist in Supabase auth database, auto-switch to register mode keeping email & password prefilled
@@ -615,6 +601,9 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
     } catch (err) {
       setError((err instanceof Error && err.message) || (lang === 'BM' ? 'Ralat berlaku. Sila cuba lagi.' : 'An error occurred. Please try again.'));
     } finally {
+      // Turnstile tokens are single-use: get a fresh one for the next attempt
+      turnstileRef.current?.reset();
+      setCaptchaToken('');
       setLoading(false);
     }
   };
@@ -1316,7 +1305,7 @@ export default function AuthView({ onSuccess }: { onSuccess?: () => void }) {
                   </AnimatePresence>
 
                   {/* Cloudflare Turnstile CAPTCHA */}
-                  {(mode === 'login' || mode === 'register') && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                  {(mode === 'login' || mode === 'register' || mode === 'forgot') && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
                     <div className="flex justify-center">
                       <Turnstile
                         ref={turnstileRef}

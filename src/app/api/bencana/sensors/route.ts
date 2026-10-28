@@ -1,124 +1,34 @@
 /**
  * Sensor Telemetry API
- * 
+ *
  * Handles real-time river water level readings, weather telemetry, and flood status.
- * Accepts data from hardware nodes (ESP32 / LoRaWAN) and dispatches Telegram flood alerts.
+ * Accepts data from hardware nodes (ESP32 over Wi-Fi HTTPS) and dispatches Telegram flood alerts.
+ * The database is the only source of truth: no in-memory fallback, so a DB failure is a visible 500.
  */
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { safeCompare } from '@/src/lib/auth/serverAuth';
+import { NextResponse, after } from 'next/server';
+import { getAdminSupabase, safeCompare } from '@/src/lib/auth/serverAuth';
 import { checkSensorLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { sendTelegramAlert } from '@/src/lib/telegram';
+import { floodStatus, SENSOR_STALE_MS } from '@/src/lib/flood';
 
-// 30-minute cooldown cache between Telegram alerts per sensor
-const telegramAlertCooldowns = new Map<string, { lastSent: number; lastStatus: string }>();
-
-// Fallback in-memory sensor state for local testing, TTN webhooks, and demo mode
-declare global {
-    var __NADI_SENSORS__: Record<string, any> | undefined;
-}
-
-const defaultInitialSensors: Record<string, any> = {
-    "Sungai Kelantan Node A": {
-        id: "node-a-01",
-        name: "Sungai Kelantan Node A",
-        // JPS co-location reference
-        jps_station_id: "0730671WL",
-        jps_station_name: "Sg. Kelantan di Tambatan D'Raja (F1)",
-        district: "Kota Bharu",
-        location_name: "Jambatan Sultan Yahya Petra",
-        latitude: 6.116459809420322,
-        longitude: 102.22825008905949,
-        lora_radius_meters: 3000,
-        lora_max_radius_meters: 5000,
-        // Official JPS thresholds in meters
-        threshold_normal: 1.00,
-        threshold_alert: 3.00,
-        threshold_warning: 4.00,
-        threshold_danger: 5.00,
-        status: "safe",
-        water_level: 0.39,
-        battery_pct: 100,
-        rssi_dbm: -68,
-        temperature_c: 28.5,
-        humidity_pct: 75,
-        pressure_hpa: 1012,
-        rise_rate_cm_hr: 0,
-        last_reading: new Date().toISOString(),
-        is_online: true,
-    }
-};
-
-if (!globalThis.__NADI_SENSORS__) {
-    globalThis.__NADI_SENSORS__ = defaultInitialSensors;
-}
-const inMemorySensors = globalThis.__NADI_SENSORS__;
+// Minimum gap between Telegram alerts per sensor (a warning -> danger escalation always sends)
+const ALERT_COOLDOWN_MS = 30 * 60 * 1000;
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Local dev bridge cache: avoid querying Vercel on every single poll request
-let lastBridgeFetchTime = 0;
-let cachedBridgeSensors: any[] = [];
-
-// GET: Fetches all sensors, merging Supabase records with in-memory telemetry
+// GET: Fetches all sensors with online/offline derived from the last reading time
 export async function GET() {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-        let dbSensors: any[] = [];
-        if (supabaseUrl && supabaseKey) {
-            try {
-                const supabase = createClient(supabaseUrl, supabaseKey);
-                const { data } = await supabase.from('nadi_bencana_sensors').select('*');
-                if (data && data.length > 0) dbSensors = data;
-            } catch (e) { /* fallback to memory */ }
-        }
-
-        // Merge DB data with in-memory telemetry
-        const mergedMap = new Map();
-        Object.values(inMemorySensors).forEach(s => mergedMap.set(s.name, s));
-        dbSensors.forEach(s => mergedMap.set(s.name, { ...mergedMap.get(s.name), ...s }));
+        const { data, error } = await getAdminSupabase().from('nadi_bencana_sensors').select('*');
+        if (error) throw error;
 
         const now = Date.now();
-
-        // In local development: if hardware is transmitting to production Vercel, bridge it locally with throttle
-        const isLocalDev = process.env.NODE_ENV !== 'production' || !process.env.VERCEL;
-        if (isLocalDev) {
-            if (now - lastBridgeFetchTime > 8000 || cachedBridgeSensors.length === 0) {
-                lastBridgeFetchTime = now;
-                try {
-                    const prodUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nadi-alpha.vercel.app';
-                    const prodRes = await fetch(`${prodUrl}/api/bencana/sensors`, { 
-                        cache: 'no-store',
-                        signal: AbortSignal.timeout(1800)
-                    });
-                    if (prodRes.ok) {
-                        const prodJson = await prodRes.json();
-                        if (prodJson.sensors && Array.isArray(prodJson.sensors)) {
-                            cachedBridgeSensors = prodJson.sensors;
-                        }
-                    }
-                } catch {
-                    // Ignore network timeout or offline state
-                }
-            }
-
-            for (const ps of cachedBridgeSensors) {
-                const psTs = ps.last_reading ? new Date(ps.last_reading).getTime() : 0;
-                const localTs = mergedMap.get(ps.name)?.last_reading ? new Date(mergedMap.get(ps.name).last_reading).getTime() : 0;
-                // Adopt production data if it has a newer reading
-                if (psTs >= localTs) {
-                    mergedMap.set(ps.name, { ...mergedMap.get(ps.name), ...ps });
-                }
-            }
-        }
-        const sensorsList = Array.from(mergedMap.values()).map((s: any) => {
+        const sensorsList = (data ?? []).map((s: any) => {
             const lastReadingTs = s.last_reading ? new Date(s.last_reading).getTime() : 0;
-            // 120s tolerance for exhibition hall Wi-Fi jitter
-            const isStale = !lastReadingTs || (now - lastReadingTs) > 120000;
+            const isStale = !lastReadingTs || (now - lastReadingTs) > SENSOR_STALE_MS;
 
-            // Harmonize JPS 'normal' -> 'safe' and 'alert' -> 'warning' for UI consistency
+            // Harmonize legacy JPS 'normal' -> 'safe' and 'alert' -> 'warning' for UI consistency
             let status = s.status;
             if (status === 'normal') status = 'safe';
             if (status === 'alert') status = 'warning';
@@ -150,21 +60,16 @@ export async function GET() {
     } catch (err) {
         console.error('Sensors GET error:', err);
         return NextResponse.json(
-            { success: true, sensors: Object.values(inMemorySensors) },
-            {
-                headers: {
-                    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-                }
-            }
+            { success: false, error: 'Sensor data unavailable.' },
+            { status: 500, headers: { 'Cache-Control': 'no-store' } }
         );
     }
 }
 
-// POST: Updates sensor status from hardware node, simulation, or admin dashboard
+// POST: Updates sensor status from a hardware node. Status is computed here from water_level,
+// never taken from the device, so every node and screen uses the same thresholds (src/lib/flood.ts).
 export async function POST(request: Request) {
     try {
-        const now = Date.now();
-
         // 1. Hardware authentication & rate limiting
         const nodeKey = request.headers.get('x-node-key') || request.headers.get('x-device-key') || request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
         const expectedNodeKey = process.env.SENSOR_NODE_KEY || process.env.ADMIN_API_KEY || process.env.TTN_WEBHOOK_SECRET;
@@ -195,15 +100,28 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { name, status, water_level, battery_pct, rssi_dbm, temperature_c, humidity_pct, pressure_hpa, rise_rate_cm_hr, location } = body;
+        const { name, water_level, battery_pct, rssi_dbm, temperature_c, humidity_pct, pressure_hpa, rise_rate_cm_hr, location } = body;
 
-        if (!name || !status) {
-            return NextResponse.json({ success: false, error: 'Name and status are required.' }, { status: 400 });
+        if (!name) {
+            return NextResponse.json({ success: false, error: 'Name is required.' }, { status: 400 });
         }
 
-        const validStatuses = ['safe', 'warning', 'danger', 'sensor_fault', 'offline'];
-        if (!validStatuses.includes(status)) {
-            return NextResponse.json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` }, { status: 400 });
+        const validateNum = (v: unknown, min: number, max: number): number | undefined => {
+            if (v === undefined || v === null) return undefined;
+            const n = Number(v);
+            if (!Number.isFinite(n) || n < min || n > max) return undefined;
+            return n;
+        };
+
+        // water_level is metres. Without a valid level, only a device fault report is accepted.
+        const levelM = validateNum(water_level, 0, 50);
+        let status: string;
+        if (levelM !== undefined) {
+            status = floodStatus(levelM);
+        } else if (body.status === 'sensor_fault' || body.status === 'offline') {
+            status = body.status;
+        } else {
+            return NextResponse.json({ success: false, error: 'water_level (metres, 0-50) or a sensor_fault status is required.' }, { status: 400 });
         }
 
         const isFault = status === 'sensor_fault' || status === 'offline';
@@ -214,13 +132,7 @@ export async function POST(request: Request) {
             last_reading: new Date().toISOString(),
             is_online: !isFault,
         };
-        const validateNum = (v: unknown, min: number, max: number): number | undefined => {
-            if (v === undefined || v === null) return undefined;
-            const n = Number(v);
-            if (!Number.isFinite(n) || n < min || n > max) return undefined;
-            return n;
-        };
-        if (water_level !== undefined) { const v = validateNum(water_level, -1, 2000); if (v !== undefined) updatePayload.water_level = v; }
+        if (levelM !== undefined) updatePayload.water_level = levelM;
         if (battery_pct !== undefined) { const v = validateNum(battery_pct, 0, 100); if (v !== undefined) updatePayload.battery_pct = v; }
         if (rssi_dbm !== undefined) { const v = validateNum(rssi_dbm, -140, 0); if (v !== undefined) updatePayload.rssi_dbm = v; }
         if (temperature_c !== undefined) { const v = validateNum(temperature_c, -50, 80); if (v !== undefined) updatePayload.temperature_c = v; }
@@ -228,102 +140,71 @@ export async function POST(request: Request) {
         if (pressure_hpa !== undefined) { const v = validateNum(pressure_hpa, 800, 1200); if (v !== undefined) updatePayload.pressure_hpa = v; }
         if (rise_rate_cm_hr !== undefined) { const v = validateNum(rise_rate_cm_hr, -100, 200); if (v !== undefined) updatePayload.rise_rate_cm_hr = v; }
 
-        // Cache telemetry in memory for instant local polling
-        inMemorySensors[name] = {
-            ...(inMemorySensors[name] || {}),
-            ...updatePayload,
-            name,
-        };
+        const supabase = getAdminSupabase();
 
-        try {
-            if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-                const supabase = createClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL,
-                    process.env.SUPABASE_SERVICE_ROLE_KEY
-                );
+        // Upsert sensor row in Supabase
+        const { data, error } = await supabase
+            .from('nadi_bencana_sensors')
+            .upsert({ name, ...updatePayload }, { onConflict: 'name' })
+            .select()
+            .single();
 
-                // Upsert sensor row in Supabase
-                const { data, error } = await supabase
-                    .from('nadi_bencana_sensors')
-                    .upsert({ name, ...updatePayload }, { onConflict: 'name' })
-                    .select()
-                    .single();
-
-                if (error) {
-                    console.warn('Supabase DB notice:', error.message);
-                } else if (updatePayload.water_level !== undefined && data) {
-                    // Record historical telemetry reading asynchronously
-                    (async () => {
-                        try {
-                            await supabase
-                                .from('nadi_bencana_sensor_readings')
-                                .insert({
-                                     sensor_id: data.id,
-                                     water_level: updatePayload.water_level,
-                                     battery_pct: updatePayload.battery_pct ?? null,
-                                     temperature_c: updatePayload.temperature_c ?? null,
-                                     humidity_pct: updatePayload.humidity_pct ?? null,
-                                     pressure_hpa: updatePayload.pressure_hpa ?? null,
-                                });
-                        } catch (err) {
-                            console.warn('History insert warning:', err);
-                        }
-                    })();
-
-                    // Dispatch Telegram alert if river enters danger or warning status
-                    if ((status === 'danger' || status === 'warning') && typeof updatePayload.water_level === 'number') {
-                        const cooldownRecord = telegramAlertCooldowns.get(data.id);
-                        const COOLDOWN_MS = 30 * 60 * 1000;
-                        const isStatusEscalation = cooldownRecord && cooldownRecord.lastStatus === 'warning' && status === 'danger';
-                        const isCooldownExpired = !cooldownRecord || (now - cooldownRecord.lastSent) > COOLDOWN_MS;
-
-                        if (isCooldownExpired || isStatusEscalation) {
-                            const riseRate = (updatePayload.rise_rate_cm_hr as number) || 0;
-                            const rawLvl = updatePayload.water_level as number;
-                            // Convert meters to cm if reading is <= 10m
-                            const currentLvlCm = rawLvl <= 10 ? rawLvl * 100 : rawLvl;
-                            const DANGER_THRESHOLD_CM = 120; // 1.20 meters
-                            let timeToDanger: string | undefined = undefined;
-                            if (riseRate > 0 && currentLvlCm < DANGER_THRESHOLD_CM) {
-                                const cmRemaining = DANGER_THRESHOLD_CM - currentLvlCm;
-                                const hoursRemaining = cmRemaining / riseRate;
-                                if (hoursRemaining > 0 && hoursRemaining < 48) {
-                                    timeToDanger = `${hoursRemaining.toFixed(1)} jam / hours`;
-                                }
-                            }
-
-                            sendTelegramAlert({
-                                sensorName: name,
-                                location: location || data.location || 'Kelantan',
-                                waterLevel: currentLvlCm,
-                                status,
-                                riseRate,
-                                batteryPct: (updatePayload.battery_pct as number) ?? null,
-                                temperatureC: (updatePayload.temperature_c as number) ?? null,
-                                rssiDbm: (updatePayload.rssi_dbm as number) ?? null,
-                                timeToDanger,
-                            }).then(sent => {
-                                if (sent) {
-                                    telegramAlertCooldowns.set(data.id, { lastSent: now, lastStatus: status });
-                                }
-                            }).catch(err => console.error('[Sensors API] Telegram alert dispatch failed:', err));
-                        }
-                    }
-                }
-
-                if (data) {
-                    const res = NextResponse.json({ success: true, sensor: data });
-                    return addRateLimitHeaders(res, limitResult);
-                }
-            }
-        } catch (dbErr) {
-            console.warn('Supabase storage warning:', dbErr);
+        if (error || !data) {
+            console.error('[Sensors API] Sensor upsert failed:', error?.message);
+            return NextResponse.json({ success: false, error: 'Failed to store sensor reading.' }, { status: 500 });
         }
 
-        const successRes = NextResponse.json({ success: true, message: "Telemetry received", telemetry: updatePayload });
-        return addRateLimitHeaders(successRes, limitResult);
+        // History insert and Telegram alert run after the response, but Vercel keeps the function alive for them
+        if (levelM !== undefined) {
+            after(async () => {
+                const { error: histErr } = await supabase
+                    .from('nadi_bencana_sensor_readings')
+                    .insert({
+                        sensor_id: data.id,
+                        water_level: levelM,
+                        battery_pct: updatePayload.battery_pct ?? null,
+                        temperature_c: updatePayload.temperature_c ?? null,
+                        humidity_pct: updatePayload.humidity_pct ?? null,
+                        pressure_hpa: updatePayload.pressure_hpa ?? null,
+                    });
+                if (histErr) console.error('[Sensors API] History insert failed:', histErr.message);
+
+                if (status !== 'danger' && status !== 'warning') return;
+                if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) return;
+
+                // Claim the alert slot atomically on the sensor row, so parallel instances can't double-send
+                const cutoff = new Date(Date.now() - ALERT_COOLDOWN_MS).toISOString();
+                const claimFilter = status === 'danger'
+                    ? `last_alert_at.is.null,last_alert_at.lt.${cutoff},last_alert_status.eq.warning`
+                    : `last_alert_at.is.null,last_alert_at.lt.${cutoff}`;
+                const { data: claimed, error: claimErr } = await supabase
+                    .from('nadi_bencana_sensors')
+                    .update({ last_alert_at: new Date().toISOString(), last_alert_status: status })
+                    .eq('id', data.id)
+                    .or(claimFilter)
+                    .select('id');
+                if (claimErr) { console.error('[Sensors API] Alert claim failed:', claimErr.message); return; }
+                if (!claimed?.length) return; // still in cooldown
+
+                const sent = await sendTelegramAlert({
+                    sensorName: name,
+                    location: location || data.location || 'Kelantan',
+                    waterLevelM: levelM,
+                    status,
+                    riseRate: (updatePayload.rise_rate_cm_hr as number) || 0,
+                    batteryPct: (updatePayload.battery_pct as number) ?? null,
+                    temperatureC: (updatePayload.temperature_c as number) ?? null,
+                    rssiDbm: (updatePayload.rssi_dbm as number) ?? null,
+                });
+                // Delivery failed: release the slot so the next reading retries
+                if (!sent) await supabase.from('nadi_bencana_sensors').update({ last_alert_at: null }).eq('id', data.id);
+            });
+        }
+
+        const res = NextResponse.json({ success: true, sensor: data });
+        return addRateLimitHeaders(res, limitResult);
     } catch (err) {
         console.error('Sensor update error:', err);
-        return NextResponse.json({ success: false, error: 'Failed to process sensor payload.', details: err instanceof Error ? err.message : String(err) }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Failed to process sensor payload.' }, { status: 500 });
     }
 }

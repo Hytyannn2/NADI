@@ -9,6 +9,7 @@ export interface PdfAnomalyData {
   lng: number;
   locationName?: string;
   time: string;
+  createdAt?: string;
   urgency?: string;
   status: string;
   confidenceScore?: number;
@@ -26,9 +27,12 @@ export interface PdfAnomalyData {
   } | null;
 }
 
-export function generatePayloadHash(ticket: { id: string; status: string; confidenceScore?: number; time?: string }): string {
-  // Generates a hash to verify ticket integrity between client and server
-  const payloadString = `${ticket.id}|${ticket.status}|${ticket.confidenceScore || 0}|${ticket.time || ''}`;
+// Check code linking a printed ticket to its database row. Not cryptographic: a 32-bit
+// unkeyed hash of fields that never change (status changes after printing must not fail it).
+// ponytail: forgeable by anyone who reads this code; use a server-side HMAC if tickets
+// ever need tamper-proofing rather than a typo/lookup check.
+export function generatePayloadHash(ticket: { id: string; createdAt?: string }): string {
+  const payloadString = `${ticket.id}|${ticket.createdAt || ''}`;
   let hash = 0;
   for (let i = 0; i < payloadString.length; i++) {
     const char = payloadString.charCodeAt(i);

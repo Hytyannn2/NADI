@@ -7,7 +7,9 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/format.check.mjs && node scripts/flood.check.mjs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.6.1",
@@ -41,7 +43,6 @@
     "ws": "^8.20.1",
     "shell-quote": "^1.9.0",
     "js-yaml": "^4.3.2",
-    "brace-expansion": "^5.0.9",
     "nanoid": "^3.3.18",
     "sharp": "^0.35.4"
   }

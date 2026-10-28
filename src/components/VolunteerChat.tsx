@@ -14,7 +14,8 @@ import { useTheme } from '@/src/context/ThemeContext';
 
 interface ChatMsg { id: string; text: string; sender: 'me' | 'them'; time: string; }
 
-export default function VolunteerChat({ jobName, onClose }: { jobName: string; onClose: () => void }) {
+// Messages are keyed by job_id; RLS (migration 019) lets only the job's poster and volunteer read them.
+export default function VolunteerChat({ jobId, jobName, onClose }: { jobId: string; jobName: string; onClose: () => void }) {
     const supabase = createClient();
     const { user } = useAuth();
     const { formatTime } = useTheme();
@@ -28,7 +29,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
 
     useEffect(() => {
         // Fetches chat history for this volunteer assignment
-        supabase.from('nadi_bencana_chat').select('*').eq('job_name', jobName).order('created_at', { ascending: true })
+        supabase.from('nadi_bencana_chat').select('id, text, user_id, created_at').eq('job_id', jobId).order('created_at', { ascending: true })
             .then(({ data }) => {
                 if (data && data.length > 0) {
                     const mapped = data.map((m: any) => ({
@@ -42,8 +43,8 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
             });
 
         // Supabase Realtime channel subscription for instant messaging
-        const channel = supabase.channel(`chat_${jobName.replace(/[^a-zA-Z0-9]/g, '_')}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_bencana_chat', filter: `job_name=eq.${jobName}` }, (payload) => {
+        const channel = supabase.channel(`chat_${jobId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nadi_bencana_chat', filter: `job_id=eq.${jobId}` }, (payload) => {
                 if (payload.new && payload.new.user_id !== user?.id) {
                     setMessages(prev => [...prev, {
                         id: payload.new.id,
@@ -56,7 +57,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [jobName, user, supabase]);
+    }, [jobId, user, supabase]);
 
     const send = async () => {
         if (!input.trim()) return;
@@ -69,6 +70,7 @@ export default function VolunteerChat({ jobName, onClose }: { jobName: string; o
 
         // Send to DB
         await supabase.from('nadi_bencana_chat').insert({
+            job_id: jobId,
             job_name: jobName,
             text: msgText,
             sender: user?.user_metadata?.full_name || 'Volunteer',

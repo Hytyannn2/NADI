@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 import { headers } from 'next/headers';
 import { exportSafeDictionary } from '@/src/lib/dialect/engine';
 import { DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
     );
     return addRateLimitHeaders(errRes, limit);
   }
+
+  // Sign-in required: every call spends the shared Groq quota
+  const { errorResponse } = await requireServerAuth(request);
+  if (errorResponse) return errorResponse;
 
   try {
     const body = await request.json();

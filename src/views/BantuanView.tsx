@@ -57,7 +57,11 @@ import { useDebounce } from '@/src/hooks/useDebounce';
 import { evaluateAllEligibility, type EligibilityResult } from '@/src/utils/eligibilityEngine';
 import useSWR from 'swr';
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+// Key is a URL, or [url, accessToken] for routes that show more to signed-in users
+const fetcher = (key: string | [string, string | undefined]) => {
+    const [url, token] = Array.isArray(key) ? key : [key, undefined];
+    return fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined).then(res => res.json());
+};
 
 interface AidProgram {
     id: string;
@@ -154,7 +158,8 @@ export default function BantuanView() {
     }, [applyLocationPrecision, locationPrecision]);
 
     const programsUrl = userLoc ? `/api/bantuan/programs?lat=${userLoc.lat}&lng=${userLoc.lng}&lang=${lang}` : `/api/bantuan/programs?lang=${lang}`;
-    const { data: programsData, isLoading: programsLoading, mutate: mutatePrograms } = useSWR(programsUrl, fetcher, { revalidateOnFocus: false });
+    const { session } = useAuth();
+    const { data: programsData, isLoading: programsLoading, mutate: mutatePrograms } = useSWR([programsUrl, session?.access_token], fetcher, { revalidateOnFocus: false });
     const aidPrograms: AidProgram[] = programsData?.programs || [];
 
     // Community Mutual Aid Modal State (Offers & Donations)
@@ -234,7 +239,7 @@ export default function BantuanView() {
         }
         return () => { document.body.style.overflow = ''; };
     }, [showJobForm, selectedProgram, showCommunityModal, user]);
-    const [chatJobName, setChatJobName] = useState<string | null>(null);
+    const [chatJob, setChatJob] = useState<{ id: string; name: string } | null>(null);
 
     const handleCreateCommunityRequest = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -548,7 +553,7 @@ export default function BantuanView() {
 
             {/* Volunteer Chat Overlay */}
             <AnimatePresence>
-                {chatJobName && <VolunteerChat jobName={chatJobName} onClose={() => setChatJobName(null)} />}
+                {chatJob && <VolunteerChat jobId={chatJob.id} jobName={chatJob.name} onClose={() => setChatJob(null)} />}
             </AnimatePresence>
 
             {/* === STANDARDIZED HEADER === */}
@@ -1089,7 +1094,7 @@ export default function BantuanView() {
                                                                 <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }}>
                                                                     <CheckCircle className="w-3.5 h-3.5 opacity-70" /> Secured
                                                                 </div>
-                                                                <button onClick={() => setChatJobName(job.name)}
+                                                                <button onClick={() => setChatJob({ id: job.id, name: job.name })}
                                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[8px] font-bold tracking-widest uppercase transition-all"
                                                                     style={{ color: 'var(--accent)', border: '1px solid var(--border-default)' }}
                                                                 >

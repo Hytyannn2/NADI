@@ -50,6 +50,7 @@ async function getLearned() {
     const { data } = await supabase
       .from('nadi_dialect_feedback')
       .select('dialect_text, correct_meaning, region')
+      .eq('approved', true) // officer-reviewed only (migration 019)
       .not('correct_meaning', 'is', null);
     learnedCache = { at: Date.now(), rows: data ?? [] };
   } catch {
@@ -152,7 +153,6 @@ export async function addCorrection(
     console.warn('[engine/addCorrection] Database insert error:', err);
   }
 
-  learnedCache = null; // Clear cache so subsequent lookups include the new correction
-  return { status: 'learned', new_mappings };
+  return { status: 'pending_review', new_mappings };
 }
 

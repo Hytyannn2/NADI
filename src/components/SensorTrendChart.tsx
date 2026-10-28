@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle } from 'lucide-react';
 import { useTheme } from '@/src/context/ThemeContext';
+import { FLOOD_DANGER_M, FLOOD_WARNING_M, SENSOR_STALE_MS } from '@/src/lib/flood';
 
 interface ChartDataPoint {
     time: string;
@@ -71,7 +72,7 @@ export default function SensorTrendChart({
         }
         if (!lastPingTimestamp) return false;
         const secondsSinceLastPing = (Date.now() - lastPingTimestamp) / 1000;
-        return secondsSinceLastPing > 35; // 35 seconds of silence = hardware offline
+        return secondsSinceLastPing * 1000 > SENSOR_STALE_MS;
     }, [lastPingTimestamp, status, isOnline, currentWaterLevel]);
 
     // =========================================================================
@@ -403,8 +404,8 @@ export default function SensorTrendChart({
                             <Tooltip content={<CustomTooltip />} />
 
                             {/* Danger & Warning threshold lines */}
-                            <ReferenceLine y={120} stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: 'BAHAYA 120cm', position: 'right', fill: '#EF4444', fontSize: 8 }} />
-                            <ReferenceLine y={80} stroke="#F97316" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: 'AMARAN 80cm', position: 'right', fill: '#F97316', fontSize: 8 }} />
+                            <ReferenceLine y={FLOOD_DANGER_M * 100} stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: `BAHAYA ${FLOOD_DANGER_M * 100}cm`, position: 'right', fill: '#EF4444', fontSize: 8 }} />
+                            <ReferenceLine y={FLOOD_WARNING_M * 100} stroke="#F97316" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `AMARAN ${FLOOD_WARNING_M * 100}cm`, position: 'right', fill: '#F97316', fontSize: 8 }} />
 
                             {/* Live Real Hardware Data Line (Solid Emerald Green) */}
                             <Area

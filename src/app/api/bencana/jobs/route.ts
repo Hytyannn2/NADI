@@ -11,9 +11,6 @@ import { cookies } from 'next/headers';
 import { getAdminSupabase } from '@/src/lib/auth/serverAuth';
 import Groq from 'groq-sdk';
 
-// In-memory fallback store for relief volunteer jobs
-let IN_MEMORY_BENCANA_JOBS: any[] = [];
-
 // GET: Fetches open relief volunteer tasks (excludes private phone numbers and banned requests)
 export async function GET() {
     try {
@@ -24,25 +21,17 @@ export async function GET() {
             .neq('status', 'banned')
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.warn('Notice fetching Supabase jobs:', error.message);
-        }
+        if (error) throw error;
 
-        const formattedDbJobs = (data || []).map(j => ({
+        const jobs = (data || []).map(j => ({
             ...j,
             tools: j.tools_needed || '',
             pax: j.pax_needed || null,
         }));
-
-        const allJobs = [
-            ...formattedDbJobs,
-            ...IN_MEMORY_BENCANA_JOBS
-        ];
-        const uniqueJobs = Array.from(new Map(allJobs.map(j => [j.id, j])).values());
-        return NextResponse.json({ success: true, jobs: uniqueJobs });
+        return NextResponse.json({ success: true, jobs });
     } catch (err) {
         console.error('Jobs GET error:', err instanceof Error ? err.message : err);
-        return NextResponse.json({ success: true, jobs: IN_MEMORY_BENCANA_JOBS });
+        return NextResponse.json({ success: false, error: 'Gagal memuatkan tugasan.' }, { status: 500 });
     }
 }
 
@@ -91,19 +80,12 @@ export async function POST(request: Request) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
             // Fetch the job to check ownership
-            let targetJob: any = null;
-            try {
-                const { data: existingJob } = await adminSupabase
-                    .from('nadi_bencana_jobs')
-                    .select('id, posted_by, status')
-                    .eq('id', jobId)
-                    .single();
-                targetJob = existingJob;
-            } catch {}
-
-            if (!targetJob) {
-                targetJob = IN_MEMORY_BENCANA_JOBS.find(j => j.id === jobId);
-            }
+            const { data: targetJob, error: findError } = await adminSupabase
+                .from('nadi_bencana_jobs')
+                .select('id, posted_by, status')
+                .eq('id', jobId)
+                .maybeSingle();
+            if (findError) throw findError;
 
             if (!targetJob) {
                 return NextResponse.json({ success: false, error: 'Tugasan tidak dijumpai.' }, { status: 404 });
@@ -121,27 +103,15 @@ export async function POST(request: Request) {
                 return NextResponse.json({ success: false, error: 'Tugasan ini telah diterima oleh sukarelawan lain.' }, { status: 409 });
             }
 
-            try {
-                const { data, error } = await adminSupabase
-                    .from('nadi_bencana_jobs')
-                    .update({ status: 'accepted', accepted_by: user.id })
-                    .eq('id', jobId)
-                    .eq('status', 'open')
-                    .select()
-                    .single();
-
-                if (!error && data) {
-                    return NextResponse.json({ success: true, job: data });
-                }
-            } catch {}
-
-            // In-memory fallback
-            const memJob = IN_MEMORY_BENCANA_JOBS.find(j => j.id === jobId && j.status === 'open');
-            if (memJob) {
-                memJob.status = 'accepted';
-                memJob.accepted_by = user.id;
-                return NextResponse.json({ success: true, job: memJob });
-            }
+            const { data, error } = await adminSupabase
+                .from('nadi_bencana_jobs')
+                .update({ status: 'accepted', accepted_by: user.id })
+                .eq('id', jobId)
+                .eq('status', 'open')
+                .select()
+                .maybeSingle();
+            if (error) throw error;
+            if (data) return NextResponse.json({ success: true, job: data });
 
             return NextResponse.json({ success: false, error: 'Tugasan tidak dijumpai atau telah diterima.' }, { status: 409 });
         }
@@ -150,26 +120,17 @@ export async function POST(request: Request) {
         if (action === 'cancel' && jobId) {
             if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-            try {
-                const { data: job } = await adminSupabase
-                    .from('nadi_bencana_jobs')
-                    .select('id, posted_by')
-                    .eq('id', jobId)
-                    .single();
-
-                if (job && job.posted_by === user.id) {
-                    await adminSupabase.from('nadi_bencana_jobs').delete().eq('id', jobId);
-                    return NextResponse.json({ success: true });
-                }
-            } catch {}
-
-            // In-memory fallback
-            const memIdx = IN_MEMORY_BENCANA_JOBS.findIndex(j => j.id === jobId && j.posted_by === user.id);
-            if (memIdx !== -1) {
-                IN_MEMORY_BENCANA_JOBS.splice(memIdx, 1);
-                return NextResponse.json({ success: true });
+            // Owner check in the delete itself: deletes nothing unless this user posted the job
+            const { data: deleted, error } = await adminSupabase
+                .from('nadi_bencana_jobs')
+                .delete()
+                .eq('id', jobId)
+                .eq('posted_by', user.id)
+                .select('id');
+            if (error) throw error;
+            if (!deleted?.length) {
+                return NextResponse.json({ success: false, error: 'Tugasan tidak dijumpai atau bukan milik anda.' }, { status: 404 });
             }
-
             return NextResponse.json({ success: true });
         }
 
@@ -195,37 +156,21 @@ export async function POST(request: Request) {
                 pax_needed: pax ? parseInt(pax, 10) : null,
             };
 
-            let jobRecord: any = null;
-
-            try {
-                const { data, error } = await adminSupabase
-                    .from('nadi_bencana_jobs')
-                    .insert(newJob)
-                    .select()
-                    .single();
-
-                if (!error && data) {
-                    jobRecord = data;
-                } else if (error) {
-                    console.warn('Supabase jobs insert warning, falling back to local memory:', error.message);
-                }
-            } catch (err) {
-                console.warn('Supabase jobs insert exception:', err instanceof Error ? err.message : err);
-            }
-
-            if (!jobRecord) {
-                jobRecord = {
-                    ...newJob,
-                    id: `job-${Date.now()}`,
-                    created_at: new Date().toISOString(),
-                };
-                IN_MEMORY_BENCANA_JOBS.unshift(jobRecord);
+            const { data: jobRecord, error: insertError } = await adminSupabase
+                .from('nadi_bencana_jobs')
+                .insert(newJob)
+                .select()
+                .single();
+            if (insertError || !jobRecord) {
+                console.error('Supabase jobs insert failed:', insertError?.message);
+                return NextResponse.json({ success: false, error: 'Gagal menyimpan permohonan. Sila cuba lagi.' }, { status: 500 });
             }
 
             // Background task: evaluates content appropriateness and sets bounty points
             after(async () => {
                 try {
-                    const fullReq = `${req}${phone ? ` | Phone: ${phone}` : ''}${tools ? ` | Tools: ${tools}` : ''}${pax ? ` | Pax: ${pax}` : ''}`;
+                    // Phone number stays out of the prompt: moderation doesn't need it
+                    const fullReq = `${req}${tools ? ` | Tools: ${tools}` : ''}${pax ? ` | Pax: ${pax}` : ''}`;
                     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
                     const result = await groq.chat.completions.create({
                         messages: [{
@@ -246,27 +191,10 @@ Respond with JSON:
                     });
 
                     const parsedData = JSON.parse(result.choices[0]?.message?.content || '{}');
-                    const targetId = jobRecord?.id;
-
-                    if (targetId) {
-                        try {
-                            if (parsedData.isInappropriate) {
-                                await adminSupabase.from('nadi_bencana_jobs').update({ status: 'banned', bounty: 0 }).eq('id', targetId);
-                            } else {
-                                const updatedBounty = parsedData.bountyPoints || 30;
-                                await adminSupabase.from('nadi_bencana_jobs').update({ bounty: updatedBounty }).eq('id', targetId);
-                            }
-                        } catch {}
-
-                        const memItem = IN_MEMORY_BENCANA_JOBS.find(j => j.id === targetId);
-                        if (memItem) {
-                            if (parsedData.isInappropriate) {
-                                memItem.status = 'banned';
-                            } else {
-                                memItem.bounty = parsedData.bountyPoints || 30;
-                            }
-                        }
-                    }
+                    const { error: modError } = parsedData.isInappropriate
+                        ? await adminSupabase.from('nadi_bencana_jobs').update({ status: 'banned', bounty: 0 }).eq('id', jobRecord.id)
+                        : await adminSupabase.from('nadi_bencana_jobs').update({ bounty: parsedData.bountyPoints || 30 }).eq('id', jobRecord.id);
+                    if (modError) console.error('Moderation update failed:', modError.message);
                 } catch (e) {
                     console.error('Background AI Task Failed:', e);
                 }

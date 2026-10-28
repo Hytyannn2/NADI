@@ -2,7 +2,7 @@
  * Officer Review API
  *
  * GET  — pending PPS corrections, open Aduan reports and recent audit log, filtered by role.
- * POST — { queue: 'pps' | 'infra', id, action, note? } changes a record's status and audits it.
+ * POST — { queue: 'pps' | 'infra' | 'dialect', id, action, note? } changes a record's status and audits it.
  */
 import { NextResponse } from 'next/server';
 import { requireOfficer } from '@/src/lib/auth/serverAuth';
@@ -19,6 +19,12 @@ const QUEUES = {
         roles: ['super_admin', 'infra_officer'],
         actions: { verify: 'verified', resolve: 'resolved', reject: 'rejected' } as Record<string, string>,
     },
+    // Community dialect corrections only reach the AI prompt once approved
+    dialect: {
+        table: 'nadi_dialect_feedback',
+        roles: ['super_admin', 'infra_officer'],
+        actions: { approve: 'approved', reject: 'rejected' } as Record<string, string>,
+    },
 };
 const OFFICER_ROLES = ['super_admin', 'bencana_officer', 'infra_officer'];
 
@@ -34,7 +40,7 @@ export async function GET(request: Request) {
         .limit(20);
     if (role !== 'super_admin') audit = audit.eq('admin_id', user.id);
 
-    const [pps, infra, log] = await Promise.all([
+    const [pps, infra, dialect, log] = await Promise.all([
         QUEUES.pps.roles.includes(role)
             ? adminSupa.from('nadi_pps_corrections')
                 .select('id, center_name, jajahan, suggested_lat, suggested_lng, notes, created_at')
@@ -49,10 +55,17 @@ export async function GET(request: Request) {
                 .order('created_at', { ascending: false })
                 .limit(50)
             : null,
+        QUEUES.dialect.roles.includes(role)
+            ? adminSupa.from('nadi_dialect_feedback')
+                .select('id, dialect_text, correct_meaning, region, created_at')
+                .eq('approved', false)
+                .order('created_at')
+                .limit(100)
+            : null,
         audit,
     ]);
 
-    const error = pps?.error || infra?.error || log.error;
+    const error = pps?.error || infra?.error || dialect?.error || log.error;
     if (error) {
         console.error('[api/admin] GET error:', error.message);
         return NextResponse.json({ success: false, error: 'Gagal memuatkan data semakan.' }, { status: 500 });
@@ -63,6 +76,7 @@ export async function GET(request: Request) {
         role,
         pps: pps?.data ?? null,
         infra: infra?.data ?? null,
+        dialect: dialect?.data ?? null,
         audit: log.data,
     });
 }
@@ -83,12 +97,17 @@ export async function POST(request: Request) {
         ? { status, reviewed_by: user.id, reviewed_at: new Date().toISOString(), review_notes: note }
         : { status };
 
-    const { data, error } = await adminSupa
-        .from(queue.table)
-        .update(patch)
-        .eq('id', body.id)
-        .select('id')
-        .maybeSingle();
+    // Dialect: approve flips the flag; reject deletes the row so it never reaches the prompt
+    const { data, error } = queue.table === 'nadi_dialect_feedback'
+        ? status === 'approved'
+            ? await adminSupa.from(queue.table).update({ approved: true }).eq('id', body.id).select('id').maybeSingle()
+            : await adminSupa.from(queue.table).delete().eq('id', body.id).select('id').maybeSingle()
+        : await adminSupa
+            .from(queue.table)
+            .update(patch)
+            .eq('id', body.id)
+            .select('id')
+            .maybeSingle();
 
     if (error) {
         console.error('[api/admin] update error:', error.message);

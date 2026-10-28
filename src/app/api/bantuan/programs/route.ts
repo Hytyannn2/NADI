@@ -5,7 +5,7 @@
  * with eligibility criteria, official portals, and location-aware recommendations.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSupabase } from '@/src/lib/auth/serverAuth';
+import { getAdminSupabase, requireServerAuth } from '@/src/lib/auth/serverAuth';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -342,9 +342,11 @@ export async function GET(request: NextRequest) {
         }
     ];
 
-    // Fetch live community mutual aid requests from Supabase
+    // Fetch live community mutual aid requests from Supabase.
+    // Contact numbers are only shown to signed-in users, so the list can't be scraped anonymously.
     let communityAidItems: any[] = [];
     try {
+        const signedIn = request.headers.has('Authorization') && !(await requireServerAuth(request)).errorResponse;
         const supabase = getAdminSupabase();
         const { data: reqs } = await supabase
             .from('nadi_bantuan_requests')
@@ -353,13 +355,13 @@ export async function GET(request: NextRequest) {
             .limit(60);
 
         if (reqs && reqs.length > 0) {
-            communityAidItems = reqs.map((r: any) => ({
+            communityAidItems = reqs.map((r: any) => ({ ...r, contact: signedIn ? r.contact : null })).map((r: any) => ({
                 id: `comm_${r.id}`,
                 name: `${r.type === 'offer' ? '🎁 [Sumbangan Komuniti]' : '🆘 [Permohonan Warga]'} ${r.title}`,
                 provider: `${r.poster || 'Komuniti Setempat'} (Inisiatif Rakyat)`,
                 type: 'community' as const,
                 description: r.description,
-                eligibility: `Kategori Barangan: ${r.category || 'Keperluan Asas'}\nStatus: ${r.fulfilled ? '✅ Telah Diselesaikan' : '⏳ Terbuka / Memerlukan Tindakan'}\nHubungi: ${r.contact || 'Terbuka'}`,
+                eligibility: `Kategori Barangan: ${r.category || 'Keperluan Asas'}\nStatus: ${r.fulfilled ? '✅ Telah Diselesaikan' : '⏳ Terbuka / Memerlukan Tindakan'}\nHubungi: ${r.contact || (signedIn ? 'Terbuka' : 'Log masuk untuk melihat')}`,
                 status: r.fulfilled ? 'closed' : 'active',
                 deadline: 'Bantuan Komuniti Terus',
                 location: r.location || 'Seluruh Kelantan',

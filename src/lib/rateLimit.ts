@@ -55,10 +55,9 @@ function cleanupStaleEntries(now: number) {
  * Extracts client IP from reverse proxy headers (Cloudflare, Vercel, standard proxies).
  * Falls back to a deterministic header hash if no IP header is present.
  */
+// Vercel sets x-vercel-forwarded-for / x-forwarded-for itself, so clients can't spoof them.
+// cf-connecting-ip is deliberately ignored: without Cloudflare in front, any client can set it.
 export function getClientIp(headers: Headers): string {
-    const cfIp = headers.get('cf-connecting-ip');
-    if (cfIp) return cfIp.trim();
-
     const vercelIp = headers.get('x-vercel-forwarded-for');
     if (vercelIp) return vercelIp.split(',')[0].trim();
 

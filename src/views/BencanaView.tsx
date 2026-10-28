@@ -32,6 +32,7 @@ import { JPS_KELANTAN_STATIONS, TAMBATAN_DRAJA } from '@/src/data/jpsKelantanSta
 import { DEFAULT_SENSOR_NODE, KELANTAN_JAJAHAN } from '@/src/config/constants';
 import { matchCivicSearch, scoreCivicSearch } from '@/src/lib/search/fuzzySearch';
 import { getDistanceKm } from '@/src/lib/format';
+import { hoursToDanger } from '@/src/lib/flood';
 import { sound } from '@/src/lib/audio/soundEffects';
 import PpsVerificationModal from '@/src/components/PpsVerificationModal';
 
@@ -90,6 +91,7 @@ export default function BencanaView() {
     // LoRaWAN sensor data — full telemetry from hardware + BME280 (polling paused while tab hidden)
     const sensorData = useLiveSensor({ realtime: true });
     const sensorStatus = sensorData.status;
+    const etaToDanger = hoursToDanger(sensorData.water_level, sensorData.rise_rate_cm_hr);
     const sensorLabels: Record<string, { text: string; style: string }> = {
         safe: { text: 'SELAMAT', style: 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20' },
         warning: { text: 'AMARAN', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
@@ -997,7 +999,8 @@ export default function BencanaView() {
                                         <div>
                                             <p className="text-xs font-bold text-red-400"> AMARAN: Paras Air Naik Cepat</p>
                                             <p className="text-[10px] text-red-400/80 mt-0.5">
-                                                Paras air naik {sensorData.rise_rate_cm_hr} cm/jam — dianggarkan {Math.max(1, Math.round((120 - sensorData.water_level) / sensorData.rise_rate_cm_hr))} jam sebelum tahap bahaya
+                                                Paras air naik {sensorData.rise_rate_cm_hr} cm/jam
+                                                {etaToDanger !== null && <> — dianggarkan {Math.max(1, Math.round(etaToDanger))} jam sebelum tahap bahaya</>}
                                             </p>
                                         </div>
                                     </div>

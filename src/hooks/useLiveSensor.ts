@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/src/lib/supabase/client';
 import { DEFAULT_SENSOR_NODE } from '@/src/config/constants';
+import { SENSOR_STALE_MS } from '@/src/lib/flood';
 
 export interface SensorData {
     id: string | null;
@@ -45,11 +46,9 @@ export const INITIAL_SENSOR_DATA: SensorData = {
     rise_rate_cm_hr: 0, last_reading: null, is_online: false,
 };
 
-const STALE_MS = 30_000;
-
 function toSensorData(r: SensorRow): SensorData {
     const lastReadingTs = r.last_reading ? new Date(r.last_reading).getTime() : 0;
-    const isStale = !lastReadingTs || Date.now() - lastReadingTs > STALE_MS;
+    const isStale = !lastReadingTs || Date.now() - lastReadingTs > SENSOR_STALE_MS;
     const online = r.is_online !== false && !isStale && r.status !== 'sensor_fault' && r.status !== 'offline';
     return {
         id: r.id ?? null,

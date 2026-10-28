@@ -34,19 +34,20 @@ function sanitizeString(val: unknown, maxLen = 500): string {
         .slice(0, maxLen);
 }
 
-// GET: Fetches mutual aid requests (excluding secret author tokens)
+// GET: Fetches mutual aid requests (excluding secret author tokens and contact numbers;
+// signed-in users get contacts through /api/bantuan/programs)
 export async function GET() {
     try {
         const supabase = getAdminSupabase();
         const { data, error } = await supabase
             .from('nadi_bantuan_requests')
-            .select('id, poster, type, title, description, location, category, contact, fulfilled, created_at')
+            .select('id, poster, type, title, description, location, category, fulfilled, created_at')
             .order('created_at', { ascending: false })
             .limit(100);
 
         if (error) {
             console.error('Bantuan GET error:', error);
-            return NextResponse.json({ success: true, requests: [] });
+            return NextResponse.json({ success: false, error: 'Gagal memuatkan permintaan bantuan.' }, { status: 500 });
         }
 
         const formatted = (data || []).map((r: any) => ({
@@ -57,7 +58,7 @@ export async function GET() {
         return NextResponse.json({ success: true, requests: formatted });
     } catch (error) {
         console.error('Bantuan GET error:', error);
-        return NextResponse.json({ success: true, requests: [] });
+        return NextResponse.json({ success: false, error: 'Gagal memuatkan permintaan bantuan.' }, { status: 500 });
     }
 }
 

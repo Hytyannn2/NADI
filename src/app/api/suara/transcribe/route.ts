@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
+import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 import { headers } from 'next/headers';
 import { isWhisperHallucination } from '@/src/lib/speech/whisperHallucinations';
 
@@ -27,6 +28,10 @@ export async function POST(request: Request) {
     );
     return addRateLimitHeaders(errRes, limit);
   }
+
+  // Sign-in required: every call spends the shared Groq quota
+  const { errorResponse } = await requireServerAuth(request);
+  if (errorResponse) return errorResponse;
 
   try {
     const formData = await request.formData();

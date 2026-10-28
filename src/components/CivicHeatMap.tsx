@@ -35,6 +35,8 @@ import 'leaflet/dist/leaflet.css';
 
 import { createClient } from '@/src/lib/supabase/client';
 import { useWeather } from '@/src/hooks/useWeather';
+import { useLiveSensor } from '@/src/hooks/useLiveSensor';
+import { FLOOD_DANGER_M, FLOOD_WARNING_M } from '@/src/lib/flood';
 import { useLanguage } from '@/src/context/LanguageContext';
 import { ALL_KELANTAN_PPS_CENTERS, JAJAHAN_CENTER_COORDS, SUBDISTRICT_COORDS } from '@/src/data/kelantanPpsCenters';
 import { DEFAULT_SENSOR_NODE, DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
@@ -372,7 +374,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     }))
   );
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [liveSensorData, setLiveSensorData] = useState<{ water_level: number; is_online?: boolean; status?: string | null }>({ water_level: 1.74, is_online: true });
+  const liveSensorData = useLiveSensor();
   const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [mapBounds, setMapBounds] = useState<LatLngBounds | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -430,42 +432,6 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       }
     };
     fetchZones();
-  }, [supabase]);
-
-  // Fetch & poll live sensor telemetry from DB
-  useEffect(() => {
-    const fetchSensor = async () => {
-      try {
-        const { data } = await supabase
-          .from('nadi_bencana_sensors')
-          .select('*')
-          .eq('name', DEFAULT_SENSOR_NODE)
-          .single();
-        if (data && data.water_level !== null && data.water_level !== undefined) {
-          setLiveSensorData(data);
-        }
-      } catch (err) {
-        console.warn('[CivicHeatMap] Sensor fetch notice:', err);
-      }
-    };
-
-    // Poll every 5s while the tab is visible; pause when hidden
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const start = () => {
-      fetchSensor();
-      if (!interval) interval = setInterval(fetchSensor, 5000);
-    };
-    const stop = () => {
-      clearInterval(interval);
-      interval = undefined;
-    };
-    const onVisibility = () => (document.visibilityState === 'visible' ? start() : stop());
-    if (document.visibilityState === 'visible') start();
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      stop();
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
   }, [supabase]);
 
   // Category filter state helpers: check if all categories are active
@@ -601,7 +567,7 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
     try {
       const { data: infraData } = await supabase
         .from('nadi_infra_reports')
-        .select('*')
+        .select('id, lat, lng, z_dropped, status, title, ai_analysis, created_at') // no photos: the map never shows them
         .in('status', ['pending', 'verified']) // resolved = fixed, rejected = spam
         .order('created_at', { ascending: false })
         .limit(200);
@@ -642,34 +608,6 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       }
     } catch (err) {
       console.warn('[CivicHeatMap] Infra reports fetch notice:', err);
-    }
-
-    // 3. Volunteer Jobs from Supabase
-    try {
-      const { data: jobsData } = await supabase
-        .from('nadi_bencana_jobs')
-        .select('*')
-        .limit(50);
-
-      if (jobsData) {
-        jobsData.forEach((j: any) => {
-          const lat = j.latitude || j.lat;
-          const lng = j.longitude || j.lng;
-          if (lat && lng) {
-            heatPoints.push({
-              lat: Number(lat),
-              lng: Number(lng),
-              type: 'volunteer',
-              label: j.title || j.name || (isMs ? 'Misi Sukarelawan' : 'Volunteer Task'),
-              sublabel: j.district || j.dist || j.area || '',
-              severity: 4,
-              jajahan: matchJajahan(j.district || j.dist || j.area, Number(lat), Number(lng)),
-            });
-          }
-        });
-      }
-    } catch (err) {
-      console.warn('[CivicHeatMap] Volunteer jobs fetch notice:', err);
     }
 
     // 4. Official PPS Evacuation Centers (All 600+ Real Kelantan Centers)
@@ -837,10 +775,6 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
       .channel('heatmap_realtime_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'nadi_infra_reports' }, () => {
         console.log('⚡ [CivicHeatMap] Live infra report change detected — updating map points');
-        loadHeatPoints();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'nadi_bencana_jobs' }, () => {
-        console.log('⚡ [CivicHeatMap] Live volunteer mission change detected — updating map points');
         loadHeatPoints();
       })
       .subscribe();
@@ -1352,25 +1286,33 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                             <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold">
                               <span className="flex items-center gap-1.5 text-purple-300">
                                 <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                                LORAWAN AS923 · 923 MHz
+                                ESP32 · WI-FI
                               </span>
-                              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> LIVE NODE
-                              </span>
+                              {liveSensorData.is_online ? (
+                                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> LIVE NODE
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400 font-bold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" /> OFFLINE
+                                </span>
+                              )}
                             </div>
 
                             {/* Water level display */}
                             <div className="flex items-baseline justify-between">
                               <div className="flex items-baseline gap-1.5">
                                 <span className="text-xl font-black text-purple-300">
-                                  {(liveSensorData?.water_level ?? 0.39).toFixed(2)}m
+                                  {liveSensorData.is_online ? `${liveSensorData.water_level.toFixed(2)}m` : '—'}
                                 </span>
-                                <span className="text-[10px] text-zinc-400">
-                                  ({Math.round((liveSensorData?.water_level ?? 0.39) * 100)} cm)
-                                </span>
+                                {liveSensorData.is_online && (
+                                  <span className="text-[10px] text-zinc-400">
+                                    ({Math.round(liveSensorData.water_level * 100)} cm)
+                                  </span>
+                                )}
                               </div>
                               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wide">
-                                {liveSensorData?.status ? liveSensorData.status : 'SELAMAT'}
+                                {liveSensorData.status}
                               </span>
                             </div>
 
@@ -1378,13 +1320,13 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
                             <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden border border-zinc-700">
                               <div
                                 className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                                style={{ width: `${Math.min(100, Math.max(10, ((liveSensorData?.water_level ?? 0.39) / 3.0) * 100))}%` }}
+                                style={{ width: `${liveSensorData.is_online ? Math.min(100, Math.max(10, (liveSensorData.water_level / FLOOD_DANGER_M) * 100)) : 0}%` }}
                               />
                             </div>
                             <div className="flex justify-between text-[8px] text-zinc-400 font-medium">
-                              <span>Biasa &lt;1.0m</span>
-                              <span className="text-amber-400">Amaran 3.0m</span>
-                              <span className="text-red-400 font-bold">Bahaya 5.0m</span>
+                              <span>Biasa &lt;{FLOOD_WARNING_M.toFixed(1)}m</span>
+                              <span className="text-amber-400">Amaran {FLOOD_WARNING_M.toFixed(1)}m</span>
+                              <span className="text-red-400 font-bold">Bahaya {FLOOD_DANGER_M.toFixed(1)}m</span>
                             </div>
 
                             {/* RF & Coverage Info */}

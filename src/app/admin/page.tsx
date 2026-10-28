@@ -2,14 +2,14 @@
  * Officer Review Page (/admin)
  *
  * Closes the citizen → officer loop: approve/reject PPS location corrections and
- * verify/resolve/reject Aduan reports. All authorization happens in /api/admin;
+ * verify/resolve/reject Aduan reports, approve/reject dialect corrections. All authorization happens in /api/admin;
  * this page only renders what that API returns for the caller's role.
  */
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, X, MapPin, ShieldCheck, Wrench, History } from 'lucide-react';
+import { ArrowLeft, Check, X, MapPin, ShieldCheck, Wrench, History, Languages } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { ALL_KELANTAN_PPS_CENTERS } from '@/src/data/kelantanPpsCenters';
 import { haversineKm, formatReportRelative } from '@/src/lib/format';
@@ -23,8 +23,9 @@ interface InfraReport {
     confidence_score: number | null; photo_url: string | null; created_at: string;
     ai_analysis: { damageType?: string; severityScore?: number; riskAssessment?: string; routingAgency?: string; originalText?: string } | null;
 }
+interface DialectCorrection { id: string; dialect_text: string; correct_meaning: string | null; region: string | null; created_at: string }
 interface AuditEntry { id: string; action: string; target_id: string; changes: { note?: string | null } | null; created_at: string }
-interface AdminData { role: string; pps: PpsCorrection[] | null; infra: InfraReport[] | null; audit: AuditEntry[] }
+interface AdminData { role: string; pps: PpsCorrection[] | null; infra: InfraReport[] | null; dialect: DialectCorrection[] | null; audit: AuditEntry[] }
 
 const ROLE_LABEL: Record<string, string> = {
     super_admin: 'Super Admin', bencana_officer: 'Pegawai Bencana', infra_officer: 'Pegawai Infra',
@@ -32,6 +33,7 @@ const ROLE_LABEL: Record<string, string> = {
 const ACTION_LABEL: Record<string, string> = {
     PPS_APPROVE: 'Lulus lokasi PPS', PPS_REJECT: 'Tolak lokasi PPS',
     INFRA_VERIFY: 'Sahkan aduan', INFRA_RESOLVE: 'Aduan selesai', INFRA_REJECT: 'Tolak aduan',
+    DIALECT_APPROVE: 'Lulus pembetulan dialek', DIALECT_REJECT: 'Tolak pembetulan dialek',
 };
 
 const mapsUrl = (lat: number, lng: number) => `https://www.google.com/maps?q=${lat},${lng}`;
@@ -54,7 +56,7 @@ export default function AdminPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const act = async (queue: 'pps' | 'infra', id: string, action: string) => {
+    const act = async (queue: 'pps' | 'infra' | 'dialect', id: string, action: string) => {
         const note = action === 'reject' ? window.prompt('Sebab penolakan (pilihan):') : null;
         if (note === null && action === 'reject') return; // cancelled
         setBusyId(id);
@@ -161,6 +163,22 @@ export default function AdminPage() {
                             </Card>
                         );
                     })}
+                </Section>
+            )}
+
+            {data.dialect && (
+                <Section icon={<Languages className="w-4 h-4" />} title="Pembetulan Dialek" count={data.dialect.length}>
+                    {data.dialect.length === 0 && <Empty />}
+                    {data.dialect.map(d => (
+                        <Card key={d.id}>
+                            <p className="text-xs text-[var(--text-muted)]">{d.region || 'kelantan'} · {formatReportRelative(d.created_at)}</p>
+                            <p className="text-sm break-words"><b>“{d.dialect_text}”</b> → {d.correct_meaning}</p>
+                            <Actions busy={busyId === d.id} buttons={[
+                                { label: 'Luluskan', tone: 'success', onClick: () => act('dialect', d.id, 'approve') },
+                                { label: 'Tolak', tone: 'danger', onClick: () => act('dialect', d.id, 'reject') },
+                            ]} />
+                        </Card>
+                    ))}
                 </Section>
             )}
 

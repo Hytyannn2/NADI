@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local tooling: pentest venv/runs and agent caches, not app code
+    "strix-env/**",
+    "strix_runs/**",
+    ".claude/**",
   ]),
 ]);
 

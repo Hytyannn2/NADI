@@ -1,7 +1,7 @@
 /**
  * AI Road Defect Vision Classifier
  * 
- * Analyzes dashcam road frames with Groq LLaMA Vision and calculates pothole
+ * Analyzes dashcam road frames with a Groq vision model and calculates pothole
  * dimensions by combining vision estimates with accelerometer physical drop data.
  */
 import { NextResponse } from 'next/server';
@@ -9,6 +9,10 @@ import Groq from 'groq-sdk';
 import { checkInfraVisionLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rateLimit';
 import { headers } from 'next/headers';
 import { requireServerAuth } from '@/src/lib/auth/serverAuth';
+
+// Groq retired llama-3.2-*-vision-preview (Apr 2025) and llama-4-scout (Jul 2026).
+// Check https://console.groq.com/docs/vision when this starts returning 404s.
+const VISION_MODEL = 'qwen/qwen3.8-27b';
 
 export async function POST(request: Request) {
   const headersList = await headers();
@@ -70,21 +74,11 @@ TASK & SCALING RULES:
 
     let responseText = '';
 
-    // Primary model: Llama 3.2 90B Vision (falls back to 11B Vision if unavailable)
-    try {
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content }],
-        model: 'llama-3.2-90b-vision-preview',
-      });
-      responseText = chatCompletion.choices[0]?.message?.content || '{}';
-    } catch (primaryErr) {
-      console.warn('[infra/vision] Primary 90B Vision error, trying 11B Vision fallback:', primaryErr instanceof Error ? primaryErr.message : primaryErr);
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content }],
-        model: 'llama-3.2-11b-vision-preview',
-      });
-      responseText = chatCompletion.choices[0]?.message?.content || '{}';
-    }
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content }],
+      model: VISION_MODEL,
+    });
+    responseText = chatCompletion.choices[0]?.message?.content || '{}';
 
     // Strips markdown code fences and parses JSON output
     const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim();
@@ -94,9 +88,9 @@ TASK & SCALING RULES:
     }
     const analysis = JSON.parse(jsonMatch[0]);
 
-    // Calculates physical depth from accelerometer vertical drop magnitude (g)
-    const physicalDropG = Math.abs(zDropped || magnitudeG || 1.2);
-    analysis.estimatedDepthCm = parseFloat((3.5 + physicalDropG * 2.8).toFixed(1));
+    // Depth only from a real accelerometer drop; a photo alone can't measure depth
+    const physicalDropG = Math.abs(Number(zDropped) || Number(magnitudeG) || 0);
+    analysis.estimatedDepthCm = physicalDropG > 0 ? parseFloat((3.5 + physicalDropG * 2.8).toFixed(1)) : null;
 
     // Calculates surface diameter and area based on 3.0m standard lane width
     if (!analysis.estimatedDiameterCm) {
@@ -104,7 +98,9 @@ TASK & SCALING RULES:
       analysis.estimatedDiameterCm = Math.round((widthPct / 100) * 300);
     }
     analysis.estimatedAreaM2 = parseFloat((Math.PI * Math.pow(analysis.estimatedDiameterCm / 200, 2)).toFixed(2));
-    analysis.estimatedDimensions = `~${analysis.estimatedDiameterCm}cm lebar, ~${analysis.estimatedDepthCm}cm dalam`;
+    analysis.estimatedDimensions = analysis.estimatedDepthCm !== null
+      ? `~${analysis.estimatedDiameterCm}cm lebar, ~${analysis.estimatedDepthCm}cm dalam`
+      : `~${analysis.estimatedDiameterCm}cm lebar`;
 
     // Analysis only. The caller (AduanView) saves the report as 'pending'; officers verify via /admin.
     return NextResponse.json({ success: true, analysis });

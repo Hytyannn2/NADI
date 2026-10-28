@@ -10,18 +10,19 @@
  * 4. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env.local.
  */
 
+import { hoursToDanger } from './flood';
+
 const TELEGRAM_API = 'https://api.telegram.org/bot';
 
 interface TelegramAlertData {
     sensorName: string;
     location: string;
-    waterLevel: number;
+    waterLevelM: number; // metres
     status: 'warning' | 'danger';
-    riseRate?: number;
+    riseRate?: number; // cm/hour
     batteryPct?: number | null;
     temperatureC?: number | null;
     rssiDbm?: number | null;
-    timeToDanger?: string;
 }
 
 /**
@@ -41,9 +42,9 @@ export async function sendTelegramAlert(data: TelegramAlertData): Promise<boolea
     const icon = isDanger ? '' : '';
     const statusLabel = isDanger ? 'BAHAYA' : 'AMARAN AWAL';
 
-    // Calculates estimated hours until water level reaches danger threshold (120 cm)
-    const timeEstimate = data.riseRate && data.riseRate > 0 && data.waterLevel < 120
-        ? ` Anggaran ${Math.max(1, Math.round((120 - data.waterLevel) / data.riseRate))} jam ke paras bahaya`
+    const eta = hoursToDanger(data.waterLevelM, data.riseRate ?? 0);
+    const timeEstimate = eta !== null
+        ? ` Anggaran ${Math.max(1, Math.round(eta))} jam ke paras bahaya`
         : null;
 
     // Formats alert message in Malay for local community readability
@@ -52,7 +53,7 @@ export async function sendTelegramAlert(data: TelegramAlertData): Promise<boolea
         ``,
         ` ${data.sensorName}`,
         ` ${data.location}`,
-        ` Paras air: ${data.waterLevel} cm`,
+        ` Paras air: ${Math.round(data.waterLevelM * 100)} cm`,
     ];
 
     if (data.riseRate !== undefined && data.riseRate !== 0) {

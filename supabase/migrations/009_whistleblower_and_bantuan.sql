@@ -89,6 +89,43 @@ DROP POLICY IF EXISTS "anon read sensors" ON public.nadi_bencana_sensors;
 DROP POLICY IF EXISTS "Public read sensors" ON public.nadi_bencana_sensors;
 CREATE POLICY "anon read sensors" ON public.nadi_bencana_sensors FOR SELECT USING (true);
 
+-- Komuniti tables: originally created in the Supabase dashboard, never in a migration,
+-- so a fresh database failed here and in 011. Columns match the live tables as of
+-- 2026-10-28; 020 adds district/state/lat/lng/applyUrl. No-op on the live DB.
+CREATE TABLE IF NOT EXISTS public.nadi_jobs (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  employer TEXT,
+  location TEXT,
+  "wageMYR" REAL,
+  "wageType" TEXT,
+  category TEXT,
+  description TEXT,
+  whatsapp TEXT,
+  "isFairWage" BOOLEAN,
+  "postedAt" BIGINT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  spam_reports INTEGER DEFAULT 0,
+  hidden BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.nadi_vendors (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  category TEXT,
+  location TEXT,
+  description TEXT,
+  whatsapp TEXT,
+  rating REAL,
+  reviews INTEGER DEFAULT 0,
+  "operatingHours" TEXT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  spam_reports INTEGER DEFAULT 0,
+  hidden BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE IF EXISTS public.nadi_vendors ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon read vendors" ON public.nadi_vendors;
 DROP POLICY IF EXISTS "Public read vendors" ON public.nadi_vendors;
