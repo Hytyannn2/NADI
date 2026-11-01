@@ -40,6 +40,8 @@ import {
     Heart,
     ShieldAlert,
     Trash2,
+    ThumbsUp,
+    ThumbsDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalVoiceMic from '@/src/components/GlobalVoiceMic';
@@ -62,10 +64,6 @@ export interface CivicCategoryConfig {
     id: CivicCategory;
     label: string;
     image: string;
-    color: string;
-    activeBg: string;
-    activeBorder: string;
-    activeGlow: string;
     keywords: string[];
     suggestedAgency: string; // Automatic agency routing: JKR, JPS, TNB, Alam Flora, Landskap, PBT
 }
@@ -75,10 +73,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'jalan',
         label: 'Jalan & Lubang',
         image: '/images/aduan/pothole.png',
-        color: 'text-amber-400',
-        activeBg: 'bg-amber-500/15',
-        activeBorder: 'border-amber-500/30',
-        activeGlow: 'shadow-[0_0_12px_rgba(245,158,11,0.15)]',
         keywords: ['jalan', 'lubang', 'berlubang', 'tar', 'pothole', 'pecah', 'lerek', 'kelebok', 'perok', 'retak', 'bonggol', 'mendap', 'lekuk', 'lopak', 'turap'],
         suggestedAgency: 'JKR / PBT'
     },
@@ -86,10 +80,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'saliran',
         label: 'Longkang & Saliran',
         image: '/images/aduan/flood.png',
-        color: 'text-sky-400',
-        activeBg: 'bg-sky-500/15',
-        activeBorder: 'border-sky-500/30',
-        activeGlow: 'shadow-[0_0_12px_rgba(56,189,248,0.15)]',
         keywords: ['longkang', 'parit', 'saliran', 'tersumbat', 'melimpah', 'parit busuk', 'air bertakung', 'takung', 'lumpur', 'culvert', 'kotoran parit', 'tali air', 'parit pecah', 'jentik-jentik', 'pembiakan aedes', 'takungan nyamuk'],
         suggestedAgency: 'JPS / PBT'
     },
@@ -97,10 +87,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'lampu',
         label: 'Lampu & Elektrik',
         image: '/images/aduan/electricity.png',
-        color: 'text-yellow-400',
-        activeBg: 'bg-yellow-500/15',
-        activeBorder: 'border-yellow-500/30',
-        activeGlow: 'shadow-[0_0_12px_rgba(234,179,8,0.15)]',
         keywords: ['lampu', 'tiang', 'gelap', 'padam', 'mentol', 'wayar', 'kabel', 'elektrik', 'tnb', 'putus', 'terpadam', 'lampu jalan', 'fius', 'tiang condong'],
         suggestedAgency: 'TNB / PBT'
     },
@@ -108,10 +94,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'sampah',
         label: 'Sampah & Pembuangan',
         image: '/images/aduan/garbage.png',
-        color: 'text-emerald-400',
-        activeBg: 'bg-emerald-500/15',
-        activeBorder: 'border-emerald-500/30',
-        activeGlow: 'shadow-[0_0_12px_rgba(16,185,129,0.15)]',
         keywords: ['sampah', 'bau', 'longgokan', 'busuk', 'kotor', 'sisa', 'pembuangan', 'haram', 'bangkai', 'lalat', 'timbunan', 'pungutan', 'tong sampah', 'tong penuh'],
         suggestedAgency: 'Alam Flora / PBT'
     },
@@ -119,10 +101,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'pokok',
         label: 'Pokok & Landskap',
         image: '/images/aduan/treeNew.png',
-        color: 'text-green-400',
-        activeBg: 'bg-green-500/15',
-        activeBorder: 'border-green-500/30',
-        activeGlow: 'shadow-[0_0_12px_rgba(34,197,94,0.15)]',
         keywords: ['pokok', 'dahan', 'tumbang', 'reput', 'rumput', 'semak', 'ranting', 'lalang', 'dahan patah', 'pokok condong', 'cantasan', 'hutan kecil', 'semak samun', 'pokok mati'],
         suggestedAgency: 'Jabatan Landskap / PBT'
     },
@@ -130,10 +108,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'kemudahan',
         label: 'Kemudahan Awam',
         image: '/images/aduan/infrastructure.png',
-        color: 'text-purple-400',
-        activeBg: 'bg-purple-500/15',
-        activeBorder: 'border-purple-500/30',
-        activeGlow: 'shadow-[0_0_12px_rgba(168,85,247,0.15)]',
         keywords: ['perhentian bas', 'bus stop', 'taman permainan', 'pagar', 'tandas', 'papan tanda', 'signboard', 'jejantas', 'benches', 'kerusi awam', 'balairaya', 'kemudahan', 'pagar rosak', 'taman awam'],
         suggestedAgency: 'PBT'
     },
@@ -141,10 +115,6 @@ export const CIVIC_CATEGORIES: CivicCategoryConfig[] = [
         id: 'lain',
         label: 'Lain-lain',
         image: '/images/aduan/checklist.png',
-        color: 'text-zinc-300',
-        activeBg: 'bg-zinc-700/25',
-        activeBorder: 'border-zinc-500/40',
-        activeGlow: 'shadow-[0_0_12px_rgba(161,161,170,0.15)]',
         keywords: ['haiwan', 'anjing', 'monyet', 'kucing terbiar', 'kacau ganggu', 'lain', 'cadangan', 'umum', 'bantuan', 'denggi', 'dengue', 'aedes', 'fogging', 'semburan', 'wabak', 'vektor', 'kesihatan', 'penyakit', 'keracunan', 'anjing gila', 'rabies'],
         suggestedAgency: 'Pejabat Kesihatan Daerah (PKD) / PBT'
     }
@@ -179,7 +149,7 @@ export function detectEmergencyProtocol(text: string): EmergencyProtocol | null 
         return {
             id: 'medical',
             title: 'Kecemasan Perubatan & Nyawa (Sakit Jantung / Kemalangan)',
-            subtitle: 'Situasi perubatan akut mengancam nyawa. Jangan tunggu aduan sivik — hubungi Ambulans 999 sekarang juga!',
+            subtitle: 'Situasi perubatan akut mengancam nyawa. Jangan tunggu aduan sivik: hubungi Ambulans 999 sekarang juga!',
             actionLabel: 'Hubungi Ambulans (999)',
             primaryPhone: '999',
             primaryTel: 'tel:999',
@@ -1311,7 +1281,7 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
     useEffect(() => { setMounted(true); }, []);
 
     return (
-        <div className="p-5 min-h-full w-full flex flex-col relative z-0">
+        <div className="p-5 min-h-full w-full max-w-3xl mx-auto flex flex-col relative z-0">
 
             {/* Edge-to-edge Fullscreen Dashcam Portal */}
             {mounted && createPortal(
@@ -1329,26 +1299,29 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
+                                transition={{ duration: 0.22 }}
                                 className="fixed inset-0 z-[9999999] pointer-events-none"
                             >
-                                <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-                                    <div className="flex items-center gap-2.5 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                                        <span className="text-xs font-bold text-white uppercase tracking-widest">Mod Pemanduan (AR HUD)</span>
+                                <div className="absolute top-0 left-0 right-0 px-4 pt-safe pb-3 flex items-center justify-between gap-3 pointer-events-auto bg-overlay text-overlay-ink border-b border-overlay-rule">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-pill bg-danger" />
+                                        <span className="text-sm font-semibold">Mod pemanduan (AR HUD)</span>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={handleToggleDashcam}
-                                        className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 active:scale-90 transition-transform text-white font-bold text-sm"
+                                        aria-label="Tutup mod pemanduan"
+                                        className="icon-btn text-overlay-ink hover:bg-overlay-rule hover:text-overlay-ink"
                                     >
-                                        ✕
+                                        <X className="w-5 h-5" />
                                     </button>
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                                <div className="absolute bottom-0 left-0 right-0 px-4 pt-3 pb-safe bg-overlay text-overlay-ink border-t border-overlay-rule">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <Shield className="w-4 h-4 text-[#10B981]" />
-                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Mod Privasi Aktif</span>
+                                        <Shield className="w-4 h-4" />
+                                        <span className="text-sm font-semibold">Mod privasi aktif</span>
                                     </div>
-                                    <p className="text-xs text-zinc-300 font-medium leading-relaxed max-w-lg">
+                                    <p className="max-w-lg text-sm text-overlay-muted">
                                         Hanya merakam 1 bingkai automatik semasa hentakan dikesan. Tiada video berterusan disimpan.
                                     </p>
                                 </div>
@@ -1362,24 +1335,14 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             {/* ================================================================= */}
             {/* 1. PAGE HEADER                                                   */}
             {/* ================================================================= */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="mb-4 sm:mb-5"
-            >
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-[#C5A367]/10 text-[#C5A367] border border-[#C5A367]/20">
-                        {t('aduan.badge') || 'Sistem Sivik & Aduan Warga'}
-                    </span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-100 to-zinc-400">
+            <div className="mb-6">
+                <h2 className="text-2xl">
                     {t('aduan.title') || 'Aduan Sivik'}
-                </h1>
-                <p className="text-xs sm:text-sm font-medium mt-1 text-zinc-400">
-                    {t('aduan.subtitle') || 'NADI mendengar. Lapor apa sahaja — jalan rosak, longkang tersumbat, lampu terpadam, pokok tumbang, atau sampah.'}
+                </h2>
+                <p className="mt-2 text-md text-ink-2">
+                    {t('aduan.subtitle') || 'NADI mendengar. Lapor apa sahaja: jalan rosak, longkang tersumbat, lampu terpadam, pokok tumbang, atau sampah.'}
                 </p>
-            </motion.div>
+            </div>
 
             {/* Hidden file inputs for photo attachment */}
             <input
@@ -1401,25 +1364,17 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             {/* ================================================================= */}
             {/* 2. UNIVERSAL COMPOSER WITH 7 CATEGORIES & EMERGENCY HANDOFF        */}
             {/* ================================================================= */}
-            <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
+            <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onPaste={handlePaste}
-                className={`mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-b from-[#121217] via-[#0E0E12] to-[#0A0A0D] border transition-all shadow-[0_12px_40px_rgba(0,0,0,0.5)] relative overflow-hidden shrink-0 ${
-                    isDragging ? 'border-[#C5A367] ring-2 ring-[#C5A367]/30 bg-[#C5A367]/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
-                }`}
+                className={`well mb-8 p-4 sm:p-5 shrink-0 ${isDragging ? 'border-accent' : ''}`}
             >
-                {/* Subtle Ambient Radial Glow */}
-                <div className="absolute top-0 right-1/4 w-72 h-36 bg-[#C5A367]/5 blur-3xl pointer-events-none rounded-full" />
-
-                {/* 7 Citizen-Eye Category Chips - Auto fit & wrap without horizontal scroll */}
-                <div className="relative z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 mb-3">
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider mr-0.5 shrink-0 flex items-center gap-1">
-                        <Compass className="w-3 h-3 text-[#C5A367]" /> Kategori:
+                {/* 7 Citizen-Eye Category Chips */}
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <span className="mr-1 flex items-center gap-1 text-sm text-muted">
+                        <Compass className="w-4 h-4" /> Kategori:
                     </span>
                     {CIVIC_CATEGORIES.map(cat => {
                         const isSelected = selectedCategory === cat.id;
@@ -1427,22 +1382,14 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                             <button
                                 key={cat.id}
                                 type="button"
+                                aria-pressed={isSelected}
                                 onClick={() => {
                                     setSelectedCategory(cat.id);
                                     setHasManuallySelectedCategory(true);
                                 }}
-                                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition-all border active:scale-95 ${
-                                    isSelected
-                                        ? `${cat.activeBg} ${cat.color} ${cat.activeBorder} ${cat.activeGlow} font-bold ring-1 ring-white/10`
-                                        : 'bg-zinc-900/80 border-zinc-800/90 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/70 hover:border-zinc-700'
-                                }`}
+                                className={`tag ${isSelected ? 'tag--on' : ''}`}
                             >
-                                <img
-                                    src={cat.image}
-                                    alt={cat.label}
-                                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0 rounded"
-                                />
-                                <span className="whitespace-nowrap">{cat.label}</span>
+                                {cat.label}
                             </button>
                         );
                     })}
@@ -1450,20 +1397,21 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                 {/* Attached Photo Preview */}
                 {attachedPhotoBase64 && (
-                    <div className="relative z-10 mb-3 p-3 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 flex items-center justify-between gap-3 shadow-inner">
-                        <div className="flex items-center gap-3">
-                            <img src={attachedPhotoBase64} alt="Lampiran Gambar" className="w-12 h-12 object-cover rounded-xl border border-zinc-800 shadow" />
-                            <div>
-                                <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                                    <ImageIcon className="w-3.5 h-3.5 text-[#C5A367]" /> Foto Dilampirkan
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <img src={attachedPhotoBase64} alt="Lampiran Gambar" className="w-12 h-12 shrink-0 object-cover rounded-card" />
+                            <div className="min-w-0">
+                                <p className="flex items-center gap-1 text-sm font-semibold">
+                                    <ImageIcon className="w-4 h-4" /> Foto Dilampirkan
                                 </p>
-                                <p className="text-[10px] text-zinc-400">Analisis AI Vision akan diproses semasa hantar</p>
+                                <p className="text-sm text-muted">Analisis AI Vision akan diproses semasa hantar</p>
                             </div>
                         </div>
                         <button
                             type="button"
                             onClick={() => setAttachedPhotoBase64(null)}
-                            className="w-7 h-7 rounded-full bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20 flex items-center justify-center transition-all shrink-0 active:scale-90"
+                            className="icon-btn"
+                            aria-label="Padam Foto"
                             title="Padam Foto"
                         >
                             <X className="w-4 h-4" />
@@ -1471,150 +1419,120 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                     </div>
                 )}
 
-                {/* Clean, Simple Input Field */}
-                <div className="relative z-10 mb-3">
-                    <textarea
-                        rows={2}
-                        value={manualDescription}
-                        onChange={(e) => handleDescriptionChange(e.target.value)}
-                        placeholder="Taip atau cakap aduan anda di sini..."
-                        className="w-full min-h-[96px] text-xs sm:text-sm rounded-2xl p-3.5 sm:p-4 bg-[#060608]/90 border border-zinc-800/70 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#C5A367]/60 focus:ring-1 focus:ring-[#C5A367]/20 transition-all resize-none leading-relaxed shadow-inner"
-                        disabled={isParsingVoice}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                                handleSendAduan();
-                            }
-                        }}
-                    />
-                </div>
+                {/* Input Field */}
+                <textarea
+                    rows={2}
+                    value={manualDescription}
+                    onChange={(e) => handleDescriptionChange(e.target.value)}
+                    placeholder="Taip atau cakap aduan anda di sini…"
+                    aria-label="Keterangan aduan"
+                    className="field"
+                    disabled={isParsingVoice}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            handleSendAduan();
+                        }
+                    }}
+                />
 
                 {/* REAL-TIME SMART EMERGENCY CALL BANNER */}
-                <AnimatePresence>
-                    {activeEmergencyProtocol && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="relative z-10 mb-3 overflow-hidden"
-                        >
-                            <div className={`p-4 rounded-2xl border shadow-xl ${
-                                activeEmergencyProtocol.id === 'medical'
-                                    ? 'bg-gradient-to-r from-red-950/90 via-red-900/40 to-red-950/90 border-red-500/50 shadow-red-950/40'
-                                    : activeEmergencyProtocol.id === 'electrical'
-                                    ? 'bg-gradient-to-r from-amber-950/90 via-orange-950/40 to-amber-950/90 border-orange-500/50 shadow-orange-950/40'
-                                    : activeEmergencyProtocol.id === 'dengue'
-                                    ? 'bg-gradient-to-r from-rose-950/90 via-red-950/40 to-rose-950/90 border-rose-500/50 shadow-rose-950/40'
-                                    : 'bg-gradient-to-r from-red-950/90 via-red-900/40 to-red-950/90 border-red-500/50 shadow-red-950/40'
-                            }`}>
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                                            {activeEmergencyProtocol.id === 'medical' && <Heart className="w-5 h-5 text-red-400 animate-pulse" />}
-                                            {activeEmergencyProtocol.id === 'electrical' && <Zap className="w-5 h-5 text-amber-400 animate-bounce" />}
-                                            {activeEmergencyProtocol.id === 'dengue' && <ShieldAlert className="w-5 h-5 text-rose-400 animate-pulse" />}
-                                            {activeEmergencyProtocol.id === 'disaster' && <AlertTriangle className="w-5 h-5 text-red-400 animate-bounce" />}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
-                                                    {activeEmergencyProtocol.badgeText}
-                                                </span>
-                                                <span className="text-[11px] font-bold text-zinc-300">
-                                                    {activeEmergencyProtocol.agencyName}
-                                                </span>
-                                            </div>
-                                            <h4 className="text-sm font-black text-white leading-snug">
-                                                {activeEmergencyProtocol.title}
-                                            </h4>
-                                            <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
-                                                {activeEmergencyProtocol.subtitle}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Direct Call Action Buttons */}
-                                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-                                        <a
-                                            href={activeEmergencyProtocol.primaryTel}
-                                            onClick={() => { try { playAlertSound('beep'); } catch {} }}
-                                            className="px-4 py-2.5 rounded-xl font-black text-xs text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg flex items-center gap-2 ring-2 ring-red-500/30 animate-pulse whitespace-nowrap"
-                                        >
-                                            <Phone className="w-3.5 h-3.5" />
-                                            <span>{activeEmergencyProtocol.primaryLabel}</span>
-                                        </a>
-
-                                        {activeEmergencyProtocol.secondaryTel && (
-                                            <a
-                                                href={activeEmergencyProtocol.secondaryTel}
-                                                onClick={() => { try { playAlertSound('beep'); } catch {} }}
-                                                className="px-3.5 py-2.5 rounded-xl font-bold text-xs text-zinc-200 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 active:scale-95 transition-all flex items-center gap-1.5 whitespace-nowrap"
-                                            >
-                                                <Phone className="w-3.5 h-3.5 text-amber-400" />
-                                                <span>{activeEmergencyProtocol.secondaryLabel}</span>
-                                            </a>
-                                        )}
-
-                                        {activeEmergencyProtocol.canOpenBencana && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (onNavigateToBencana) onNavigateToBencana();
-                                                    else window.location.href = '/?tab=bencana';
-                                                }}
-                                                className="px-3.5 py-2.5 rounded-xl font-bold text-xs text-white bg-red-700/80 hover:bg-red-600 border border-red-500/40 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap"
-                                            >
-                                                <span>Buka Bencana</span>
-                                                <span>➔</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Safety Protocol Quick Checklist */}
-                                <div className="pt-2.5 border-t border-white/10 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-300">
-                                    <span className="font-bold text-white flex items-center gap-1">
-                                        ⚠️ Tindakan Segera:
-                                    </span>
-                                    {activeEmergencyProtocol.instructions.map((inst, idx) => (
-                                        <span key={idx} className="flex items-center gap-1">
-                                            <span className="text-red-400 font-bold">•</span> {inst}
-                                        </span>
-                                    ))}
-                                </div>
+                {activeEmergencyProtocol && (
+                    <div role="alert" className="mt-4 flex flex-col gap-4 p-4 rounded-control bg-danger-soft text-danger-soft-ink">
+                        <div className="flex items-start gap-3">
+                            {activeEmergencyProtocol.id === 'medical' && <Heart className="w-5 h-5 shrink-0 mt-0.5" />}
+                            {activeEmergencyProtocol.id === 'electrical' && <Zap className="w-5 h-5 shrink-0 mt-0.5" />}
+                            {activeEmergencyProtocol.id === 'dengue' && <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />}
+                            {activeEmergencyProtocol.id === 'disaster' && <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />}
+                            <div className="flex min-w-0 flex-col gap-1">
+                                <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                                    <span className="font-semibold">{activeEmergencyProtocol.badgeText}</span>
+                                    <span>{activeEmergencyProtocol.agencyName}</span>
+                                </p>
+                                <h3 className="text-lg">
+                                    {activeEmergencyProtocol.title}
+                                </h3>
+                                <p className="text-md">
+                                    {activeEmergencyProtocol.subtitle}
+                                </p>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        </div>
+
+                        {/* Direct Call Action Buttons */}
+                        <div className="flex flex-wrap gap-2">
+                            <a
+                                href={activeEmergencyProtocol.primaryTel}
+                                onClick={() => { try { playAlertSound('beep'); } catch {} }}
+                                className="btn btn--danger"
+                            >
+                                <Phone className="w-4 h-4" />
+                                <span>{activeEmergencyProtocol.primaryLabel}</span>
+                            </a>
+
+                            {activeEmergencyProtocol.secondaryTel && (
+                                <a
+                                    href={activeEmergencyProtocol.secondaryTel}
+                                    onClick={() => { try { playAlertSound('beep'); } catch {} }}
+                                    className="btn"
+                                >
+                                    <Phone className="w-4 h-4" />
+                                    <span>{activeEmergencyProtocol.secondaryLabel}</span>
+                                </a>
+                            )}
+
+                            {activeEmergencyProtocol.canOpenBencana && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onNavigateToBencana) onNavigateToBencana();
+                                        else window.location.href = '/?tab=bencana';
+                                    }}
+                                    className="btn"
+                                >
+                                    Buka Bencana
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Safety Protocol Quick Checklist */}
+                        <div>
+                            <p className="flex items-center gap-1 text-sm font-semibold">
+                                <AlertTriangle className="w-4 h-4" /> Tindakan Segera:
+                            </p>
+                            <ul className="mt-2 flex flex-col gap-1 text-md">
+                                {activeEmergencyProtocol.instructions.map((inst, idx) => (
+                                    <li key={idx} className="flex items-start gap-2">
+                                        <Check className="w-4 h-4 shrink-0 mt-1" />
+                                        <span>{inst}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
 
                 {/* Bottom Tools Row */}
-                <div className="relative z-10 flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-zinc-800/50">
-                    {/* Location Badge / Trigger & Error Feedback */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                <div className="mt-4 pt-4 border-t border-rule flex flex-wrap items-center justify-between gap-3">
+                    {/* Location Tag / Trigger & Error Feedback */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <button
                             type="button"
                             onClick={handleGetGps}
                             disabled={isGettingGps}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all shadow-sm active:scale-95 ${
-                                userGpsLocation
-                                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                                    : gpsErrorMessage
-                                    ? 'bg-red-500/10 border-red-500/30 text-red-300'
-                                    : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
-                            }`}
+                            className={`tag ${userGpsLocation ? 'tag--in' : ''}`}
                             title={userGpsLocation ? `Lokasi dikesan: ${userGpsLocation.label} (${userGpsLocation.lat}°, ${userGpsLocation.lng}°)` : "Kesan Lokasi GPS Peranti"}
                         >
                             {isGettingGps ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                                <Loader2 className="w-4 h-4 animate-spin keep-motion" />
                             ) : gpsErrorMessage ? (
-                                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                                <AlertCircle className="w-4 h-4" />
                             ) : (
-                                <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                                <MapPin className="w-4 h-4" />
                             )}
-                            <span className="truncate max-w-[190px] sm:max-w-[280px]">
-                                {userGpsLocation 
-                                    ? `📍 ${userGpsLocation.label}` 
-                                    : isGettingGps 
-                                    ? 'Mengesan GPS...' 
+                            <span className="truncate max-w-48 sm:max-w-72">
+                                {userGpsLocation
+                                    ? userGpsLocation.label
+                                    : isGettingGps
+                                    ? 'Mengesan GPS…'
                                     : 'Guna Lokasi Saya!'}
                             </span>
                         </button>
@@ -1625,40 +1543,35 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                     setUserGpsLocation(null);
                                     playAlertSound('beep');
                                 }}
-                                className="text-zinc-500 hover:text-zinc-300 text-xs px-1"
+                                className="icon-btn"
+                                aria-label="Reset Lokasi"
                                 title="Reset Lokasi"
                             >
-                                ✕
+                                <X className="w-4 h-4" />
                             </button>
                         )}
 
-                        {/* GPS Error Feedback Banner */}
-                        <AnimatePresence>
-                            {gpsErrorMessage && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -6, scale: 0.96 }}
-                                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                                    exit={{ opacity: 0, x: -6, scale: 0.96 }}
-                                    className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-red-950/90 border border-red-500/40 text-red-200 flex items-center gap-2 shadow-lg backdrop-blur-md"
+                        {/* GPS Error Feedback */}
+                        {gpsErrorMessage && (
+                            <p role="alert" className="flex items-center gap-1 text-sm text-danger">
+                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                <span>{gpsErrorMessage}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setGpsErrorMessage(null)}
+                                    className="icon-btn"
+                                    aria-label="Tutup amaran"
+                                    title="Tutup amaran"
                                 >
-                                    <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                                    <span>{gpsErrorMessage}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setGpsErrorMessage(null)}
-                                        className="text-zinc-400 hover:text-white px-0.5 text-xs"
-                                        title="Tutup amaran"
-                                    >
-                                        ✕
-                                    </button>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </p>
+                        )}
                     </div>
 
                     {/* Tools & Send Button */}
                     <div className="flex items-center gap-2">
-                        {/* Media Attachment Action Hub (+ button rotating to X) */}
+                        {/* Media Attachment Action Hub */}
                         <div className="relative">
                             <button
                                 type="button"
@@ -1666,22 +1579,12 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                     setIsMediaMenuOpen(!isMediaMenuOpen);
                                     try { playAlertSound('beep'); } catch {}
                                 }}
-                                className={`p-2.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center shrink-0 active:scale-95 ${
-                                    isMediaMenuOpen
-                                        ? 'bg-zinc-800 border-[#C5A367] text-[#C5A367] ring-2 ring-[#C5A367]/30 shadow-lg'
-                                        : attachedPhotoBase64
-                                        ? 'bg-[#C5A367]/20 border-[#C5A367] text-[#C5A367]'
-                                        : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
-                                }`}
+                                className="icon-btn"
+                                aria-expanded={isMediaMenuOpen}
+                                aria-label={isMediaMenuOpen ? "Tutup Pilihan Foto" : "Tambah Foto (Kamera / Galeri)"}
                                 title={isMediaMenuOpen ? "Tutup Pilihan Foto" : "Tambah Foto (Kamera / Galeri)"}
                             >
-                                <motion.div
-                                    animate={{ rotate: isMediaMenuOpen ? 45 : 0 }}
-                                    transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                                    className="flex items-center justify-center"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                </motion.div>
+                                {isMediaMenuOpen ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                             </button>
 
                             {/* Floating 2-choice Menu: Kamera & Galeri */}
@@ -1693,28 +1596,28 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                             onClick={() => setIsMediaMenuOpen(false)}
                                         />
                                         <motion.div
-                                            initial={{ opacity: 0, y: 8, scale: 0.92 }}
-                                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            exit={{ opacity: 0, y: 8, scale: 0.92 }}
-                                            transition={{ duration: 0.18, ease: 'easeOut' }}
-                                            className="absolute bottom-full mb-2.5 right-0 flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#0E0E13]/95 border border-zinc-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.65)] backdrop-blur-xl z-40 whitespace-nowrap"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.22 }}
+                                            className="absolute bottom-full right-0 mb-2 z-40 flex gap-1 p-1 bg-paper border border-rule shadow-card rounded-card"
                                         >
                                             <button
                                                 type="button"
                                                 onClick={handleTriggerCamera}
-                                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-emerald-500/15 border border-zinc-800/80 hover:border-emerald-500/40 text-zinc-200 hover:text-emerald-300 transition-all text-xs font-semibold active:scale-95 shadow-sm group"
+                                                className="btn btn--quiet"
                                                 title="Ambil gambar menggunakan kamera"
                                             >
-                                                <Camera className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                                <Camera className="w-4 h-4" />
                                                 <span>Kamera</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={handleTriggerGallery}
-                                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-sky-500/15 border border-zinc-800/80 hover:border-sky-500/40 text-zinc-200 hover:text-sky-300 transition-all text-xs font-semibold active:scale-95 shadow-sm group"
+                                                className="btn btn--quiet"
                                                 title="Muat naik gambar daripada galeri"
                                             >
-                                                <ImageIcon className="w-3.5 h-3.5 text-sky-400 group-hover:scale-110 transition-transform" />
+                                                <ImageIcon className="w-4 h-4" />
                                                 <span>Galeri</span>
                                             </button>
                                         </motion.div>
@@ -1732,91 +1635,66 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
 
                         {/* Primary Submit Button */}
                         <button
+                            type="button"
                             onClick={() => handleSendAduan(false)}
                             disabled={(!manualDescription.trim() && !attachedPhotoBase64) || isParsingVoice}
-                            className="px-5 py-2.5 rounded-xl text-xs font-bold text-black bg-gradient-to-r from-[#D4AF37] to-[#AA820A] hover:brightness-110 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-[0_4px_16px_rgba(212,175,55,0.25)] active:scale-95 shrink-0"
+                            className="btn btn--primary shrink-0 whitespace-nowrap"
                         >
                             {isParsingVoice ? (
                                 <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proses AI...
+                                    <Loader2 className="w-4 h-4 animate-spin keep-motion" /> Proses AI…
                                 </>
                             ) : (
                                 <>
-                                    <Send className="w-3.5 h-3.5" /> Hantar Aduan
+                                    <Send className="w-4 h-4" /> Hantar Aduan
                                 </>
                             )}
                         </button>
                     </div>
                 </div>
-            </motion.div>
+            </div>
 
             {/* ================================================================= */}
             {/* 3. CIVIC OUTCOME METRICS                                          */}
             {/* ================================================================= */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="bg-gradient-to-r from-[#0F0F14] via-[#121218] to-[#0F0F14] border border-zinc-800/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-xl shrink-0"
-            >
-                <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
-                    <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                        <div>
-                            <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-400 block mb-0.5">
-                                Aduan Diterima
-                            </span>
-                            <span className="text-xl font-bold text-white font-mono">{totalReports}</span>
-                        </div>
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <dl className="grid grid-cols-3 divide-x divide-rule">
+                    <div className="flex flex-col justify-between pr-4 sm:pr-6">
+                        <dt className="text-sm text-muted">Aduan Diterima</dt>
+                        <dd className="figure mt-1">{totalReports}</dd>
                     </div>
-
-                    <div className="w-px h-8 bg-zinc-800/80 hidden sm:block" />
-
-                    <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                        <div>
-                            <span className="text-[9px] uppercase font-bold tracking-widest text-emerald-400 block mb-0.5">
-                                Disahkan Pegawai
-                            </span>
-                            <span className="text-xl font-bold text-emerald-400 font-mono">{totalVerified}</span>
-                        </div>
+                    <div className="flex flex-col justify-between px-4 sm:px-6">
+                        <dt className="text-sm text-muted">Disahkan Pegawai</dt>
+                        <dd className="figure mt-1">{totalVerified}</dd>
                     </div>
-
-                    <div className="w-px h-8 bg-zinc-800/80 hidden sm:block" />
-
-                    <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#C5A367] shadow-[0_0_8px_rgba(197,163,103,0.5)]" />
-                        <div>
-                            <span className="text-[9px] uppercase font-bold tracking-widest text-[#C5A367] block mb-0.5">
-                                Selesai & Tindakan
-                            </span>
-                            <span className="text-xl font-bold text-[#C5A367] font-mono">{totalResolved}</span>
-                        </div>
+                    <div className="flex flex-col justify-between pl-4 sm:pl-6">
+                        <dt className="text-sm text-muted">Selesai & Tindakan</dt>
+                        <dd className="figure mt-1 text-accent">{totalResolved}</dd>
                     </div>
-                </div>
+                </dl>
 
                 {/* Mod Pemanduan Button */}
                 <button
+                    type="button"
                     onClick={handleToggleDashcam}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 transition-all active:scale-95 shadow-md ${
-                        dashcam.isDashcamEnabled
-                            ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-red-500/10'
-                            : 'bg-zinc-900/90 text-zinc-200 border-zinc-700/80 hover:border-[#C5A367]/50 hover:bg-zinc-800'
-                    }`}
+                    aria-pressed={dashcam.isDashcamEnabled}
+                    className="btn self-start sm:self-auto"
                 >
-                    <Video className="w-4 h-4 text-[#C5A367]" />
+                    <Video className="w-4 h-4" />
                     <span>Mod Pemanduan</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono font-bold">BETA</span>
+                    <span className="tag">Beta</span>
                 </button>
-            </motion.div>
+            </div>
 
             {/* Motion or Dashcam Errors */}
             {detector.motionError && (
-                <div className="rounded-2xl px-4 py-3 mb-4 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-between">
+                <div role="alert" className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-danger">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{detector.motionError}</span>
                     <button
+                        type="button"
                         onClick={() => detector.startDriving()}
-                        className="text-[10px] font-bold underline ml-2 hover:text-amber-300"
+                        className="btn btn--sm"
                     >
                         Aktifkan Sensor
                     </button>
@@ -1827,455 +1705,388 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             {/* 4. FEED FILTERS WITH 7 CITIZEN CATEGORIES                          */}
             {/* ================================================================= */}
             <div className="flex-1 pb-10">
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="flex items-center justify-between px-1 mb-5 flex-wrap gap-2"
-                >
-                    <span className="text-xs uppercase font-bold tracking-widest text-zinc-300">
-                        Senarai Aduan Kawasan
-                    </span>
-                    <div className="flex gap-1.5 flex-wrap pb-1">
+                <div className="mb-4 flex flex-col gap-3">
+                    <h3 className="text-lg">Senarai Aduan Kawasan</h3>
+                    <div className="flex flex-wrap gap-2">
                         <button
+                            type="button"
                             onClick={() => setFilter('all')}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all ${
-                                filter === 'all'
-                                    ? 'bg-zinc-800 border-zinc-600 text-zinc-100 font-bold shadow-md'
-                                    : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
-                            }`}
+                            aria-pressed={filter === 'all'}
+                            className={`tag ${filter === 'all' ? 'tag--on' : ''}`}
                         >
-                            SEMUA
+                            Semua
                         </button>
                         {CIVIC_CATEGORIES.map(cat => (
                             <button
                                 key={cat.id}
+                                type="button"
                                 onClick={() => setFilter(cat.id)}
-                                className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all flex items-center gap-1.5 ${
-                                    filter === cat.id
-                                        ? `${cat.activeBg} ${cat.color} ${cat.activeBorder} font-bold shadow-sm`
-                                        : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
-                                }`}
+                                aria-pressed={filter === cat.id}
+                                className={`tag capitalize ${filter === cat.id ? 'tag--on' : ''}`}
                             >
-                                <img
-                                    src={cat.image}
-                                    alt={cat.label}
-                                    className="w-3.5 h-3.5 object-contain shrink-0 rounded"
-                                />
-                                <span className="uppercase">{cat.id}</span>
+                                {cat.id}
                             </button>
                         ))}
                         <button
+                            type="button"
                             onClick={() => setFilter('verified')}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] border transition-all ${
-                                filter === 'verified'
-                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold shadow-md'
-                                    : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
-                            }`}
+                            aria-pressed={filter === 'verified'}
+                            className={`tag ${filter === 'verified' ? 'tag--on' : ''}`}
                         >
-                            ✓ DISAHKAN
+                            <Check className="w-3.5 h-3.5" /> Disahkan
                         </button>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* ================================================================= */}
-                {/* 5. ANOMALY CARDS FEED                                             */}
+                {/* 5. REPORT FEED                                                    */}
                 {/* ================================================================= */}
-                <div className="space-y-4">
-                    <AnimatePresence>
-                        {filteredAnomalies.map((a, i) => {
-                            const cat = resolveCategory(a);
-                            const catConfig = CIVIC_CATEGORIES.find(c => c.id === cat) || CIVIC_CATEGORIES[0];
+                <ul className="ruled">
+                    {filteredAnomalies.map((a) => {
+                        const cat = resolveCategory(a);
+                        const catConfig = CIVIC_CATEGORIES.find(c => c.id === cat) || CIVIC_CATEGORIES[0];
 
-                            return (
-                                <motion.div
-                                    key={a.id}
-                                    initial={{ opacity: 0, y: 15 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    transition={{ delay: i * 0.04 }}
-                                    className="bg-gradient-to-b from-[#111116] to-[#0A0A0D] border border-zinc-800/80 rounded-3xl p-5 shadow-xl space-y-4 hover:border-zinc-700 transition-all"
-                                >
-                                    {/* Header Row */}
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border p-2 shadow-inner ${
-                                                isConfirmed(a.status)
-                                                    ? 'bg-emerald-500/10 border-emerald-500/30'
-                                                    : 'bg-zinc-900/90 border-zinc-800'
-                                            }`}>
-                                                <img
-                                                    src={catConfig.image}
-                                                    alt={catConfig.label}
-                                                    className="w-full h-full object-contain drop-shadow"
-                                                />
+                        return (
+                            <li key={a.id} className="flex flex-col gap-3 py-5">
+                                {/* Head line: category, then status */}
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm font-semibold text-ink-2">{catConfig.label}</span>
+                                    <span className={`tag ${a.status === 'resolved' ? 'tag--in' : a.status === 'verified' ? '' : 'tag--out'}`}>
+                                        {isConfirmed(a.status) && <Check className="w-3.5 h-3.5" />}
+                                        {STATUS_LABEL[a.status]}
+                                    </span>
+                                </div>
+
+                                <h4 className="text-md font-semibold">
+                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Lokasi Kejadian'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
+                                </h4>
+
+                                {/* Metadata */}
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+                                    <span className="inline-flex items-center gap-1">
+                                        <Building2 className="w-4 h-4" />
+                                        Agensi: {a.suggestedAgency || a.aiAnalysis?.routingAgency || catConfig.suggestedAgency}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                        <Clock className="w-4 h-4" />
+                                        {formatReportRelative(a.createdAt || a.time, true, 'Baru sahaja')}
+                                    </span>
+                                    {a.createdAt && (
+                                        <span>{formatReportExact(a.createdAt, true)}</span>
+                                    )}
+                                    {a.source === 'voice' ? (
+                                        <span className="inline-flex items-center gap-1">
+                                            <Mic className="w-4 h-4" /> Input Suara
+                                        </span>
+                                    ) : a.photoBase64 ? (
+                                        <span className="inline-flex items-center gap-1">
+                                            <ImageIcon className="w-4 h-4" /> Bukti Bergambar
+                                        </span>
+                                    ) : (
+                                        <span>Laporan Teks</span>
+                                    )}
+                                    {a.urgency && (
+                                        <span className={a.urgency === 'High' ? 'tag tag--warn' : undefined}>
+                                            Keutamaan: {a.urgency === 'High' ? 'Tinggi' : a.urgency === 'Medium' ? 'Sederhana' : 'Biasa'}
+                                        </span>
+                                    )}
+                                    {a.confidenceScore != null && a.confidenceScore > 0 && (
+                                        <span className="inline-flex items-center gap-1">
+                                            <Shield className="w-4 h-4" />Keyakinan AI {a.confidenceScore}%
+                                        </span>
+                                    )}
+                                    {a.detectedDialect && (
+                                        <span>
+                                            Dialek <span className="capitalize">{a.detectedDialect}</span>
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Speech & Dialect Area */}
+                                {a.originalText && (
+                                    <div className="well flex flex-col gap-4 p-4">
+                                        <div>
+                                            <div className="mb-1 flex items-center justify-between gap-2">
+                                                <span className="text-sm text-muted">Keterangan Warga</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
+                                                    className="btn btn--quiet btn--sm"
+                                                    title="Sintesis Suara AI"
+                                                >
+                                                    <Volume2 className="w-4 h-4" /> Sebutan AI
+                                                </button>
                                             </div>
-                                            <div>
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border flex items-center gap-1 ${catConfig.activeBg} ${catConfig.color} ${catConfig.activeBorder}`}>
-                                                        <img src={catConfig.image} alt="" className="w-2.5 h-2.5 object-contain" />
-                                                        {catConfig.label}
-                                                    </span>
-                                                    <span className="text-[9px] font-mono text-zinc-400 font-bold bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-800 flex items-center gap-1">
-                                                        <Building2 className="w-2.5 h-2.5 text-[#C5A367]" />
-                                                        Agensi: {a.suggestedAgency || a.aiAnalysis?.routingAgency || catConfig.suggestedAgency}
-                                                    </span>
-                                                    <span className="text-[10px] font-mono text-zinc-300 font-medium bg-zinc-900/90 px-2.5 py-0.5 rounded-md border border-zinc-800 flex items-center gap-1.5 shadow-sm">
-                                                        <Clock className="w-3 h-3 text-[#C5A367]" />
-                                                        <span className="font-semibold text-white">{formatReportRelative(a.createdAt || a.time, true, 'Baru sahaja')}</span>
-                                                        {a.createdAt && (
-                                                            <>
-                                                                <span className="text-zinc-600">•</span>
-                                                                <span className="text-zinc-400">{formatReportExact(a.createdAt, true)}</span>
-                                                            </>
-                                                        )}
-                                                    </span>
-                                                </div>
-                                                <h4 className="font-sans text-base font-bold text-white leading-snug mt-1">
-                                                    {a.title || (a.aiAnalysis?.damageType ? `${a.aiAnalysis.damageType} @ ${a.locationName || 'Lokasi Kejadian'}` : `Laporan @ ${typeof a.lat === 'number' ? a.lat.toFixed(4) : a.lat}°, ${typeof a.lng === 'number' ? a.lng.toFixed(4) : a.lng}°`)}
-                                                </h4>
-                                            </div>
+                                            <p className="text-md">
+                                                &quot;{a.originalText}&quot;
+                                            </p>
                                         </div>
 
-                                        {/* Status Pill */}
-                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${
-                                            isConfirmed(a.status)
-                                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                                                : 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
-                                        }`}>
-                                            {isConfirmed(a.status) ? `✓ ${STATUS_LABEL[a.status]}` : STATUS_LABEL[a.status]}
-                                        </span>
-                                    </div>
-
-                                    {/* Metadata Badges */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {a.source === 'voice' ? (
-                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-300 flex items-center gap-1">
-                                                <Mic className="w-3 h-3" /> Input Suara
-                                            </span>
-                                        ) : a.photoBase64 ? (
-                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400 flex items-center gap-1">
-                                                <ImageIcon className="w-3 h-3" /> Bukti Bergambar
-                                            </span>
-                                        ) : (
-                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-zinc-800/80 text-zinc-400 border-zinc-700">
-                                                Laporan Teks
-                                            </span>
-                                        )}
-
-                                        {a.urgency && (
-                                            <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
-                                                a.urgency === 'High'
-                                                    ? 'bg-red-500/20 border-red-500/30 text-red-400'
-                                                    : a.urgency === 'Medium'
-                                                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                                                    : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                                            }`}>
-                                                Keutamaan: {a.urgency === 'High' ? 'Tinggi' : a.urgency === 'Medium' ? 'Sederhana' : 'Biasa'}
-                                            </span>
-                                        )}
-
-                                        {a.confidenceScore != null && a.confidenceScore > 0 && (
-                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                                                <Shield className="w-3 h-3 inline mr-1" />Keyakinan AI {a.confidenceScore}%
-                                            </span>
-                                        )}
-
-                                        {a.detectedDialect && (
-                                            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                                                Dialek {a.detectedDialect}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Speech & Dialect Card Area */}
-                                    {a.originalText && (
-                                        <div className="p-4 rounded-2xl bg-[#060609] border border-zinc-800/70 space-y-3 shadow-inner">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 block">
-                                                        💬 Keterangan Warga
-                                                    </span>
-                                                    <button
-                                                        onClick={() => speakDialect(a.userIntendedMeaning || a.originalText || '')}
-                                                        className="flex items-center gap-1 text-[9px] font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95"
-                                                        title="Sintesis Suara AI"
-                                                    >
-                                                        <Volume2 className="w-3 h-3" /> Sebutan AI
-                                                    </button>
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-zinc-200 font-medium italic bg-zinc-900/70 p-3 rounded-xl border border-zinc-800/60">
-                                                    "{a.originalText}"
+                                        {a.userIntendedMeaning && (
+                                            <div className="pt-4 border-t border-rule">
+                                                <span className="mb-1 flex items-center gap-1 text-sm text-muted">
+                                                    <Sparkles className="w-4 h-4" /> Rumusan / Maksud AI (NLP)
+                                                </span>
+                                                <p className="text-md text-ink-2">
+                                                    {a.userIntendedMeaning}
                                                 </p>
                                             </div>
+                                        )}
 
-                                            {a.userIntendedMeaning && (
-                                                <div className="pt-2 border-t border-zinc-800/80">
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-1">
-                                                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Rumusan / Maksud AI (NLP)
+                                        {/* Dialect Feedback Loop */}
+                                        <div className="pt-4 border-t border-rule flex flex-wrap items-center justify-between gap-2">
+                                            <span className="text-sm text-muted">
+                                                Adakah Terjemahan AI Tepat?
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                {a.feedbackGiven === 'up' ? (
+                                                    <span className="tag tag--in">
+                                                        <Check className="w-3.5 h-3.5" /> Disahkan Tepat
                                                     </span>
-                                                    <p className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
-                                                        {a.userIntendedMeaning}
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            {/* Dialect Feedback Loop */}
-                                            <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2">
-                                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                                    Adakah Terjemahan AI Tepat?
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    {a.feedbackGiven === 'up' ? (
-                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                                                            <Check className="w-3 h-3 text-emerald-400" /> Disahkan Tepat
-                                                        </span>
-                                                    ) : a.feedbackGiven === 'down' ? (
-                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
-                                                            ⚠️ Maklum Balas Dihantar
-                                                        </span>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={async () => {
-                                                                    setAnomalies(prev => {
-                                                                        const updated = prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' as const } : x);
-                                                                        persistAnomaliesAndFeedback(updated, a.id, {
-                                                                            feedbackGiven: 'up',
-                                                                            originalText: a.originalText || a.title || ''
-                                                                        });
-                                                                        return updated;
+                                                ) : a.feedbackGiven === 'down' ? (
+                                                    <span className="tag">
+                                                        Maklum Balas Dihantar
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                setAnomalies(prev => {
+                                                                    const updated = prev.map(x => x.id === a.id ? { ...x, feedbackGiven: 'up' as const } : x);
+                                                                    persistAnomaliesAndFeedback(updated, a.id, {
+                                                                        feedbackGiven: 'up',
+                                                                        originalText: a.originalText || a.title || ''
                                                                     });
-                                                                    try {
-                                                                        await fetch('/api/dialect/feedback', {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
-                                                                            body: JSON.stringify({
-                                                                                dialectText: a.originalText || a.title || '',
-                                                                                correctMeaning: a.translatedText || '',
-                                                                                region: a.detectedDialect || 'kelantan',
-                                                                                reportId: a.id,
-                                                                                isPositive: true
-                                                                            })
-                                                                        });
-                                                                    } catch {}
-                                                                }}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase active:scale-95 hover:bg-emerald-500/20"
-                                                            >
-                                                                👍 Tepat
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setFeedbackModalAnomaly(a);
-                                                                    setFeedbackCorrectText(a.translatedText || a.originalText || '');
-                                                                }}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase active:scale-95 hover:bg-amber-500/20"
-                                                            >
-                                                                👎 Salah
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                                    return updated;
+                                                                });
+                                                                try {
+                                                                    await fetch('/api/dialect/feedback', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
+                                                                        body: JSON.stringify({
+                                                                            dialectText: a.originalText || a.title || '',
+                                                                            correctMeaning: a.translatedText || '',
+                                                                            region: a.detectedDialect || 'kelantan',
+                                                                            reportId: a.id,
+                                                                            isPositive: true
+                                                                        })
+                                                                    });
+                                                                } catch {}
+                                                            }}
+                                                            className="btn btn--sm"
+                                                        >
+                                                            <ThumbsUp className="w-4 h-4" /> Tepat
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFeedbackModalAnomaly(a);
+                                                                setFeedbackCorrectText(a.translatedText || a.originalText || '');
+                                                            }}
+                                                            className="btn btn--sm"
+                                                        >
+                                                            <ThumbsDown className="w-4 h-4" /> Salah
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    {/* Action Buttons Footer */}
-                                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 flex-wrap gap-2">
-                                        <div className="flex items-center gap-2 relative">
-                                            {/* Direct Share Button */}
+                                {/* Action Buttons */}
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        {/* Direct Share Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleShareReport(a)}
+                                            className="btn btn--sm"
+                                            title="Kongsi Aduan Ini"
+                                        >
+                                            <Share2 className="w-4 h-4" /> Kongsi
+                                        </button>
+
+                                        {/* Action Menu with Export PDF & Copy */}
+                                        <div className="relative">
                                             <button
-                                                onClick={() => handleShareReport(a)}
-                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-95"
-                                                title="Kongsi Aduan Ini"
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveMenuReportId(activeMenuReportId === a.id ? null : a.id);
+                                                }}
+                                                className="icon-btn"
+                                                aria-label="Tindakan Tambahan"
+                                                aria-expanded={activeMenuReportId === a.id}
+                                                title="Tindakan Tambahan"
                                             >
-                                                <Share2 className="w-3.5 h-3.5" /> Kongsi
+                                                <MoreHorizontal className="w-5 h-5" />
                                             </button>
 
-                                            {/* Action Menu (...) with Export PDF & Copy */}
-                                            <div className="relative">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setActiveMenuReportId(activeMenuReportId === a.id ? null : a.id);
-                                                    }}
-                                                    className="flex items-center justify-center w-8 h-8 rounded-xl bg-zinc-800/70 border border-zinc-700/60 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all active:scale-95"
-                                                    title="Tindakan Tambahan"
-                                                >
-                                                    <MoreHorizontal className="w-4 h-4" />
-                                                </button>
-
-                                                {activeMenuReportId === a.id && (
-                                                    <>
-                                                        <div
-                                                            className="fixed inset-0 z-40"
+                                            {activeMenuReportId === a.id && (
+                                                <>
+                                                    <div
+                                                        className="fixed inset-0 z-40"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveMenuReportId(null);
+                                                        }}
+                                                    />
+                                                    <div className="absolute left-0 bottom-full mb-2 w-52 z-50 flex flex-col p-1 bg-paper border border-rule shadow-card rounded-card">
+                                                        <button
+                                                            type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                generateAduanPdf(a);
                                                                 setActiveMenuReportId(null);
                                                             }}
-                                                        />
-                                                        <div className="absolute left-0 bottom-full mb-2 w-48 bg-[#121217] border border-zinc-800 rounded-2xl shadow-2xl p-1.5 z-50 text-left animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                                            className="btn btn--quiet btn--block justify-start"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                            <span>Export PDF (PBT)</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCopyReport(a);
+                                                                setActiveMenuReportId(null);
+                                                            }}
+                                                            className="btn btn--quiet btn--block justify-start"
+                                                        >
+                                                            <Copy className="w-4 h-4" />
+                                                            <span>Salin Butiran</span>
+                                                        </button>
+                                                        <div className="mt-1 pt-1 border-t border-rule">
                                                             <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    generateAduanPdf(a);
-                                                                    setActiveMenuReportId(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors"
-                                                            >
-                                                                <FileText className="w-3.5 h-3.5 text-purple-400" />
-                                                                <span>Export PDF (PBT)</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleCopyReport(a);
-                                                                    setActiveMenuReportId(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors"
-                                                            >
-                                                                <Copy className="w-3.5 h-3.5 text-emerald-400" />
-                                                                <span>Salin Butiran</span>
-                                                            </button>
-                                                            <button
+                                                                type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     handleDeleteReport(a);
                                                                     setActiveMenuReportId(null);
                                                                 }}
-                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-colors border-t border-zinc-800/60 mt-1 pt-2"
+                                                                className="btn btn--quiet btn--block justify-start text-danger"
                                                             >
-                                                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                                                <Trash2 className="w-4 h-4" />
                                                                 <span>Padam Aduan</span>
                                                             </button>
                                                         </div>
-                                                    </>
-                                                )}
-                                            </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-
-                                        {a.aiAnalysis && (
-                                            <button
-                                                onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
-                                                className="p-2 text-zinc-400 hover:text-white transition-colors"
-                                                title={a.expanded ? 'Tutup Perincian' : 'Buka Perincian'}
-                                            >
-                                                {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                                            </button>
-                                        )}
                                     </div>
 
-                                    {/* AI Analysis Dropdown */}
-                                    <AnimatePresence>
-                                        {a.aiAnalysis && a.expanded && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="overflow-hidden"
-                                            >
-                                                <div className="px-5 pb-5 pt-2 border-t border-zinc-800/50 space-y-3">
-                                                    {a.photoBase64 && (
-                                                        <div className="rounded-2xl overflow-hidden border border-zinc-800 h-32">
-                                                            <img src={a.photoBase64} alt="Bukti" className="w-full h-full object-cover" />
-                                                        </div>
-                                                    )}
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {a.aiAnalysis.severityScore > 0 && (
-                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                                                                {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Tahap {a.aiAnalysis.severityScore}/5)
-                                                            </span>
-                                                        )}
-                                                        {a.aiAnalysis.routingAgency && (
-                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-300 flex items-center gap-1">
-                                                                <Building2 className="w-3 h-3" /> Agensi: {a.aiAnalysis.routingAgency}
-                                                            </span>
-                                                        )}
-                                                        {a.aiAnalysis.recommendedAction && (
-                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border bg-zinc-800/50 border-zinc-700 text-zinc-300">
-                                                                {a.aiAnalysis.recommendedAction}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                    {a.aiAnalysis && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setAnomalies(prev => prev.map(x => x.id === a.id ? { ...x, expanded: !x.expanded } : x))}
+                                            className="icon-btn"
+                                            aria-label={a.expanded ? 'Tutup Perincian' : 'Buka Perincian'}
+                                            aria-expanded={!!a.expanded}
+                                            title={a.expanded ? 'Tutup Perincian' : 'Buka Perincian'}
+                                        >
+                                            {a.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                        </button>
+                                    )}
+                                </div>
 
-                                                    {a.aiAnalysis.riskAssessment && (
-                                                        <p className="text-xs text-zinc-300 font-medium leading-relaxed bg-[#0A0A0C] rounded-xl p-3 border border-zinc-800/50">
-                                                            <span className="text-zinc-100 font-bold">Analisis Risiko: </span>{a.aiAnalysis.riskAssessment}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </motion.div>
+                                {/* AI Analysis */}
+                                {a.aiAnalysis && a.expanded && (
+                                    <div className="pt-4 border-t border-rule flex flex-col gap-3">
+                                        {a.photoBase64 && (
+                                            <img src={a.photoBase64} alt="Bukti" className="h-32 w-full max-w-sm object-cover rounded-card" />
                                         )}
-                                    </AnimatePresence>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-2">
+                                            {a.aiAnalysis.severityScore > 0 && (
+                                                <span>
+                                                    {a.aiAnalysis.severityLabel || a.aiAnalysis.damageType} (Tahap {a.aiAnalysis.severityScore}/5)
+                                                </span>
+                                            )}
+                                            {a.aiAnalysis.routingAgency && (
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Building2 className="w-4 h-4" /> Agensi: {a.aiAnalysis.routingAgency}
+                                                </span>
+                                            )}
+                                            {a.aiAnalysis.recommendedAction && (
+                                                <span>{a.aiAnalysis.recommendedAction}</span>
+                                            )}
+                                        </div>
 
-                    {/* ============================================================= */}
-                    {/* 6. REFINED EMPTY STATE                                        */}
-                    {/* ============================================================= */}
-                    {filteredAnomalies.length === 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-center py-12 px-6 bg-gradient-to-b from-[#101014] to-[#0A0A0C] border border-dashed border-zinc-800/80 rounded-3xl space-y-4 shadow-xl relative overflow-hidden my-4"
-                        >
-                            <div className="w-14 h-14 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center shadow-lg mx-auto">
-                                <Layers className="w-7 h-7 text-[#C5A367]" />
-                            </div>
+                                        {a.aiAnalysis.riskAssessment && (
+                                            <p className="text-md text-ink-2">
+                                                <span className="font-semibold text-ink">Analisis Risiko: </span>{a.aiAnalysis.riskAssessment}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
 
-                            <h4 className="font-sans text-lg font-bold text-white tracking-tight">
-                                Jom Bantu Jaga Kawasan Kita!
-                            </h4>
-
-                            <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed font-medium">
-                                Belum ada aduan bagi kategori ini. Taip atau rakam suara anda di ruangan atas untuk menyalurkan aduan pertama kawasan anda kepada pihak berkuasa.
-                            </p>
-                        </motion.div>
-                    )}
-                </div>
+                {/* ============================================================= */}
+                {/* 6. EMPTY STATE                                                */}
+                {/* ============================================================= */}
+                {filteredAnomalies.length === 0 && (
+                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                        <Layers className="w-6 h-6 text-muted" />
+                        <h4 className="text-md font-semibold">
+                            Jom Bantu Jaga Kawasan Kita!
+                        </h4>
+                        <p className="max-w-md text-md text-ink-2">
+                            Belum ada aduan bagi kategori ini. Taip atau rakam suara anda di ruangan atas untuk menyalurkan aduan pertama kawasan anda kepada pihak berkuasa.
+                        </p>
+                    </div>
+                )}
 
                 {/* View Footer */}
-                <div className="mt-auto pt-8 text-center pb-2 text-[10px] text-zinc-600 font-medium">
-                    <span>NADI SIVIK • PLATFORM KOMUNITI & RESPONS BENCANA</span>
+                <div className="mt-auto pt-8 pb-2 flex flex-col items-center gap-1 text-center text-sm text-muted">
+                    <span>NADI Sivik</span>
+                    <span>Platform komuniti & respons bencana</span>
                 </div>
             </div>
 
             {/* ================================================================= */}
-            {/* 7. COPIED TOAST NOTIFICATION                                      */}
+            {/* 7. TOAST NOTIFICATIONS                                            */}
             {/* ================================================================= */}
             {mounted && typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     {copiedToast && (
                         <motion.div
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-emerald-500 text-black px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-emerald-400/50 backdrop-blur-md"
+                            role="status"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] flex items-center gap-2 px-4 py-3 rounded-control shadow-card bg-ink text-paper text-sm font-semibold"
                         >
-                            <Check className="w-4 h-4 text-black" /> Butiran aduan berjaya disalin ke papan keratan!
+                            <Check className="w-4 h-4 shrink-0" /> Butiran aduan berjaya disalin ke papan keratan!
                         </motion.div>
                     )}
                     {deletedToast && (
                         <motion.div
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-rose-600 text-white px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-rose-400/40 backdrop-blur-md"
+                            role="status"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] flex items-center gap-2 px-4 py-3 rounded-control shadow-card bg-ink text-paper text-sm font-semibold"
                         >
-                            <Trash2 className="w-4 h-4 text-white" /> Rekod aduan telah berjaya dipadam!
+                            <Trash2 className="w-4 h-4 shrink-0" /> Rekod aduan telah berjaya dipadam!
                         </motion.div>
                     )}
                     {deleteErrorToast && (
                         <motion.div
                             role="alert"
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] bg-zinc-900 text-rose-300 px-5 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 border border-rose-500/50 backdrop-blur-md"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[999999] flex items-center gap-2 px-4 py-3 rounded-control shadow-card bg-danger-soft text-danger-soft-ink text-sm font-semibold"
                         >
-                            <AlertTriangle className="w-4 h-4 text-rose-400" /> Gagal memadam aduan — tiada kebenaran atau ralat rangkaian.
+                            <AlertTriangle className="w-4 h-4 shrink-0" /> Gagal memadam aduan: tiada kebenaran atau ralat rangkaian.
                         </motion.div>
                     )}
                 </AnimatePresence>,
@@ -2288,76 +2099,88 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             {mounted && typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     {feedbackModalAnomaly && (
-                        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                className="bg-[#0A0A0C] border-2 border-purple-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-white"
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-scrim"
+                        >
+                            <div
+                                role="dialog"
+                                aria-label="Bantu AI belajar dialek"
+                                className="w-full max-w-sm max-h-full overflow-y-auto flex flex-col gap-4 p-6 bg-paper border border-rule rounded-card shadow-card"
                             >
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
-                                        <Sparkles className="w-3.5 h-3.5 text-purple-400" /> BANTU AI BELAJAR DIALEK
-                                    </span>
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-lg">Bantu AI belajar dialek</h3>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             setFeedbackModalAnomaly(null);
                                             setFeedbackCorrectText('');
                                         }}
-                                        className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400"
+                                        className="icon-btn"
+                                        aria-label="Tutup"
                                     >
-                                        ✕
+                                        <X className="w-5 h-5" />
                                     </button>
                                 </div>
 
-                                <p className="text-xs text-zinc-400 mb-3">
+                                <p className="text-md text-ink-2">
                                     Adakah terjemahan AI kurang tepat? Masukkan maksud sebenar untuk melatih enjin dialek NADI:
                                 </p>
 
-                                <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 mb-3 space-y-1">
-                                    <span className="text-[9px] text-zinc-500 font-bold uppercase block">Ayat Asal Warga ({feedbackModalAnomaly.detectedDialect || 'Kelantan'}):</span>
-                                    <span className="text-xs text-emerald-400 font-medium">"{feedbackModalAnomaly.originalText || feedbackModalAnomaly.title}"</span>
+                                <div className="well p-3">
+                                    <p className="text-sm text-muted">
+                                        Ayat Asal Warga (<span className="capitalize">{feedbackModalAnomaly.detectedDialect || 'Kelantan'}</span>):
+                                    </p>
+                                    <p className="mt-1 text-md">&quot;{feedbackModalAnomaly.originalText || feedbackModalAnomaly.title}&quot;</p>
                                 </div>
 
-                                <div className="space-y-1 mb-4">
-                                    <label className="text-[9px] text-zinc-400 font-bold uppercase block">Maksud Sebenar:</label>
+                                <div>
+                                    <label className="label" htmlFor="aduan-maksud-sebenar">Maksud Sebenar:</label>
                                     <textarea
+                                        id="aduan-maksud-sebenar"
                                         value={feedbackCorrectText}
                                         onChange={(e) => setFeedbackCorrectText(e.target.value)}
                                         rows={3}
-                                        placeholder="Taip maksud sebenar di sini..."
-                                        className="w-full text-xs rounded-xl p-3 bg-zinc-950 border border-zinc-800 text-zinc-200 outline-none focus:border-purple-500 transition-colors"
+                                        placeholder="Taip maksud sebenar di sini…"
+                                        className="field"
                                     />
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="flex flex-col gap-2">
                                     <button
+                                        type="button"
+                                        className="btn btn--block"
                                         onClick={() => handleSendFeedback(false)}
                                         disabled={!feedbackCorrectText.trim() || isSubmittingFeedback}
-                                        className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-purple-500 transition-all disabled:opacity-50"
                                     >
                                         {isSubmittingFeedback ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 animate-spin" /> Menghantar...
+                                                <Loader2 className="w-4 h-4 animate-spin keep-motion" /> Menghantar…
                                             </>
                                         ) : feedbackSuccessToast ? (
-                                            <>✓ AI Berjaya Dikemaskini!</>
+                                            <>
+                                                <Check className="w-4 h-4" /> AI Berjaya Dikemaskini!
+                                            </>
                                         ) : (
                                             <>
-                                                <Send className="w-3.5 h-3.5" /> Hantar Terjemahan & Ajar AI
+                                                <Send className="w-4 h-4" /> Hantar Terjemahan & Ajar AI
                                             </>
                                         )}
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleSendFeedback(true)}
                                         disabled={isSubmittingFeedback}
-                                        className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all"
+                                        className="btn btn--quiet btn--block"
                                     >
                                         Langkau
                                     </button>
                                 </div>
-                            </motion.div>
-                        </div>
+                            </div>
+                        </motion.div>
                     )}
                 </AnimatePresence>,
                 document.body
@@ -2369,102 +2192,105 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             {mounted && typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     {interceptEmergency && (
-                        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                className="w-full max-w-lg rounded-3xl bg-[#111116] border border-red-500/50 p-6 shadow-[0_0_60px_rgba(239,68,68,0.3)] relative overflow-hidden text-white"
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-scrim"
+                        >
+                            <div
+                                role="dialog"
+                                aria-label={interceptEmergency.title}
+                                className="w-full max-w-lg max-h-full overflow-y-auto flex flex-col gap-5 p-6 bg-paper border border-rule rounded-card shadow-card"
                             >
-                                {/* Glow Background */}
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 blur-3xl pointer-events-none rounded-full" />
-
                                 {/* Header */}
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 shrink-0 shadow-inner">
-                                        <Phone className="w-7 h-7 animate-pulse" />
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-red-600 text-white shadow-sm">
-                                            {interceptEmergency.badgeText}
-                                        </span>
-                                        <h3 className="text-xl font-extrabold text-white mt-1 leading-snug">
+                                <div className="flex items-start gap-3">
+                                    <Phone className="w-6 h-6 shrink-0 mt-1 text-danger" />
+                                    <div className="flex min-w-0 flex-col gap-2">
+                                        <h3 className="text-lg">
                                             {interceptEmergency.title}
                                         </h3>
-                                        <p className="text-xs text-zinc-400">
-                                            {interceptEmergency.agencyName}
+                                        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+                                            <span className="tag tag--danger">{interceptEmergency.badgeText}</span>
+                                            <span>{interceptEmergency.agencyName}</span>
                                         </p>
                                     </div>
                                 </div>
 
                                 {/* Warning message */}
-                                <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 mb-5">
-                                    <p className="text-xs sm:text-sm text-red-200 leading-relaxed font-medium">
-                                        ⚠️ <strong>PENTING:</strong> Aduan awam melalui aplikasi NADI memerlukan masa pemprosesan pegawai bertugas dan <strong>BUKAN saluran respons kecemasan segera</strong>.
+                                <div className="flex flex-col gap-2 p-4 rounded-control bg-danger-soft text-danger-soft-ink">
+                                    <p className="flex items-start gap-2 text-md">
+                                        <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                                        <span>
+                                            <strong>PENTING:</strong> Aduan awam melalui aplikasi NADI memerlukan masa pemprosesan pegawai bertugas dan <strong>BUKAN saluran respons kecemasan segera</strong>.
+                                        </span>
                                     </p>
-                                    <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
+                                    <p className="text-sm">
                                         Situasi ini memerlukan bantuan penyelamat atau tindakan teknikal serta-merta. Sila <strong>hubungi nombor kecemasan sekarang</strong> sebelum menunggu laporan diproses.
                                     </p>
                                 </div>
 
                                 {/* Safety instructions */}
-                                <div className="mb-5 space-y-1.5 text-xs text-zinc-300 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
-                                    <p className="font-bold text-white text-[11px] uppercase tracking-wider mb-1">
+                                <div>
+                                    <p className="mb-2 text-sm font-semibold">
                                         Langkah Keselamatan Segera:
                                     </p>
-                                    {interceptEmergency.instructions.map((step, idx) => (
-                                        <p key={idx} className="flex items-start gap-2">
-                                            <span className="text-red-400 font-bold">✓</span>
-                                            <span>{step}</span>
-                                        </p>
-                                    ))}
+                                    <ul className="flex flex-col gap-2 text-md">
+                                        {interceptEmergency.instructions.map((step, idx) => (
+                                            <li key={idx} className="flex items-start gap-2">
+                                                <Check className="w-4 h-4 shrink-0 mt-1" />
+                                                <span>{step}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
 
                                 {/* Direct Calling Buttons */}
-                                <div className="space-y-2.5 mb-4">
+                                <div className="flex flex-col gap-2">
                                     <a
                                         href={interceptEmergency.primaryTel}
                                         onClick={() => setInterceptEmergency(null)}
-                                        className="w-full py-3.5 px-5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(239,68,68,0.35)] ring-2 ring-red-500/40 animate-pulse"
+                                        className="btn btn--danger btn--block whitespace-normal py-2 text-center"
                                     >
-                                        <Phone className="w-5 h-5" />
-                                        <span>HUBUNGI SEGERA: {interceptEmergency.primaryPhone} ({interceptEmergency.primaryLabel})</span>
+                                        <Phone className="w-4 h-4 shrink-0" />
+                                        <span>Hubungi segera: {interceptEmergency.primaryPhone} ({interceptEmergency.primaryLabel})</span>
                                     </a>
 
                                     {interceptEmergency.secondaryTel && (
                                         <a
                                             href={interceptEmergency.secondaryTel}
                                             onClick={() => setInterceptEmergency(null)}
-                                            className="w-full py-3 px-5 rounded-2xl font-bold text-xs text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                            className="btn btn--block whitespace-normal py-2 text-center"
                                         >
-                                            <Phone className="w-4 h-4 text-amber-400" />
-                                            <span>HUBUNGI TALIAN KEDUA: {interceptEmergency.secondaryPhone} ({interceptEmergency.secondaryLabel})</span>
+                                            <Phone className="w-4 h-4 shrink-0" />
+                                            <span>Hubungi talian kedua: {interceptEmergency.secondaryPhone} ({interceptEmergency.secondaryLabel})</span>
                                         </a>
                                     )}
                                 </div>
 
                                 {/* Secondary Actions */}
-                                <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-rule">
                                     <button
                                         type="button"
                                         onClick={() => setInterceptEmergency(null)}
-                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                        className="btn btn--quiet"
                                     >
                                         Tutup & Buat Panggilan
                                     </button>
                                     <button
                                         type="button"
+                                        className="btn"
                                         onClick={() => {
                                             setInterceptEmergency(null);
                                             handleSendAduan(true);
                                         }}
-                                        className="px-4 py-2 rounded-xl text-xs font-bold text-[#C5A367] bg-[#C5A367]/10 hover:bg-[#C5A367]/20 border border-[#C5A367]/30 transition-all active:scale-95"
                                     >
-                                        Simpan Rekod Aduan Sahaja ➔
+                                        Simpan Rekod Aduan Sahaja
                                     </button>
                                 </div>
-                            </motion.div>
-                        </div>
+                            </div>
+                        </motion.div>
                     )}
                 </AnimatePresence>,
                 document.body
@@ -2476,35 +2302,37 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
             {mounted && typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     {isLiveCameraOpen && (
-                        <div className="fixed inset-0 z-[999998] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.94, y: 16 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.94, y: 16 }}
-                                transition={{ duration: 0.22 }}
-                                className="relative w-full max-w-lg bg-[#0D0D12] border border-zinc-700/80 rounded-3xl overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.85)] flex flex-col"
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="fixed inset-0 z-[999998] flex items-center justify-center p-4 bg-scrim"
+                        >
+                            <div
+                                role="dialog"
+                                aria-label="Kamera Langsung (Live Camera)"
+                                className="relative w-full max-w-lg flex flex-col overflow-hidden bg-overlay text-overlay-ink border border-overlay-rule rounded-card shadow-card"
                             >
                                 {/* Header */}
-                                <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/80 bg-zinc-950/60">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                            <Camera className="w-4 h-4 text-emerald-400" />
-                                            Kamera Langsung (Live Camera)
-                                        </h3>
-                                    </div>
+                                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-overlay-rule">
+                                    <h3 className="flex items-center gap-2 text-lg">
+                                        <Camera className="w-5 h-5" />
+                                        Kamera Langsung (Live Camera)
+                                    </h3>
                                     <button
                                         type="button"
                                         onClick={stopLiveCamera}
-                                        className="p-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                                        className="icon-btn text-overlay-ink hover:bg-overlay-rule hover:text-overlay-ink"
+                                        aria-label="Tutup Kamera"
                                         title="Tutup Kamera"
                                     >
-                                        <X className="w-4 h-4" />
+                                        <X className="w-5 h-5" />
                                     </button>
                                 </div>
 
                                 {/* Viewfinder / Video Stream */}
-                                <div className="relative aspect-[4/3] bg-black overflow-hidden flex items-center justify-center">
+                                <div className="relative aspect-4/3 bg-overlay overflow-hidden flex items-center justify-center">
                                     <video
                                         ref={liveCameraVideoRef}
                                         autoPlay
@@ -2514,31 +2342,29 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                     />
 
                                     {/* Viewfinder Target Reticles */}
-                                    <div className="absolute inset-8 pointer-events-none border border-white/20 rounded-2xl flex items-center justify-center">
-                                        {/* Corner markings */}
-                                        <div className="absolute -top-1 -left-1 w-5 h-5 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
-                                        <div className="absolute -top-1 -right-1 w-5 h-5 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
-                                        <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
-                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
-                                        
+                                    <div className="absolute inset-8 pointer-events-none flex items-center justify-center">
+                                        <div className="absolute -top-1 -left-1 w-5 h-5 border-t-2 border-l-2 border-overlay-ink rounded-tl-control" />
+                                        <div className="absolute -top-1 -right-1 w-5 h-5 border-t-2 border-r-2 border-overlay-ink rounded-tr-control" />
+                                        <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-2 border-l-2 border-overlay-ink rounded-bl-control" />
+                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-2 border-r-2 border-overlay-ink rounded-br-control" />
+
                                         {/* Center Crosshair */}
-                                        <div className="w-8 h-0.5 bg-emerald-400/60" />
-                                        <div className="h-8 w-0.5 bg-emerald-400/60 absolute" />
+                                        <div className="w-8 h-0.5 bg-overlay-muted" />
+                                        <div className="absolute h-8 w-0.5 bg-overlay-muted" />
                                     </div>
 
                                     {/* Status Badge */}
-                                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-medium text-emerald-300 flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    <div className="absolute top-3 left-3 px-3 py-1 rounded-pill bg-overlay text-overlay-ink border border-overlay-rule text-sm">
                                         Sedia Tangkap Gambar
                                     </div>
                                 </div>
 
                                 {/* Controls */}
-                                <div className="p-4 bg-zinc-950/90 border-t border-zinc-800/80 flex items-center justify-between gap-4">
+                                <div className="flex items-center justify-between gap-4 p-4 border-t border-overlay-rule">
                                     <button
                                         type="button"
                                         onClick={stopLiveCamera}
-                                        className="px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all active:scale-95 cursor-pointer"
+                                        className="btn bg-transparent border-overlay-rule text-overlay-ink hover:bg-overlay-rule"
                                     >
                                         Batal
                                     </button>
@@ -2547,14 +2373,15 @@ export default function AduanView({ onNavigateToBencana }: AduanViewProps = {}) 
                                     <button
                                         type="button"
                                         onClick={snapLivePhoto}
-                                        className="group flex items-center gap-2.5 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs shadow-[0_4px_20px_rgba(16,185,129,0.35)] transition-all active:scale-95 cursor-pointer"
+                                        aria-label="Tangkap Gambar"
+                                        className="btn bg-overlay-ink border-overlay-ink text-overlay hover:bg-overlay-muted hover:border-overlay-muted"
                                     >
-                                        <div className="w-3.5 h-3.5 rounded-full border-2 border-black group-hover:scale-110 transition-transform" />
+                                        <span className="w-4 h-4 rounded-pill border-2 border-current" />
                                         <span>Tangkap Gambar</span>
                                     </button>
                                 </div>
-                            </motion.div>
-                        </div>
+                            </div>
+                        </motion.div>
                     )}
                 </AnimatePresence>,
                 document.body

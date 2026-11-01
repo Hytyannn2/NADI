@@ -1,0 +1,203 @@
+@theme static {
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.728rem;
+  --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem;
+  --text-display: 1.728rem;
+  --text-section: 1.2rem;
+  --text-title: 1rem;
+  --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --text-figure: 2.488rem;
+  --color-paper: oklch(99.5% 0.003 100);
+  --color-paper-2: oklch(97% 0.004 100);
+  --color-paper-3: oklch(94% 0.006 100);
+  --color-ink: oklch(16% 0 0);
+  --color-ink-2: oklch(28% 0 0);
+  --color-muted: oklch(44% 0 0);
+  --color-rule: oklch(89% 0.004 100);
+  --color-rule-2: oklch(93.5% 0.003 100);
+  /* teal hue 187 is read from public/logo.png (its middle stop, #54C8BD) */
+  --color-accent: oklch(50% 0.095 187);
+  --color-accent-ink: oklch(99.5% 0.003 100);
+  --color-accent-soft: oklch(93% 0.05 187);
+  --color-accent-soft-ink: oklch(27% 0.045 187);
+  --color-focus: oklch(50% 0.095 187);
+  --color-success: var(--color-accent);
+  --color-success-soft: var(--color-accent-soft);
+  --color-success-soft-ink: var(--color-accent-soft-ink);
+  /* hazard scale: state only (river level, SOS, alerts), never a surface */
+  --color-warning: oklch(50% 0.11 62);
+  --color-warning-soft: oklch(94% 0.06 85);
+  --color-warning-soft-ink: oklch(36% 0.08 62);
+  --color-danger: oklch(52% 0.19 27);
+  --color-danger-ink: oklch(99.5% 0.003 100);
+  --color-danger-soft: oklch(94% 0.04 27);
+  --color-danger-soft-ink: oklch(38% 0.13 27);
+  --color-error: var(--color-danger);
+  /* scrim behind dialogs; overlay = always-dark chrome over a map or a live camera feed */
+  --color-scrim: oklch(16% 0 0 / 0.5);
+  --color-overlay: oklch(14% 0.004 100 / 0.94);
+  --color-overlay-ink: oklch(97% 0.003 100);
+  --color-overlay-muted: oklch(74% 0.003 100);
+  --color-overlay-rule: oklch(97% 0.003 100 / 0.14);
+  --font-display: "Epilogue", ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-display);
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+  --shadow-card: 0 20px 40px oklch(20% 0 0 / 0.16);
+  --tracking-display: -0.04em;
+}
+:root {
+  color-scheme: light;
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+  --container: 1440px;
+  --gutter: 64px;
+  --gap-columns: 32px;
+  --section-gap-s: 120px;
+  --section-gap: 144px;
+  --section-gap-l: 176px;
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+  --rule-hair: 1px;
+  --display-weight: 700;
+}
+/* dark: re-derived per role, hue held; the default mode (layout.tsx sets class="dark") */
+.dark {
+  color-scheme: dark;
+  --color-paper: oklch(15% 0.004 100);
+  --color-paper-2: oklch(18.5% 0.004 100);
+  --color-paper-3: oklch(22% 0.005 100);
+  --color-ink: oklch(94% 0.003 100);
+  --color-ink-2: oklch(82% 0.003 100);
+  --color-muted: oklch(68% 0.003 100);
+  --color-rule: oklch(30% 0.004 100);
+  --color-rule-2: oklch(25% 0.004 100);
+  --color-accent: oklch(76% 0.1 187);
+  --color-accent-ink: oklch(16% 0.02 187);
+  --color-accent-soft: oklch(29% 0.05 187);
+  --color-accent-soft-ink: oklch(87% 0.07 187);
+  --color-focus: oklch(76% 0.1 187);
+  --color-warning: oklch(80% 0.13 80);
+  --color-warning-soft: oklch(30% 0.06 75);
+  --color-warning-soft-ink: oklch(90% 0.08 85);
+  --color-danger: oklch(68% 0.17 27);
+  --color-danger-ink: oklch(16% 0.02 27);
+  --color-danger-soft: oklch(29% 0.07 27);
+  --color-danger-soft-ink: oklch(88% 0.06 27);
+  --color-scrim: oklch(8% 0 0 / 0.7);
+  --shadow-card: 0 0 0 1px oklch(30% 0.004 100);
+}
+/* ====== ACCESSIBILITY MODES (ThemeContext toggles these classes on <html>) ====== */
+/* 1. High Contrast */
+.high-contrast {
+  color-scheme: dark;
+  --color-paper: oklch(9% 0 0);
+  --color-paper-2: oklch(9% 0 0);
+  --color-paper-3: oklch(16% 0 0);
+  --color-ink: oklch(99% 0 0);
+  --color-ink-2: oklch(94% 0 0);
+  --color-muted: oklch(86% 0 0);
+  --color-rule: oklch(99% 0 0);
+  --color-rule-2: oklch(80% 0 0);
+  --color-accent: oklch(93% 0.19 108);
+  --color-accent-ink: oklch(9% 0 0);
+  --color-accent-soft: oklch(93% 0.19 108);
+  --color-accent-soft-ink: oklch(9% 0 0);
+  --color-focus: oklch(93% 0.19 108);
+  --color-warning: oklch(80% 0.17 60);
+  --color-warning-soft: oklch(80% 0.17 60);
+  --color-warning-soft-ink: oklch(9% 0 0);
+  --color-danger: oklch(70% 0.22 27);
+  --color-danger-ink: oklch(9% 0 0);
+  --color-danger-soft: oklch(70% 0.22 27);
+  --color-danger-soft-ink: oklch(9% 0 0);
+}
+
+/* 2. Dyslexia Font */
+.font-dyslexic {
+  --font-display: "Lexend", "OpenDyslexic", "Comic Sans MS", sans-serif;
+}
+
+/* 3. Colorblind Modes */
+/* Protanopia & Deuteranopia (Red/Green blind) -> Map to Blue/Orange */
+.colorblind-protanopia, .colorblind-deuteranopia {
+  --color-success: oklch(52% 0.15 255); /* Blue */
+  --color-success-soft: oklch(94% 0.04 255);
+  --color-success-soft-ink: oklch(35% 0.12 255);
+  --color-danger: oklch(55% 0.14 50); /* Orange */
+  --color-danger-soft: oklch(94% 0.05 70);
+  --color-danger-soft-ink: oklch(38% 0.1 55);
+  --color-warning: oklch(50% 0.1 165); /* Green for warning to keep distinct */
+  --color-warning-soft: oklch(94% 0.05 165);
+  --color-warning-soft-ink: oklch(35% 0.08 165);
+}
+.dark.colorblind-protanopia, .dark.colorblind-deuteranopia {
+  --color-success: oklch(72% 0.13 255);
+  --color-success-soft: oklch(29% 0.06 255);
+  --color-success-soft-ink: oklch(88% 0.06 255);
+  --color-danger: oklch(75% 0.15 60);
+  --color-danger-ink: oklch(16% 0.02 60);
+  --color-danger-soft: oklch(30% 0.06 60);
+  --color-danger-soft-ink: oklch(90% 0.07 70);
+  --color-warning: oklch(76% 0.13 165);
+  --color-warning-soft: oklch(29% 0.05 165);
+  --color-warning-soft-ink: oklch(88% 0.07 165);
+}
+
+/* Tritanopia (Blue-blind) -> Map to Cyan/Red */
+.colorblind-tritanopia {
+  --color-success: oklch(50% 0.1 215); /* Cyan */
+  --color-success-soft: oklch(94% 0.04 215);
+  --color-success-soft-ink: oklch(33% 0.07 215);
+  --color-accent: oklch(52% 0.19 27); /* Red */
+  --color-accent-soft: oklch(94% 0.04 27);
+  --color-accent-soft-ink: oklch(38% 0.13 27);
+  --color-focus: oklch(52% 0.19 27);
+  --color-danger: oklch(50% 0.2 305); /* Purple */
+  --color-danger-soft: oklch(94% 0.04 305);
+  --color-danger-soft-ink: oklch(38% 0.15 305);
+}
+.dark.colorblind-tritanopia {
+  --color-success: oklch(76% 0.11 215);
+  --color-success-soft: oklch(29% 0.05 215);
+  --color-success-soft-ink: oklch(88% 0.06 215);
+  --color-accent: oklch(70% 0.17 27);
+  --color-accent-ink: oklch(16% 0.02 27);
+  --color-accent-soft: oklch(29% 0.07 27);
+  --color-accent-soft-ink: oklch(88% 0.06 27);
+  --color-focus: oklch(70% 0.17 27);
+  --color-danger: oklch(72% 0.17 305);
+  --color-danger-ink: oklch(16% 0.02 305);
+  --color-danger-soft: oklch(30% 0.07 305);
+  --color-danger-soft-ink: oklch(90% 0.06 305);
+}
+
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }

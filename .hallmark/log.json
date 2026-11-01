@@ -1,0 +1,50 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "ink",
+  "axes": "light/grotesk-sans/chromatic-teal",
+  "hero": "none",
+  "nav": "kept shell",
+  "footer": "kept",
+  "imagery": "none",
+  "photos": [],
+  "sections": [
+   "AduanView"
+  ],
+  "signature": "the report composer",
+  "waived": [
+   "22",
+   "28b"
+  ],
+  "prompt": "civic app for Kelantan residents: local reports",
+  "date": "2026-11-01"
+ },
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "ink",
+  "axes": "light/grotesk-sans/chromatic-teal",
+  "hero": "none",
+  "nav": "kept shell",
+  "footer": "kept",
+  "imagery": "none",
+  "photos": [],
+  "sections": [
+   "DashboardView",
+   "KomunitiView",
+   "AuthView"
+  ],
+  "signature": "the live reading as each screen lead figure",
+  "waived": [
+   "22"
+  ],
+  "prompt": "civic app for Kelantan residents: live river levels, flood alerts, local reports, aid and jobs",
+  "note": "Aduan, Bencana, Bantuan not redesigned (stopped by user)",
+  "date": "2026-10-31"
+ }
+]

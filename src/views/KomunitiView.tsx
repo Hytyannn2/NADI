@@ -14,7 +14,7 @@ import { useWeather } from '@/src/hooks/useWeather';
 import {
     ShoppingBag, Briefcase, Search, MapPin, Phone, Clock,
     Loader2, Plus, Send, X, ExternalLink, Compass,
-    Building2, ShieldCheck
+    Building2
 } from 'lucide-react';
 import { CardSkeleton, StatsBannerSkeleton } from '@/src/components/ui/Skeleton';
 import { getDistanceKm } from '@/src/lib/format';
@@ -276,80 +276,71 @@ export default function KomunitiView() {
     return (
         <div className="p-5 min-h-full w-full flex flex-col relative z-0">
             {/* Standardized Header */}
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white font-serif">{t('komuniti.header_title') || 'Papan Komuniti'}</h1>
-                    <p className="text-xs font-medium text-zinc-400 mt-0.5">Cari kerja kosong dan sokong perniagaan tempatan di kawasan anda.</p>
+                    <h2 className="text-2xl">{t('komuniti.header_title') || 'Papan Komuniti'}</h2>
+                    <p className="mt-1 text-md text-ink-2">Cari kerja kosong dan sokong perniagaan tempatan di kawasan anda.</p>
                 </div>
 
                 <button
+                    type="button"
                     onClick={() => setShowAddModal(true)}
-                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-black bg-[#C5A367] flex items-center gap-1.5 transition-all shadow-md active:scale-95 hover:brightness-110"
+                    className="btn btn--primary"
                 >
-                    <Plus className="w-4 h-4 text-black" /> {subTab === 'kerja' ? 'Iklan Kerja' : 'Daftar Perniagaan'}
+                    <Plus className="w-4 h-4" aria-hidden="true" /> {subTab === 'kerja' ? 'Iklan Kerja' : 'Daftar Perniagaan'}
                 </button>
-            </motion.div>
+            </div>
 
             {/* Standardized Sub-tab Switcher */}
-            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="flex p-1.5 rounded-2xl mb-5 bg-[#0D0D10] border border-zinc-800/80 shadow-xl"
-            >
+            <div role="tablist" className="seg mb-4 max-w-md">
                 <button
+                    type="button"
+                    role="tab"
+                    aria-selected={subTab === 'kerja'}
                     onClick={() => { setSubTab('kerja'); setSearchQuery(''); }}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                        subTab === 'kerja'
-                            ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
-                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
-                    }`}
                 >
-                    <Briefcase className="w-4 h-4" />
+                    <Briefcase className="w-4 h-4" aria-hidden="true" />
                     {t('komuniti.tab_jobs') || 'Kerja Kosong'}
                 </button>
                 <button
+                    type="button"
+                    role="tab"
+                    aria-selected={subTab === 'niaga'}
                     onClick={() => { setSubTab('niaga'); setSearchQuery(''); }}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                        subTab === 'niaga'
-                            ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
-                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
-                    }`}
                 >
-                    <ShoppingBag className="w-4 h-4" />
+                    <ShoppingBag className="w-4 h-4" aria-hidden="true" />
                     {t('komuniti.tab_vendors') || 'Peniaga Tempatan'}
                 </button>
-            </motion.div>
+            </div>
 
             {/* Search Bar + Radius Filter Row */}
-            <div className="space-y-3 mb-4">
-                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                    className="relative"
-                >
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+            <div className="mb-2 space-y-2">
+                <div className="relative max-w-md">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        placeholder={subTab === 'kerja' ? 'Cari kerja, majikan, atau kawasan...' : 'Cari kedai, produk, atau perkhidmatan...'}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-xs font-medium outline-none transition-all"
-                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                        placeholder={subTab === 'kerja' ? 'Cari kerja, majikan, atau kawasan…' : 'Cari kedai, produk, atau perkhidmatan…'}
+                        aria-label={subTab === 'kerja' ? 'Cari kerja kosong' : 'Cari peniaga tempatan'}
+                        className="field pl-10"
                     />
-                </motion.div>
+                </div>
 
                 {/* Radius Filter Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1">
-                        <Compass className="w-3 h-3 text-[#C5A367]" /> Jarak:
+                <div className="-mx-1 flex items-center gap-2 overflow-x-auto no-scrollbar px-1 py-2">
+                    <span className="label mb-0 flex shrink-0 items-center gap-1">
+                        <Compass className="w-4 h-4" aria-hidden="true" /> Jarak:
                     </span>
                     {RADIUS_OPTIONS.map(opt => {
                         const isSelected = maxRadiusKm === opt.value;
                         return (
                             <button
                                 key={opt.value}
+                                type="button"
+                                aria-pressed={isSelected}
                                 onClick={() => setMaxRadiusKm(opt.value)}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap shrink-0 border ${
-                                    isSelected
-                                        ? 'bg-[#C5A367] text-black border-[#C5A367] shadow-sm'
-                                        : 'bg-zinc-900/80 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-white'
-                                }`}
+                                className={`tag shrink-0${isSelected ? ' tag--on' : ''}`}
                             >
                                 {opt.label}
                             </button>
@@ -359,30 +350,16 @@ export default function KomunitiView() {
             </div>
 
             {/* Category Filter Pills (Fixed height so they don't squish into lines) */}
-            <div
-                className="flex items-center gap-2 mb-5 overflow-x-auto no-scrollbar py-1 shrink-0"
-                style={{ minHeight: '42px' }}
-            >
+            <div className="-mx-1 mb-4 flex shrink-0 items-center gap-2 overflow-x-auto no-scrollbar px-1 py-2">
                 {(subTab === 'kerja' ? JOB_CATEGORIES : VENDOR_CATEGORIES).map(cat => {
                     const isActive = subTab === 'kerja' ? selectedJobCategory === cat : selectedVendorCategory === cat;
                     return (
                         <button
                             key={cat}
+                            type="button"
+                            aria-pressed={isActive}
                             onClick={() => subTab === 'kerja' ? setSelectedJobCategory(cat) : setSelectedVendorCategory(cat)}
-                            className="rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition-all"
-                            style={{
-                                height: '34px',
-                                minHeight: '34px',
-                                padding: '0 14px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                lineHeight: '1',
-                                ...(isActive
-                                    ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--accent)' }
-                                    : { background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-default)' }
-                                )
-                            }}
+                            className={`tag shrink-0${isActive ? ' tag--on' : ''}`}
                         >
                             {cat}
                         </button>
@@ -391,277 +368,249 @@ export default function KomunitiView() {
             </div>
 
             {/* Content */}
-            <AnimatePresence mode="wait">
-                {isLoading ? (
-                    <div className="space-y-4">
-                        <StatsBannerSkeleton />
-                        <CardSkeleton />
-                        <CardSkeleton />
-                        <CardSkeleton />
+            {isLoading ? (
+                <div className="space-y-4">
+                    <StatsBannerSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                </div>
+            ) : subTab === 'kerja' ? (
+                <div key="kerja" className="space-y-6">
+                    {/* Stats Banner */}
+                    <div className="flex divide-x divide-rule">
+                        {[
+                            { label: maxRadiusKm > 0 ? `Iklan (≤${maxRadiusKm}km)` : 'Jumlah Iklan', value: filteredJobs.length },
+                            { label: 'Patuh Gaji Minimum', value: `${filteredJobs.filter(j => j.isFairWage).length}/${filteredJobs.length}` },
+                            { label: 'Susunan', value: userLat ? 'Jarak Terdekat' : 'Terkini' },
+                        ].map((stat, i) => (
+                            <div key={i} className="px-4 first:pl-0">
+                                <p className="text-xl font-bold tabular-nums">{stat.value}</p>
+                                <p className="text-sm text-muted">{stat.label}</p>
+                            </div>
+                        ))}
                     </div>
-                ) : subTab === 'kerja' ? (
-                    <motion.div key="kerja" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
-                        {/* Stats Banner */}
-                        <div className="grid grid-cols-3 gap-3 mb-4">
-                            {[
-                                { label: maxRadiusKm > 0 ? `Iklan (≤${maxRadiusKm}km)` : 'Jumlah Iklan', value: filteredJobs.length, icon: Briefcase },
-                                { label: 'Patuh Gaji Minimum', value: `${filteredJobs.filter(j => j.isFairWage).length}/${filteredJobs.length}`, icon: ShieldCheck },
-                                { label: 'Susunan', value: userLat ? 'Jarak Terdekat' : 'Terkini', icon: MapPin },
-                            ].map((stat, i) => (
-                                <div key={i} className="rounded-2xl p-3.5 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                                    <stat.icon className="w-4 h-4 mx-auto mb-1" style={{ color: 'var(--accent)' }} />
-                                    <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
-                                    <p className="text-[9px] font-medium uppercase tracking-wider truncate" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
-                                </div>
-                            ))}
+
+                    {/* Job Listings */}
+                    {filteredJobs.length === 0 ? (
+                        <div className="well flex flex-col items-center px-6 py-12 text-center">
+                            <Briefcase className="w-6 h-6 text-muted" aria-hidden="true" />
+                            <h3 className="mt-3 text-lg">Belum Ada Iklan Kerja Kosong</h3>
+                            <p className="mt-2 max-w-md text-ink-2">
+                                Ada jawatan kosong di syarikat atau premis anda? Iklankan di sini supaya warga setempat boleh memohon terus.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(true)}
+                                className="btn mt-5"
+                            >
+                                <Plus className="w-4 h-4" aria-hidden="true" /> Iklankan Kerja Sekarang
+                            </button>
                         </div>
-
-                        {/* Job Listings */}
-                        {filteredJobs.length === 0 ? (
-                            <div className="text-center py-16 px-6 rounded-3xl border border-dashed border-zinc-800 bg-[#0D0D10]/80 w-full flex flex-col items-center justify-center">
-                                <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-400">
-                                    <Briefcase className="w-7 h-7 text-[#C5A367]" />
-                                </div>
-                                <h4 className="text-sm font-bold text-white mb-1">Belum Ada Iklan Kerja Kosong</h4>
-                                <p className="text-xs text-zinc-400 max-w-md mx-auto mb-5 leading-relaxed">
-                                    Ada jawatan kosong di syarikat atau premis anda? Iklankan di sini supaya warga setempat boleh memohon terus.
-                                </p>
-                                <button
-                                    onClick={() => setShowAddModal(true)}
-                                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-black bg-[#C5A367] inline-flex items-center gap-1.5 transition-all shadow-md active:scale-95 hover:brightness-110"
+                    ) : (
+                        <ul className="ruled">
+                            {filteredJobs.map((job, i) => (
+                                <li
+                                    key={job.id || i}
+                                    className="flex flex-col gap-3 py-4 md:flex-row md:items-start md:justify-between md:gap-8"
                                 >
-                                    <Plus className="w-4 h-4 text-black" /> Iklankan Kerja Sekarang
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {filteredJobs.map((job, i) => (
-                                    <motion.div
-                                        key={job.id || i}
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: i * 0.04 }}
-                                        className="rounded-2xl p-4.5 relative overflow-hidden border transition-all hover:border-zinc-700 flex flex-col justify-between"
-                                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
-                                    >
-                                        <div>
-                                            {/* Top Badges: Distance & Fair Wage */}
-                                            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    {job.distanceKm != null ? (
-                                                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
-                                                            <MapPin className="w-3 h-3" /> {job.distanceKm} km dari anda
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center gap-1">
-                                                            <Building2 className="w-3 h-3 text-[#C5A367]" /> {job.location}
-                                                        </span>
-                                                    )}
-
-                                                    {job.isFairWage && (
-                                                        <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                                                            style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}>
-                                                            ✓ Patuh Gaji Minimum
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                <span className="text-[9px] font-mono text-zinc-500">
-                                                    {timeAgo(job.postedAt)}
-                                                </span>
-                                            </div>
-
-                                            {/* Job Title & Employer */}
-                                            <h4 className="text-base font-bold mb-0.5 text-white">{job.title}</h4>
-                                            <p className="text-xs font-semibold text-[#C5A367] mb-2 flex items-center gap-1">
-                                                <Building2 className="w-3.5 h-3.5" /> {job.employer}
-                                            </p>
-                                            <p className="text-xs mb-3 leading-relaxed text-zinc-300 whitespace-pre-line line-clamp-3">{job.description}</p>
-
-                                            {/* Meta pills: Wage, Location */}
-                                            <div className="flex items-center gap-2.5 flex-wrap mb-4">
-                                                <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                    {formatWage(job.wageMYR, job.wageType)}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-400">
-                                                    <MapPin className="w-3 h-3 text-zinc-500" /> {job.location}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons: Apply Link or WhatsApp */}
-                                        <div className="flex items-center gap-2 mt-auto pt-2 border-t border-zinc-800/60">
-                                            {job.applyUrl && (
-                                                <a
-                                                    href={job.applyUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex-1 py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 hover:brightness-110 bg-[#C5A367] text-black"
-                                                >
-                                                    <ExternalLink className="w-3.5 h-3.5" /> Mohon
-                                                </a>
-                                            )}
-                                            {job.whatsapp && (
-                                                <button
-                                                    onClick={() => openWhatsApp(job.whatsapp!, `Salam sejahtera, saya berminat memohon jawatan "${job.title}" di ${job.employer} seperti yang diiklankan di NADI.`)}
-                                                    className="py-2 px-3.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 hover:opacity-90 bg-[#25D366] text-white shrink-0"
-                                                >
-                                                    <Phone className="w-3.5 h-3.5" /> WhatsApp
-                                                </button>
+                                    <div className="min-w-0 flex-1">
+                                        {/* Job Title & Employer */}
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                            <h3 className="text-md font-semibold">{job.title}</h3>
+                                            {job.isFairWage && (
+                                                <span className="tag tag--in">Patuh Gaji Minimum</span>
                                             )}
                                         </div>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        )}
-                    </motion.div>
-                ) : (
-                    <motion.div key="niaga" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-4">
-                        {/* Vendor Listings */}
-                        {filteredVendors.length === 0 ? (
-                            <div className="text-center py-16 px-6 rounded-3xl border border-dashed border-zinc-800 bg-[#0D0D10]/80 w-full flex flex-col items-center justify-center">
-                                <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-400">
-                                    <ShoppingBag className="w-7 h-7 text-[#C5A367]" />
-                                </div>
-                                <h4 className="text-sm font-bold text-white mb-1">Belum Ada Peniaga Didaftarkan</h4>
-                                <p className="text-xs text-zinc-400 max-w-md mx-auto mb-5 leading-relaxed">
-                                    Anda mengusahakan kedai makan, gerai, atau servis tempatan? Daftar percuma supaya pelanggan setempat mudah menghubungi anda.
-                                </p>
-                                <button
-                                    onClick={() => setShowAddModal(true)}
-                                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-black bg-[#C5A367] inline-flex items-center gap-1.5 transition-all shadow-md active:scale-95 hover:brightness-110"
-                                >
-                                    <Plus className="w-4 h-4 text-black" /> Daftar Perniagaan Anda
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {filteredVendors.map((vendor, i) => (
-                                    <motion.div
-                                        key={vendor.id || i}
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: i * 0.04 }}
-                                        className="rounded-2xl p-4.5 relative overflow-hidden border transition-all hover:border-zinc-700 flex flex-col justify-between"
-                                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
-                                    >
-                                        <div>
-                                            <div className="flex items-start justify-between mb-2">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        <h4 className="text-sm font-bold text-white">{vendor.name}</h4>
-                                                        {vendor.distanceKm != null && (
-                                                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
-                                                                <MapPin className="w-2.5 h-2.5" /> {vendor.distanceKm} km
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-block bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                        {vendor.category}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-1 shrink-0 bg-zinc-900 px-2 py-1 rounded-lg border border-zinc-800">
-                                                    <span className="text-[10px] font-semibold text-zinc-300">Peniaga Tempatan</span>
-                                                </div>
-                                            </div>
+                                        <p className="mt-1 flex items-center gap-1 text-sm text-ink-2">
+                                            <Building2 className="w-4 h-4 shrink-0" aria-hidden="true" /> {job.employer}
+                                        </p>
+                                        <p className="mt-2 max-w-prose text-ink-2 whitespace-pre-line line-clamp-3">{job.description}</p>
 
-                                            <p className="text-xs mb-3 leading-relaxed text-zinc-300">{vendor.description}</p>
-
-                                            <div className="flex items-center gap-3 flex-wrap mb-4 text-zinc-400">
-                                                <span className="flex items-center gap-1 text-[10px] font-medium">
-                                                    <MapPin className="w-3 h-3 text-zinc-500" /> {vendor.location}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-[10px] font-medium">
-                                                    <Clock className="w-3 h-3 text-zinc-500" /> {vendor.operatingHours}
-                                                </span>
-                                            </div>
+                                        {/* Meta: Wage, Location, Distance, Posted */}
+                                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                            <span className="font-semibold">{formatWage(job.wageMYR, job.wageType)}</span>
+                                            <span className="flex items-center gap-1 text-sm text-muted">
+                                                <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" /> {job.location}
+                                            </span>
+                                            {job.distanceKm != null && (
+                                                <span className="text-sm text-muted"><span className="num">{job.distanceKm}</span> km dari anda</span>
+                                            )}
+                                            <span className="text-sm text-muted">{timeAgo(job.postedAt)}</span>
                                         </div>
+                                    </div>
 
-                                        {vendor.whatsapp && (
-                                            <button
-                                                onClick={() => openWhatsApp(vendor.whatsapp!, `Salam sejahtera, saya ingin bertanya tentang ${vendor.name} seperti yang dipaparkan di NADI.`)}
-                                                className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all hover:opacity-90 bg-[#25D366] text-white shadow-md active:scale-95 mt-auto"
+                                    {/* Action Buttons: Apply Link or WhatsApp */}
+                                    <div className="flex shrink-0 items-center gap-2 empty:hidden">
+                                        {job.applyUrl && (
+                                            <a
+                                                href={job.applyUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn--sm"
                                             >
-                                                <Phone className="w-3.5 h-3.5" /> Hubungi via WhatsApp
+                                                <ExternalLink className="w-4 h-4" aria-hidden="true" /> Mohon
+                                            </a>
+                                        )}
+                                        {job.whatsapp && (
+                                            <button
+                                                type="button"
+                                                onClick={() => openWhatsApp(job.whatsapp!, `Salam sejahtera, saya berminat memohon jawatan "${job.title}" di ${job.employer} seperti yang diiklankan di NADI.`)}
+                                                className="btn btn--sm"
+                                            >
+                                                <Phone className="w-4 h-4" aria-hidden="true" /> WhatsApp
                                             </button>
                                         )}
-                                    </motion.div>
-                                ))}
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            ) : (
+                <div key="niaga">
+                    {/* Vendor Listings */}
+                    {filteredVendors.length === 0 ? (
+                        <div className="well flex flex-col items-center px-6 py-12 text-center">
+                            <ShoppingBag className="w-6 h-6 text-muted" aria-hidden="true" />
+                            <h3 className="mt-3 text-lg">Belum Ada Peniaga Didaftarkan</h3>
+                            <p className="mt-2 max-w-md text-ink-2">
+                                Anda mengusahakan kedai makan, gerai, atau servis tempatan? Daftar percuma supaya pelanggan setempat mudah menghubungi anda.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(true)}
+                                className="btn mt-5"
+                            >
+                                <Plus className="w-4 h-4" aria-hidden="true" /> Daftar Perniagaan Anda
+                            </button>
+                        </div>
+                    ) : (
+                        <ul className="ruled">
+                            {filteredVendors.map((vendor, i) => (
+                                <li
+                                    key={vendor.id || i}
+                                    className="flex flex-col gap-3 py-4 md:flex-row md:items-start md:justify-between md:gap-8"
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-md font-semibold">{vendor.name}</h3>
+                                        <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-ink-2">
+                                            <span>{vendor.category}</span>
+                                            <span className="text-muted">Peniaga Tempatan</span>
+                                        </p>
+                                        <p className="mt-2 max-w-prose text-ink-2">{vendor.description}</p>
+
+                                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+                                            <span className="flex items-center gap-1">
+                                                <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" /> {vendor.location}
+                                            </span>
+                                            {vendor.distanceKm != null && (
+                                                <span><span className="num">{vendor.distanceKm}</span> km</span>
+                                            )}
+                                            <span className="flex items-center gap-1">
+                                                <Clock className="w-4 h-4 shrink-0" aria-hidden="true" /> {vendor.operatingHours}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {vendor.whatsapp && (
+                                        <button
+                                            type="button"
+                                            onClick={() => openWhatsApp(vendor.whatsapp!, `Salam sejahtera, saya ingin bertanya tentang ${vendor.name} seperti yang dipaparkan di NADI.`)}
+                                            className="btn btn--sm shrink-0 self-start"
+                                        >
+                                            <Phone className="w-4 h-4" aria-hidden="true" /> Hubungi via WhatsApp
+                                        </button>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
 
             {/* ADD ITEM MODAL */}
             <AnimatePresence>
                 {showAddModal && (
-                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
-                        <motion.div
-                            initial={{ y: '100%', opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: '100%', opacity: 0 }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className="bg-[#0A0A0C] border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-6 max-w-md w-full shadow-2xl relative text-white max-h-[90vh] overflow-y-auto no-scrollbar pb-safe"
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scrim"
+                    >
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="komuniti-add-title"
+                            className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-card sm:rounded-card border border-rule bg-paper p-6 pb-safe shadow-card"
                         >
-                            <div className="w-12 h-1 rounded-full bg-zinc-700 mx-auto mb-4 sm:hidden" />
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                                    <Plus className="w-4 h-4" /> {subTab === 'kerja' ? 'Iklankan Kerja Kosong' : 'Daftar Perniagaan Tempatan'}
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <h3 id="komuniti-add-title" className="flex items-center gap-2 text-lg">
+                                    <Plus className="w-5 h-5 shrink-0" aria-hidden="true" /> {subTab === 'kerja' ? 'Iklankan Kerja Kosong' : 'Daftar Perniagaan Tempatan'}
                                 </h3>
-                                <button onClick={() => setShowAddModal(false)} className="p-1 text-zinc-400 hover:text-white">
-                                    <X className="w-4 h-4" />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddModal(false)}
+                                    className="icon-btn"
+                                    aria-label="Tutup"
+                                >
+                                    <X className="w-5 h-5" aria-hidden="true" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleCreateItem} className="space-y-3">
+                            <form onSubmit={handleCreateItem} className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                                    <label htmlFor="komuniti-title" className="label">
                                         {subTab === 'kerja' ? 'Nama Jawatan' : 'Nama Kedai / Perniagaan'}
                                     </label>
                                     <input
+                                        id="komuniti-title"
                                         type="text"
                                         required
                                         value={titleOrName}
                                         onChange={e => setTitleOrName(e.target.value)}
                                         placeholder={subTab === 'kerja' ? 'cth: Pembantu Juruwang, Pemandu, Tukang Masak' : 'cth: Warung Celup Tepung Pantai'}
-                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                        className="field"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                                    <label htmlFor="komuniti-employer" className="label">
                                         {subTab === 'kerja' ? 'Nama Syarikat / Majikan' : 'Waktu Operasi'}
                                     </label>
                                     <input
+                                        id="komuniti-employer"
                                         type="text"
                                         value={employerOrHours}
                                         onChange={e => setEmployerOrHours(e.target.value)}
                                         placeholder={subTab === 'kerja' ? 'cth: Kedai Runcit Mesra, Majikan Tempatan' : 'cth: 9:00 pagi - 6:00 petang'}
-                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                        className="field"
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div>
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">Lokasi / Kawasan</label>
+                                        <label htmlFor="komuniti-location" className="label">Lokasi / Kawasan</label>
                                         <input
+                                            id="komuniti-location"
                                             type="text"
                                             required
                                             value={location}
                                             onChange={e => setLocation(e.target.value)}
                                             placeholder={locationLabel ? `cth: ${locationLabel}` : 'cth: Kota Bharu, Pasir Mas'}
-                                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                            className="field"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">Kategori</label>
+                                        <label htmlFor="komuniti-category" className="label">Kategori</label>
                                         <select
+                                            id="komuniti-category"
                                             value={category}
                                             onChange={e => setCategory(e.target.value)}
-                                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                            className="field"
                                         >
-                                            <option value="">Pilih Kategori...</option>
+                                            <option value="">Pilih Kategori…</option>
                                             {(subTab === 'kerja' ? JOB_CATEGORIES : VENDOR_CATEGORIES).filter(c => c !== 'Semua').map(c => (
                                                 <option key={c} value={c}>{c}</option>
                                             ))}
@@ -671,24 +620,26 @@ export default function KomunitiView() {
 
                                 {subTab === 'kerja' && (
                                     <>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             <div>
-                                                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">Gaji Ditawarkan (RM)</label>
+                                                <label htmlFor="komuniti-wage" className="label">Gaji Ditawarkan (RM)</label>
                                                 <input
+                                                    id="komuniti-wage"
                                                     type="number"
                                                     step="0.5"
                                                     value={wageMYR}
                                                     onChange={e => setWageMYR(e.target.value)}
                                                     placeholder="cth: 1700"
-                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                                    className="field"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">Kadar Bayaran</label>
+                                                <label htmlFor="komuniti-wage-type" className="label">Kadar Bayaran</label>
                                                 <select
+                                                    id="komuniti-wage-type"
                                                     value={wageType}
                                                     onChange={e => setWageType(e.target.value as typeof wageType)}
-                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                                    className="field"
                                                 >
                                                     <option value="monthly">Sebulan (/bulan)</option>
                                                     <option value="hourly">Sejam (/jam)</option>
@@ -698,63 +649,67 @@ export default function KomunitiView() {
                                         </div>
 
                                         <div>
-                                            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">Pautan Laman Web / Borang Permohonan (Pilihan)</label>
+                                            <label htmlFor="komuniti-apply-url" className="label">Pautan Laman Web / Borang Permohonan (Pilihan)</label>
                                             <input
+                                                id="komuniti-apply-url"
                                                 type="url"
                                                 value={applyUrl}
                                                 onChange={e => setApplyUrl(e.target.value)}
                                                 placeholder="https://syarikat.com/kerjaya"
-                                                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                                className="field"
                                             />
                                         </div>
                                     </>
                                 )}
 
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                                    <label htmlFor="komuniti-whatsapp" className="label">
                                         {subTab === 'kerja' ? 'No. WhatsApp / Telefon Majikan' : 'No. WhatsApp / Telefon Kedai'}
                                     </label>
                                     <input
+                                        id="komuniti-whatsapp"
                                         type="text"
                                         value={whatsapp}
                                         onChange={e => setWhatsapp(e.target.value)}
                                         placeholder="cth: 0123456789"
-                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
+                                        className="field"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                                    <label htmlFor="komuniti-description" className="label">
                                         {subTab === 'kerja' ? 'Penerangan Kerja & Syarat Kelayakan' : 'Penerangan Produk & Servis'}
                                     </label>
                                     <textarea
+                                        id="komuniti-description"
                                         required
                                         rows={3}
                                         value={description}
                                         onChange={e => setDescription(e.target.value)}
-                                        placeholder={subTab === 'kerja' ? 'Tulis skop tugas ringkas, waktu kerja, dan syarat umur atau kelayakan...' : 'Ceritakan menu utama, servis yang disediakan, atau cara tempahan...'}
-                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white outline-none resize-none"
+                                        placeholder={subTab === 'kerja' ? 'Tulis skop tugas ringkas, waktu kerja, dan syarat umur atau kelayakan…' : 'Ceritakan menu utama, servis yang disediakan, atau cara tempahan…'}
+                                        className="field"
                                     />
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all disabled:opacity-50 mt-2 shadow-lg"
+                                    className="btn btn--primary btn--block mt-2"
                                 >
-                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin keep-motion" aria-hidden="true" /> : <Send className="w-4 h-4" aria-hidden="true" />}
                                     {subTab === 'kerja' ? 'Terbitkan Iklan Kerja' : 'Daftar Perniagaan Sekarang'}
                                 </button>
                             </form>
-                        </motion.div>
-                    </div>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
 
             {/* Footer */}
-            <div className="mt-auto pt-8 text-center pb-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                    NADI Komuniti • {locationLabel ? locationLabel.toUpperCase() : 'MALAYSIA'}
+            <div className="mt-auto pt-8 pb-4">
+                <p className="flex flex-wrap justify-center gap-x-3 text-sm text-muted">
+                    <span>NADI Komuniti</span>
+                    <span>{locationLabel || 'Malaysia'}</span>
                 </p>
             </div>
         </div>

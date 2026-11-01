@@ -1,0 +1,13 @@
+{
+  "scanned": "2026-10-31",
+  "findings": {
+    "fonts": "Poppins + Lexend via @import (src/app/globals.css:1); Lexend + Plus Jakarta Sans via <link> (src/app/layout.tsx:122), Plus Jakarta Sans unused; --font-serif aliased to Poppins (globals.css:8)",
+    "palette": "hex custom properties, light :root + .dark + high-contrast + 3 colourblind blocks (src/app/globals.css:13-81, 427-481); views bypass them with Tailwind stock palette and #C5A367 literals",
+    "motion": "motion 12 (package.json:22), MotionConfig reducedMotion=user (src/context/ThemeContext.tsx:502); CSS keyframes in globals.css with only an opt-in .reduce-motion class",
+    "spacing": "Tailwind v4 default scale, no --space-* tokens",
+    "framework": "Next.js 16.4 app router, Tailwind v4 (@theme in globals.css), lucide-react icons"
+  },
+  "preserve": [],
+  "introduce": [],
+  "note": "audit only: preserves everything, introduces nothing"
+}
