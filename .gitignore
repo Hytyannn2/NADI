@@ -93,3 +93,10 @@ PITCH_DEFENSE_PLAYBOOK.md
 URIIS_2026_Final_Pitch_Deck_Template.pptx
 *.pptx
 scratch_*.ps1
+
+# Design-tool scratch output (Hallmark screenshots/compare pages)
+.hallmark/
+
+# Internal planning/audit notes not for release
+ADMIN_PAGE_PLAN.md
+CODEBASE_AUDIT.md
