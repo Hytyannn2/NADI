@@ -4,11 +4,11 @@
  * Runs continuously at root layout level regardless of active tab or page navigation.
  * Captures vehicle motion spikes (impact magnitude, Z-drop, gyroscope rotation),
  * computes confidence scores, auto-persists to Supabase `nadi_infra_reports` (with user_id),
- * syncs user-scoped localStorage, and triggers non-intrusive live notifications.
+ * and triggers non-intrusive live notifications.
  */
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode, RefObject } from 'react';
 import { usePotholeDetector, type SensorAnomalyEvent } from '@/src/hooks/usePotholeDetector';
 import { useAuth } from './AuthContext';
 import { useTheme } from './ThemeContext';
@@ -35,6 +35,8 @@ export interface PotholeDetectorContextType {
   recentDetections: SensorAnomalyEvent[];
   lastToastAnomaly: SensorAnomalyEvent | null;
   dismissToast: () => void;
+  // Set by AduanView to dashcam.captureFrame while the dashcam is on
+  snapshotProviderRef: RefObject<(() => string | null) | null>;
 }
 
 const PotholeDetectorContext = createContext<PotholeDetectorContextType | null>(null);
@@ -56,6 +58,7 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [recentDetections, setRecentDetections] = useState<SensorAnomalyEvent[]>([]);
   const [lastToastAnomaly, setLastToastAnomaly] = useState<SensorAnomalyEvent | null>(null);
+  const snapshotProviderRef = useRef<(() => string | null) | null>(null);
 
   const handleAnomalyDetected = useCallback(async (event: SensorAnomalyEvent) => {
     setRecentDetections(prev => [event, ...prev.slice(0, 49)]);
@@ -65,36 +68,12 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
       playAlertSound('beep');
     } catch {}
 
-    const createdAtIso = new Date().toISOString();
-    const cacheKey = user?.id ? `nadi_local_potholes_${user.id}` : 'nadi_local_potholes';
-
-    // 1. Syncs with user-scoped and global local cache
-    try {
-      const existingStr = localStorage.getItem(cacheKey) || localStorage.getItem('nadi_local_potholes');
-      const existing = existingStr ? JSON.parse(existingStr) : [];
-      const newCacheItem = {
-        id: event.id,
-        userId: user?.id,
-        lat: event.lat,
-        lng: event.lng,
-        category: 'jalan',
-        suggestedAgency: 'JKR / PBT',
-        zDropped: event.zDrop,
-        verifications: 1,
-        status: 'pending',
-        createdAt: createdAtIso,
-        time: 'Baru sahaja',
-        confidenceScore: event.confidenceScore,
-        speedKmh: event.speedKmh,
-        title: `Lubang Jalan Dikesan (${event.zDrop.toFixed(1)}g)`,
-      };
-      localStorage.setItem(cacheKey, JSON.stringify([newCacheItem, ...existing].slice(0, 50)));
-    } catch {}
-
-    // 2. Persists sensor telemetry to Supabase, then clusters it with nearby reports
-    //    (auto-verifies once enough separate users hit the same spot; RLS requires sign-in)
+    // Persists sensor telemetry to Supabase, then clusters it with nearby reports
+    // (auto-verifies once enough separate users hit the same spot; RLS requires sign-in)
     if (!user?.id) return;
     try {
+      // Dashcam frame (raw base64 JPEG) goes in the same insert, so it is tied to this row
+      const frame = snapshotProviderRef.current?.() ?? null;
       const deviceFp = getDeviceFingerprint();
       const { data: report, error: insertError } = await supabase.from('nadi_infra_reports').insert({
         user_id: user.id,
@@ -108,7 +87,8 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
         device_fingerprint: deviceFp,
         status: 'pending',
         title: `Lubang Jalan Dikesan (${event.zDrop.toFixed(1)}g)`,
-        created_at: createdAtIso,
+        photo_url: frame ? `data:image/jpeg;base64,${frame}` : null,
+        ai_analysis: frame ? { category: 'jalan', hasPhoto: true } : null,
       }).select('id').single();
       if (insertError) throw insertError;
 
@@ -150,6 +130,7 @@ export function PotholeDetectorProvider({ children }: { children: ReactNode }) {
         recentDetections,
         lastToastAnomaly,
         dismissToast,
+        snapshotProviderRef,
       }}
     >
       {children}

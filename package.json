@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/format.check.mjs && node scripts/flood.check.mjs"
+    "test": "node scripts/format.check.mjs && node scripts/flood.check.mjs && node scripts/aduan.check.mjs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.6.1",

@@ -10,7 +10,7 @@ import { checkSuaraLimit, getClientIp, addRateLimitHeaders } from '@/src/lib/rat
 import { requireServerAuth } from '@/src/lib/auth/serverAuth';
 import { headers } from 'next/headers';
 import { exportSafeDictionary } from '@/src/lib/dialect/engine';
-import { DEFAULT_SENSOR_LOCATION } from '@/src/config/constants';
+import { DEFAULT_SENSOR_LOCATION, GROQ_TEXT_MODEL } from '@/src/config/constants';
 
 // Fetches dialect dictionary mappings safely as a bounded key-value object
 async function getDialectSafeDict(): Promise<Record<string, string>> {
@@ -86,7 +86,6 @@ Respond strictly with a JSON object in this format:
   "category": "jalan | saliran | lampu | sampah | pokok | kemudahan | lain",
   "suggestedAgency": "Routing Agency (e.g. Pejabat Kesihatan Daerah (PKD) / KKM, JKR / PBT, JPS / PBT, TNB / PBT, Alam Flora / PBT)",
   "location": "Extracted location name or '${DEFAULT_SENSOR_LOCATION.district}'",
-  "coordinates": {"lat": ${DEFAULT_SENSOR_LOCATION.lat}, "lng": ${DEFAULT_SENSOR_LOCATION.lng}},
   "urgency": "Low, Medium, or High",
   "simplifiedTranslation": "Standard Malay translation of user input",
   "userIntendedMeaning": "Detailed explanation of what the user actually intended by their speech",
@@ -97,13 +96,9 @@ Respond strictly with a JSON object in this format:
 
     const userPrompt = `<citizen_report>\n${inputText.trim()}\n</citizen_report>`;
 
-    const candidateModels = [
-      'llama-3.3-70b-versatile',
-      'openai/gpt-oss-120b',
-      'qwen/qwen3.8-27b',
-    ];
+    const candidateModels = [GROQ_TEXT_MODEL, 'qwen/qwen3.8-27b'];
 
-    let data: any = null;
+    let data: Record<string, unknown> | null = null;
     let lastError: unknown = null;
 
     for (const model of candidateModels) {
@@ -140,7 +135,7 @@ Respond strictly with a JSON object in this format:
 
     // Tier 4: Server-Side Output Validation & Sanitization
     const validUrgencies = ['Low', 'Medium', 'High'];
-    if (!validUrgencies.includes(data.urgency)) {
+    if (!validUrgencies.includes(data.urgency as string)) {
       data.urgency = 'Medium';
     }
 
@@ -149,10 +144,6 @@ Respond strictly with a JSON object in this format:
       data.simplifiedTranslation = typeof data.simplifiedTranslation === 'string' ? data.simplifiedTranslation.slice(0, 500).trim() : '';
       data.userIntendedMeaning = typeof data.userIntendedMeaning === 'string' ? data.userIntendedMeaning.slice(0, 500).trim() : '';
       data.detectedDialect = typeof data.detectedDialect === 'string' ? data.detectedDialect.slice(0, 30).trim() : 'unknown';
-
-      if (!data.coordinates || typeof data.coordinates.lat !== 'number' || typeof data.coordinates.lng !== 'number') {
-        data.coordinates = { lat: DEFAULT_SENSOR_LOCATION.lat, lng: DEFAULT_SENSOR_LOCATION.lng };
-      }
 
       // Anti-Prompt-Poisoning Heuristic Guard: Prevent injection from dismissing genuine physical hazards
       const physicalKeywords = /(lubang|pothole|rosak|pecah|banjir|runtuh|lampu|longkang|paip|bocor|sampah)/i;

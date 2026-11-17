@@ -544,25 +544,6 @@ export default function CivicHeatMap({ onClose }: { onClose: () => void }) {
   const loadHeatPoints = useCallback(async () => {
     const heatPoints: HeatPoint[] = [];
 
-    // 1. Potholes from localStorage
-    const savedLocal = localStorage.getItem('nadi_local_potholes');
-    if (savedLocal) {
-      try {
-        const parsed = JSON.parse(savedLocal);
-        parsed.forEach((p: any) => {
-          heatPoints.push({
-            lat: p.lat,
-            lng: p.lng,
-            type: 'pothole',
-            label: p.label || (isMs ? 'Jalan Berlubang Dikesan' : 'Detected Pothole'),
-            sublabel: 'On-device AI Vision',
-            severity: p.severity || 3,
-            jajahan: matchJajahan(p.district || p.jajahan, p.lat, p.lng),
-          });
-        });
-      } catch {}
-    }
-
     // 2. Infra Reports (Potholes & Floods) from Supabase
     try {
       const { data: infraData } = await supabase

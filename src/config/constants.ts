@@ -31,3 +31,6 @@ export const KELANTAN_JAJAHAN = [
 ] as const;
 
 export type KelantanJajahan = (typeof KELANTAN_JAJAHAN)[number];
+
+// Groq text model. llama-3.3-70b-versatile was found retired (404 model_not_found) on 2026-11-14.
+export const GROQ_TEXT_MODEL = 'openai/gpt-oss-120b';

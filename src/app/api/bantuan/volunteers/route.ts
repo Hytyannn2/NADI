@@ -5,6 +5,7 @@
  * with Groq LLaMA enrichment and multi-language translation.
  */
 import { NextResponse, NextRequest } from 'next/server';
+import { GROQ_TEXT_MODEL } from '@/src/config/constants';
 
 interface VolunteerOpp {
     id: string;
@@ -154,7 +155,7 @@ async function getGroqVolunteers(groqKey: string, targetLang: string = 'English'
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: GROQ_TEXT_MODEL,
                 messages: [{
                     role: 'system',
                     content: `You are a Malaysian volunteer coordinator. Return active volunteer opportunities in Malaysia as a JSON array ONLY.

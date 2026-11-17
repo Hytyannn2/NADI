@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { createClient } from '@/src/lib/supabase/client';
+import { INFRA_FEED_COLUMNS } from '@/src/lib/aduan';
 import { useLanguage, LANGUAGES } from '@/src/context/LanguageContext';
 import { sound } from '@/src/lib/audio/soundEffects';
 import {
@@ -200,11 +201,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
-  const handleExportAduan = (format: 'json' | 'csv') => {
+  const handleExportAduan = async (format: 'json' | 'csv') => {
     try {
-      const raw = localStorage.getItem('nadi_local_potholes'); // written by AduanView
-      if (!raw) { alert('Tiada rekod aduan untuk dimuat turun.'); return; }
-      const data = JSON.parse(raw);
+      if (!user) return;
+      const { data, error } = await supabase.from('nadi_infra_reports')
+        .select(INFRA_FEED_COLUMNS)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (!data?.length) { alert('Tiada rekod aduan untuk dimuat turun.'); return; }
       let blob: Blob;
       let filename: string;
       if (format === 'json') {
@@ -212,7 +217,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         filename = `nadi_aduan_${Date.now()}.json`;
       } else {
         const headers = Object.keys(data[0] || {}).join(',');
-        const rows = data.map((r: any) => Object.values(r).map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const rows = data.map(r => Object.values(r).map(v => `"${(v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')).replace(/"/g, '""')}"`).join(',')).join('\n');
         blob = new Blob([headers + '\n' + rows], { type: 'text/csv' });
         filename = `nadi_aduan_${Date.now()}.csv`;
       }

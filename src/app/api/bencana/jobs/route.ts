@@ -10,6 +10,7 @@ import { createClient } from '@/src/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { getAdminSupabase } from '@/src/lib/auth/serverAuth';
 import Groq from 'groq-sdk';
+import { GROQ_TEXT_MODEL } from '@/src/config/constants';
 
 // GET: Fetches open relief volunteer tasks (excludes private phone numbers and banned requests)
 export async function GET() {
@@ -186,7 +187,7 @@ Respond with JSON:
   "category": "Mud Cleanup/Furniture Moving/Medical/Supply Delivery/Evacuation/Other"
 }`
                         }],
-                        model: 'llama-3.3-70b-versatile',
+                        model: GROQ_TEXT_MODEL,
                         response_format: { type: 'json_object' },
                     });
 
